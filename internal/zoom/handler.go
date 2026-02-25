@@ -1,6 +1,7 @@
 package zoom
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -31,8 +32,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
-
 	// Handle CRC validation (no tenant resolution needed)
 	if payload.Event == "endpoint.url_validation" {
 		resp, err := ValidateCRC(payload, h.webhookSecret)
@@ -46,17 +45,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Resolve tenant by zoom account ID
+	h.ProcessWebhook(r.Context(), payload)
+	w.WriteHeader(http.StatusOK)
+}
+
+// ProcessWebhook handles tenant resolution and event processing for a parsed payload.
+// It is used by both the direct HTTP handler and the API server's strict handler.
+func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 	accountID := payload.Payload.AccountID
 	tenants, err := h.store.GetTenantByZoomAccount(ctx, accountID)
 	if err != nil {
 		log.WithError(err).WithField("account_id", accountID).Error("failed to lookup tenant")
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 	if len(tenants) == 0 {
 		log.WithField("account_id", accountID).Warn("no tenant found for zoom account")
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -128,6 +131,4 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.WithField("event", payload.Event).Debug("ignoring unhandled event")
 		}
 	}
-
-	w.WriteHeader(http.StatusOK)
 }
