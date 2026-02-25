@@ -1,5 +1,6 @@
 NAME=zoom-notifier
 BUILDDIR=./cmd/zoom-notifier/
+export CGO_ENABLED=0
 
 default: build
 
@@ -20,7 +21,7 @@ generate:
 	oapi-codegen --config internal/api/oapi-codegen.yaml api/openapi.yaml
 
 build: tidy
-	CGO_ENABLED=0 go build $(LDFLAGS) -o $(NAME) $(BUILDDIR)
+	go build $(LDFLAGS) -o $(NAME) $(BUILDDIR)
 
 test:
 	go test ./internal/...
@@ -38,16 +39,16 @@ clean:
 	rm -rf $(NAME) bin coverage.out
 
 linux-arm64: tidy
-	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o bin/$(NAME).linux-arm64 $(BUILDDIR)
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o bin/$(NAME).linux-arm64 $(BUILDDIR)
 
 linux-amd64: tidy
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME).linux-amd64 $(BUILDDIR)
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME).linux-amd64 $(BUILDDIR)
 
 darwin-arm64: tidy
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(NAME).mac-arm64 $(BUILDDIR)
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(NAME).mac-arm64 $(BUILDDIR)
 
 darwin-amd64:
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME).mac-amd64 $(BUILDDIR)
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME).mac-amd64 $(BUILDDIR)
 
 mac-arm64: darwin-arm64
 
