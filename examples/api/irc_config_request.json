@@ -1,0 +1,6 @@
+{
+  "server": "irc.libera.chat:6697",
+  "nick": "zoombot",
+  "password": "secretpassword",
+  "use_tls": true
+}

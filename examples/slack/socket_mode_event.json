@@ -1,0 +1,20 @@
+{
+  "envelope_id": "dbdd0ef4-019a-4e37-aec0-0a57a1e15096",
+  "payload": {
+    "token": "verification-token",
+    "team_id": "T0001",
+    "team_domain": "example",
+    "channel_id": "C2147483705",
+    "channel_name": "general",
+    "user_id": "U2147483697",
+    "user_name": "testuser",
+    "command": "/zoom-notifier",
+    "text": "subscribe #general",
+    "api_app_id": "A123456",
+    "is_enterprise_install": "false",
+    "response_url": "https://hooks.slack.com/commands/T0001/placeholder/placeholder",
+    "trigger_id": "13345224609.738474920.8088930838d88f008e0"
+  },
+  "type": "slash_commands",
+  "accepts_response_payload": true
+}

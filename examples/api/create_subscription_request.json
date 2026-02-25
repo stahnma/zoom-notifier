@@ -1,0 +1,7 @@
+{
+  "type": "slack",
+  "target": "#general",
+  "meeting_id": null,
+  "msg_suffix": "the zoom meeting.",
+  "include_link": true
+}

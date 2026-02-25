@@ -1,0 +1,38 @@
+{
+  "type": "block_actions",
+  "user": {
+    "id": "U1234",
+    "username": "testuser",
+    "name": "Test User",
+    "team_id": "T0001"
+  },
+  "api_app_id": "A123456",
+  "token": "Nj2rfC2hU8mAfgaJLemZaQ7a",
+  "container": {
+    "type": "message",
+    "message_ts": "1548261231.000200",
+    "channel_id": "C2147483705",
+    "is_ephemeral": false
+  },
+  "trigger_id": "12321423423.334455.8765432abc",
+  "team": {
+    "id": "T0001",
+    "domain": "example"
+  },
+  "channel": {
+    "id": "C2147483705",
+    "name": "general"
+  },
+  "actions": [
+    {
+      "action_id": "join_meeting",
+      "block_id": "meeting_actions",
+      "type": "button",
+      "text": {
+        "type": "plain_text",
+        "text": "Join Meeting"
+      },
+      "value": "meeting_12345"
+    }
+  ]
+}
