@@ -8,11 +8,15 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	migsqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
 	_ "modernc.org/sqlite"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
+
+// Compile-time check that SQLiteStore implements store.Store.
+var _ store.Store = (*SQLiteStore)(nil)
 
 type SQLiteStore struct {
 	db *sql.DB
