@@ -1859,7 +1859,7 @@ jobs:
 
 **Step 2: Update systemd service file**
 
-Update `contrib/zoomwh.service` to the new config format (TOML, new binary flags).
+Update `contrib/zoom-notifier.service` to the new config format (TOML, new binary flags).
 
 **Step 3: Commit**
 

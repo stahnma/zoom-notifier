@@ -156,7 +156,7 @@ The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 
 ## Running via systemd
 
-See `contrib/zoomwh.service` for a sample systemd unit file.
+See `contrib/zoom-notifier.service` for a sample systemd unit file.
 
 ## License
 
