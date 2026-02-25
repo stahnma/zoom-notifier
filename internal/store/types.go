@@ -19,7 +19,7 @@ type TenantAdmin struct {
 type Subscription struct {
 	ID          int64
 	TenantID    string
-	Type        string // "slack" or "irc"
+	Type        string  // "slack" or "irc"
 	MeetingID   *string // NULL = all meetings
 	Target      string
 	MsgSuffix   string

@@ -30,9 +30,9 @@ type ZoomConfig struct {
 }
 
 type SlackConfig struct {
-	ClientID     string
-	ClientSecret string
-	AppToken     string
+	ClientID      string
+	ClientSecret  string
+	AppToken      string
 	SigningSecret string
 }
 
