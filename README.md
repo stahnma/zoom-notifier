@@ -1,103 +1,163 @@
-# What is this?
+# zoom-notifier
 
-This is a small program designed to run on a public network that can receive webhooks from zoom for participants joining/leaving a meeting. It then translates those webhooks into webhook calls to slack to notify a specific slack channel about a participant joining or leaving. This was designed to work with long-standing/running meetings.
+Multi-tenant service that receives Zoom webhook events and dispatches notifications to Slack channels and/or IRC. Includes a native Slack app with slash commands for self-service management.
 
-It also can notify IRC channels using similar methodology to the slack send, however instead of using a webhook, it just speaks native IRC protocols.
+## Features
 
-## Assumptions
+- **Multi-tenant**: Supports multiple Slack workspaces and IRC configurations
+- **Slack App**: OAuth install flow, Socket Mode bot with slash commands
+- **IRC Relay**: Per-tenant IRC notification support with TLS
+- **REST API**: Full CRUD API for managing tenants, subscriptions, filters, and credentials
+- **Meeting State**: Tracks active meetings and participants in SQLite
+- **Meeting Filters**: Only notify on matching meeting topics
+- **Per-channel Config**: Customizable message suffix and meeting link toggle per subscription
 
-1. You have a long-standing zoom meeting that has a constant ID. I use a paid account, I'm not sure if you have to have one or not to do this.
-1. You have access/permissions to create a zoom application.
-1. You have access/permissions to create a slack webhook integration.
-1. You optionally have an IRC server.
+## Quick Start
 
+### Build
 
-# Running Config
+```bash
+make build
+```
 
-you must set
+Requires Go 1.25+. No C compiler needed (pure Go SQLite).
 
-`ZOOM_SECRET` which is the `secret token` provided on your zoom application. This is how zoom knows your webhook listener is the intended target.
+### Configure
 
-`ZOOMWH_PORT` the port to put this webhook listener on. Default is 8888.
+Create a config file (see `config.dev.toml` for example):
 
-`ZOOMWH_MSG_SUFFIX` the name of the call after "Person has <left|joined>" it defaults to "the zoom meeting".
+```toml
+[server]
+port = 8888
+host = "0.0.0.0"
 
-`ZOOMWH_MEETING_NAME` only notify on a particular meeting name. Default is any/all. Filter is a literal string, not a regex.
+[database]
+path = "./zoom-notifier.db"
 
-## API calls for more advanced messaging
+[zoom]
+# Set via ZOOM_SECRET env var
 
-If you'd like your message to contain a hyperlink to the zoom meeting that includes the meetind ID and passcode (meaning a 1-click join), you have to have a full web api account with zoom. If you do, you can set the following environment variables.
+[slack]
+# Set via SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_APP_TOKEN env vars
 
-# Lookup Meeting Info
+[admin]
+# Set via ZOOMNOTIFIER_ADMIN_KEY env var
 
-| Key                     | Description                                                                                                     | Default |
-|------------------------|-----------------------------------------------------------------------------------------------------------------|---------|
-| ZOOM_API_ENABLE        | Whether or not to attempt to use this feature set.                                                              | false   |
-| ZOOM_API_ACCOUNT_ID    | ID of the ZOOM Account.                                                                                         | empty        |
-| ZOOM_API_CLIENT_ID     | Client ID of the ZOOM App you've created in the developer portal.                                               | empty        |
-| ZOOM_API_CLIENT_SECRET | Secret of the ZOOM App you've created in the developer portal.                                                  | empty        |
-| ZOOM_API_SECRET_TOKEN  | Token given to you after doing a POST to the ZOOM API to get a JWT token. This is used to authenticate with it. |  empty  |
+[log]
+level = "info"
+```
 
-## Slack Messaging
-`ZOOMWH_SLACK_ENABLE` should be set to 'true' if using this feature. It defaults to true.
+### Run
 
-`ZOOMWH_SLACK_WH_URI` is the slack webhook uri. This can be a comma separated list of URIs. Required if `ZOOMWH_SLACK_ENABLE` is `true`. No Default.
+```bash
+# Set required env vars
+export ZOOM_SECRET=your-zoom-webhook-secret
+export ZOOMNOTIFIER_ADMIN_KEY=your-admin-key
 
-## IRC Messaging
-`ZOOMWH_IRC_ENABLE` true will enable this. Default is false.
+# Run with config file
+./zoom-notifier --config config.toml
 
-`ZOOMWH_IRC_SERVER` is the a URI and includes a port. Required. No Default.
+# Or just run with defaults + env vars
+./zoom-notifier
+```
 
-`ZOOMWH_IRC_NICK` the nick name to use when posting for IRC and authenticating against the server. Required. No Default.
+### Flags
 
-`ZOOMWH_IRC_AUTH_PASS` is the password to authenticate with for the IRC Server.
+- `--version` — Show version information
+- `--config <path>` — Path to TOML config file
+- `--migrate` — Run database migrations and exit
 
-`ZOOMWH_IRC_CHANNEL` is where to post the messages. There is not default. This is required if `ZOOMWH_IRC_ENABLE` is true.
+## Setup
 
-# Building
+### 1. Create a Tenant
 
-Checkout the source code
+Using the admin API key:
 
-    go mod tidy
-    go build .
+```bash
+curl -X POST http://localhost:8888/api/v1/tenants \
+  -H "Authorization: Bearer $ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"team_name": "My Team", "zoom_account_id": "abc123"}'
+```
 
-# Running via systemd
+Or install the Slack app via `/slack/install` (creates tenant automatically).
 
-There is a unit file in the `contrib` directory. It should get you most of the way there.
+### 2. Add a Subscription
 
-Basically, create a user by doing something like `useradd zoomwh`.
+Using the tenant's API key (returned from tenant creation):
 
-Then copy the unit file in `/usr/lib/systemd/system`.
+```bash
+curl -X POST http://localhost:8888/api/v1/tenants/$TENANT_ID/subscriptions \
+  -H "Authorization: Bearer $TENANT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "slack", "target": "#general"}'
+```
 
-Make a file with your environment settings and place it in `/etc/sysconfig` or whereever your distribution does that stuff.
+Or use the Slack slash command: `/zoom-notifier subscribe #general`
 
-`systemctl enable zoomwh.service`
+### 3. Configure Zoom Webhook
 
-`systemctl start zoomwh.service`
+Point your Zoom app's webhook URL to `http://your-host:8888/webhook/zoom`.
 
+## Slack App Setup
 
-# Limitations
-1. This can currently be set up for one zoom meeting (because there is no logic looking what the meeting is called or anything).
-1. You can't make the POST URL path anything other than "/" right now. Again, this is an easy fix, but I haven't done it yet. Ideally you could pass in a ENV var for that.
+1. Create a Slack app at https://api.slack.com/apps
+2. Enable Socket Mode and get an App-Level Token
+3. Add the `/zoom-notifier` slash command
+4. Set OAuth scopes: `commands`, `chat:write`, `channels:read`
+5. Set the OAuth redirect URL to `http://your-host:8888/slack/callback`
+6. Configure the env vars: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_APP_TOKEN`
 
+### Slash Commands
 
-# Setup
+| Command | Description |
+|---|---|
+| `/zoom-notifier status` | Show active meetings and participant counts |
+| `/zoom-notifier whois <meeting>` | List who's in a specific meeting |
+| `/zoom-notifier subscribe #channel` | Subscribe a channel to notifications |
+| `/zoom-notifier unsubscribe #channel` | Unsubscribe a channel |
+| `/zoom-notifier filter "Topic"` | Only notify for matching meeting topics |
+| `/zoom-notifier filters` | List active filters |
+| `/zoom-notifier help` | Show all available commands |
 
-## Assumptions
+Admin commands (subscribe, filter, etc.) require the user to be a tenant admin.
 
-1. You have a long-standing zoom meeting that has a constant ID. I use a paid account, I'm not sure if you have to have one or not to do this.
-1. You have access/permissions to create a zoom application.
-1. You have access/permissions to create a slack webhook integration.
-1. You are comfortable putting a service on a public network. (I front mine with a reverse proxy).
-1. You are an IRC admin if you're using the IRC functionality.
+## IRC Setup
 
-## Zoom
+Configure IRC via the REST API:
 
-See [Zoom Documenation](https://github.com/stahnma/zoomwh/blob/main/docs/zoom_app_creation.md)
+```bash
+curl -X PUT http://localhost:8888/api/v1/tenants/$TENANT_ID/irc \
+  -H "Authorization: Bearer $TENANT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"server": "irc.libera.chat:6697", "nick": "zoombot", "password": "secret", "use_tls": true}'
+```
 
-## Slack
+Then add an IRC subscription:
 
-See [Slack App Documentation](https://github.com/stahnma/zoomwh/blob/main/docs/slack_integrations.md)
+```bash
+curl -X POST http://localhost:8888/api/v1/tenants/$TENANT_ID/subscriptions \
+  -H "Authorization: Bearer $TENANT_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"type": "irc", "target": "#mychannel"}'
+```
 
-# LICENSE
+## API Documentation
+
+The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
+
+- `GET /healthz` — Health check
+- `POST /webhook/zoom` — Zoom webhook receiver
+- `GET/POST /api/v1/tenants` — Tenant management (admin key)
+- `GET/POST/PATCH/DELETE /api/v1/tenants/{id}/subscriptions` — Subscription CRUD
+- `GET/POST/DELETE /api/v1/tenants/{id}/filters` — Meeting filter management
+- `GET/PUT /api/v1/tenants/{id}/irc` — IRC configuration
+- `PUT /api/v1/tenants/{id}/zoom` — Zoom API credentials
+
+## Running via systemd
+
+See `contrib/zoomwh.service` for a sample systemd unit file.
+
+## License
+
 MIT

@@ -1,3 +1,5 @@
+//go:build ignore
+
 package main
 
 import (
@@ -72,4 +74,3 @@ func main() {
 		fmt.Printf("Error starting webhook server: %s\n", err)
 	}
 }
-

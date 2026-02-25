@@ -6,47 +6,107 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 make build          # Build binary (runs fmt + tidy first, embeds version via ldflags)
+make test           # Run all tests
+make test-verbose   # Run tests with verbose output
+make test-coverage  # Run tests with coverage report
+make generate       # Regenerate API code from OpenAPI spec
 make fmt            # Format code with go fmt
 make tidy           # go mod tidy (runs fmt first)
-make clean          # Remove built binary and bin/ directory
+make dev            # Build and run with config.dev.toml
+make clean          # Remove built binary, bin/, coverage.out
 make platforms      # Cross-compile for all platforms (mac + linux)
 make install        # Build and install to /usr/local/bin
 ```
 
-There are no Go test files. Manual testing uses `examples/tests.sh` which POSTs sample JSON payloads from `examples/zoom/` to localhost:8889.
+Build requires `CGO_ENABLED=0` in environments without gcc (uses pure-Go SQLite via modernc.org/sqlite).
+
+## Testing
+
+```bash
+go test ./internal/...          # Run all tests
+go test ./internal/api/ -v      # Run API tests
+go test ./internal/slack/ -v    # Run Slack tests (OAuth + commands)
+go test ./internal/store/sqlite/ -v  # Run store tests
+```
+
+Manual smoke testing uses `examples/tests.sh` which exercises the REST API and webhook endpoints.
 
 ## CI
 
-GitHub Actions runs on push/PR to main: `make build`, `go vet ./...`, and `golangci-lint`.
+GitHub Actions runs on push/PR to main: `make build`, `go vet ./...`, `go test ./internal/...`, and `golangci-lint`.
+
+A separate deploy workflow builds linux-amd64, deploys via SCP, and restarts the systemd service.
 
 ## Architecture
 
-Single-binary Go webhook server that receives Zoom webhook events and dispatches notifications to Slack and/or IRC.
+Multi-tenant Go service that receives Zoom webhook events and dispatches notifications to Slack and/or IRC. Includes a native Slack app with Socket Mode bot and slash commands, and a spec-first REST API.
 
-**Flow:** Zoom POST → Gin HTTP handler (`main.go:processWebHook`) → event filtering → `dispatchMessage()` → Slack/IRC backends
+```
+cmd/zoom-notifier/main.go    # Entry point: config, wiring, startup, graceful shutdown
+internal/
+  config/                     # Viper-based config (TOML + env vars + defaults)
+  store/                      # Store interface (types.go, store.go)
+    sqlite/                   # SQLite implementation with golang-migrate migrations
+  zoom/                       # Webhook handler, CRC validation, Zoom REST API client
+  slack/                      # Slack sender, OAuth install flow, Socket Mode bot, slash commands
+  irc/                        # IRC relay (notification sink, connect-per-message)
+  notify/                     # Notification dispatcher (fan-out to Slack/IRC per subscription)
+  api/                        # Generated Chi server (oapi-codegen), auth middleware, server impl
+api/
+  openapi.yaml                # OpenAPI 3.0 spec (source of truth for REST API)
+```
 
-**Source files:**
-- `main.go` — HTTP server (Gin), webhook processing, CRC validation, configuration (Viper), message dispatch routing
-- `slack.go` — Slack webhook formatting and posting; supports multiple comma-separated webhook URIs
-- `irc.go` — IRC connection, auth, and message sending via go-ircevent
-- `zoom_api.go` — Optional Zoom OAuth2 + REST API integration to fetch meeting join links with passcodes
+**Flow:** Zoom POST → webhook handler → tenant resolution → meeting state → dispatcher → matching subscriptions → Slack/IRC backends
 
-**Key dependencies:** Gin (HTTP), Viper (config), Logrus (logging), go-ircevent (IRC)
+**Slack App Flow:** Socket Mode WebSocket → slash command router → store operations → ephemeral responses
+
+**API Flow:** HTTP request → Chi router → oapi-codegen strict handler → auth middleware (AdminKey/TenantKey scopes) → server methods → store
+
+## Key Design Decisions
+
+- **Pure Go**: `CGO_ENABLED=0` with `modernc.org/sqlite` — no C compiler needed
+- **Store interface**: `store.Store` interface enables future database swaps
+- **Spec-first API**: OpenAPI 3.0 → oapi-codegen strict server mode → compile-time route/type safety
+- **Security scopes**: Generated code sets `AdminKeyScopes`/`TenantKeyScopes` in context; single `AuthMiddleware` checks both
+- **Multi-tenant**: Tenants created via REST API or Slack OAuth install; isolated subscriptions, filters, credentials
 
 ## Configuration
 
-All configuration is via environment variables (bound through Viper):
+All configuration via TOML config file and/or environment variables:
 
-- `ZOOM_SECRET` (required) — Webhook CRC validation token
-- `ZOOMWH_PORT` (default: 8888) — HTTP listen port
-- `ZOOMWH_SLACK_ENABLE` / `ZOOMWH_SLACK_WH_URI` — Slack backend
-- `ZOOMWH_IRC_ENABLE` / `ZOOMWH_IRC_SERVER` / `ZOOMWH_IRC_CHANNEL` / `ZOOMWH_IRC_NICK` / `ZOOMWH_IRC_PASS` — IRC backend
-- `ZOOM_API_ENABLE` / `ZOOM_API_CLIENT_ID` / `ZOOM_API_CLIENT_SECRET` / `ZOOM_API_ACCOUNT_ID` — Optional Zoom API for meeting links
-- `ZOOMWH_MEETING_NAME` — Optional topic filter (exact match)
-- `ZOOMWH_MSG_SUFFIX` (default: "the zoom meeting.") — Suffix for join/leave messages
+| Config Key | Env Var | Description | Default |
+|---|---|---|---|
+| `server.port` | - | HTTP listen port | 8888 |
+| `server.host` | - | HTTP listen host | localhost |
+| `database.path` | - | SQLite database path | ./zoom-notifier.db |
+| `zoom.webhook_secret` | `ZOOM_SECRET` | Zoom CRC validation token | (required) |
+| `slack.client_id` | `SLACK_CLIENT_ID` | Slack app client ID | - |
+| `slack.client_secret` | `SLACK_CLIENT_SECRET` | Slack app client secret | - |
+| `slack.app_token` | `SLACK_APP_TOKEN` | Slack Socket Mode app token | - |
+| `admin.api_key` | `ZOOMNOTIFIER_ADMIN_KEY` | Admin API key for tenant management | (required) |
+| `log.level` | - | Log level (debug/info/warn/error) | info |
 
 ## Handled Zoom Events
 
 - `endpoint.url_validation` — CRC challenge-response
-- `meeting.participant_joined` / `meeting.participant_left` — Dispatched to notification backends
+- `meeting.started` — Upsert meeting state
+- `meeting.ended` — Clean up meeting and participants
+- `meeting.participant_joined` — Track participant, dispatch notifications
+- `meeting.participant_left` — Update participant, dispatch notifications
 - All other events are silently ignored
+
+## Slash Commands
+
+| Command | Access | Description |
+|---|---|---|
+| `/zoom-notifier status` | everyone | Show active meetings |
+| `/zoom-notifier whois <meeting>` | everyone | List participants |
+| `/zoom-notifier subscribe #channel` | admin | Subscribe channel |
+| `/zoom-notifier unsubscribe #channel` | admin | Unsubscribe channel |
+| `/zoom-notifier filter "Topic"` | admin | Add meeting filter |
+| `/zoom-notifier filters` | everyone | List active filters |
+| `/zoom-notifier set-suffix #channel "text"` | admin | Set message suffix |
+| `/zoom-notifier set-link #channel on/off` | admin | Toggle meeting links |
+| `/zoom-notifier admins add @user` | admin | Add an admin |
+| `/zoom-notifier api-key` | admin | Show tenant API key |
+| `/zoom-notifier help` | everyone | List commands |
