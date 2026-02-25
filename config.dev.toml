@@ -1,0 +1,9 @@
+[server]
+port = 8888
+host = "localhost"
+
+[database]
+path = "./zoom-notifier.db"
+
+[log]
+level = "debug"

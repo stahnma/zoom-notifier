@@ -1,11 +1,12 @@
 NAME=zoom-notifier
+BUILDDIR=./cmd/zoom-notifier/
 
 default: build
 
 all: platforms
 
 fmt:
-	go fmt .
+	go fmt ./...
 
 tidy:   fmt
 	go mod tidy
@@ -13,24 +14,25 @@ tidy:   fmt
 VERSION=$(shell git describe --tags --always --dirty)
 COMMIT=$(shell git rev-parse --short HEAD)
 BUILDDATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
+LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILDDATE)"
 
 build: tidy
-	go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILDDATE)" -o $(NAME) .
+	go build $(LDFLAGS) -o $(NAME) $(BUILDDIR)
 
 clean:
 	rm -rf $(NAME) bin index.html
 
 linux-arm64: tidy
-	GOOS=linux GOARCH=arm64  go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILDDATE)" -o bin/$(NAME).linux-arm64 .
+	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o bin/$(NAME).linux-arm64 $(BUILDDIR)
 
 linux-amd64: tidy
-	GOOS=linux GOARCH=amd64  go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILDDATE)" -o bin/$(NAME).linux-amd64 .
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME).linux-amd64 $(BUILDDIR)
 
 darwin-arm64: tidy
-	GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILDDATE)" -o bin/$(NAME).mac-arm64 .
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o bin/$(NAME).mac-arm64 $(BUILDDIR)
 
 darwin-amd64:
-	GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILDDATE)" -o bin/$(NAME).mac-amd64 .
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o bin/$(NAME).mac-amd64 $(BUILDDIR)
 
 mac-arm64: darwin-arm64
 
