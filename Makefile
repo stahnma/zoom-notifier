@@ -16,6 +16,9 @@ COMMIT=$(shell git rev-parse --short HEAD)
 BUILDDATE=$(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS=-ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.buildDate=$(BUILDDATE)"
 
+generate:
+	oapi-codegen --config internal/api/oapi-codegen.yaml api/openapi.yaml
+
 build: tidy
 	go build $(LDFLAGS) -o $(NAME) $(BUILDDIR)
 
