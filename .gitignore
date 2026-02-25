@@ -2,3 +2,4 @@ index.html
 zoom-notifier
 go.sum
 *.creds
+.worktrees/
