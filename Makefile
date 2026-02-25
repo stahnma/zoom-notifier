@@ -22,8 +22,20 @@ generate:
 build: tidy
 	go build $(LDFLAGS) -o $(NAME) $(BUILDDIR)
 
+test:
+	go test ./internal/...
+
+test-verbose:
+	go test -v ./internal/...
+
+test-coverage:
+	go test -coverprofile=coverage.out ./internal/... && go tool cover -html=coverage.out
+
+dev: build
+	./zoom-notifier --config config.dev.toml
+
 clean:
-	rm -rf $(NAME) bin index.html
+	rm -rf $(NAME) bin coverage.out
 
 linux-arm64: tidy
 	GOOS=linux GOARCH=arm64 go build $(LDFLAGS) -o bin/$(NAME).linux-arm64 $(BUILDDIR)
