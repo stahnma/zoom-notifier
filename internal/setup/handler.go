@@ -41,10 +41,21 @@ func NewHandler(configPath string) *Handler {
 		"review.html",
 		"complete.html",
 	}
+	funcMap := template.FuncMap{
+		"stepClass": func(stepIndex, currentStep int) string {
+			if stepIndex == currentStep {
+				return "active"
+			}
+			if stepIndex < currentStep {
+				return "completed"
+			}
+			return ""
+		},
+	}
 	templates := make(map[string]*template.Template, len(pages))
 	for _, page := range pages {
 		templates[page] = template.Must(
-			template.ParseFS(templateFS, "templates/layout.html", "templates/"+page),
+			template.New("").Funcs(funcMap).ParseFS(templateFS, "templates/layout.html", "templates/"+page),
 		)
 	}
 
@@ -87,7 +98,14 @@ func (h *Handler) Router() http.Handler {
 	return r
 }
 
-func (h *Handler) render(w http.ResponseWriter, name string, data interface{}) {
+// pageData wraps template data with the current step number for the progress stepper.
+type pageData struct {
+	Step        int // 0=welcome, 1=admin-key, 2=zoom, 3=slack, 4=advanced, 5=review, 6=complete
+	Data        *SetupData
+	ManifestURL string // only set for the Slack step
+}
+
+func (h *Handler) render(w http.ResponseWriter, name string, pd pageData) {
 	tmpl, ok := h.templates[name]
 	if !ok {
 		log.Errorf("Template %q not found", name)
@@ -95,37 +113,32 @@ func (h *Handler) render(w http.ResponseWriter, name string, data interface{}) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := tmpl.ExecuteTemplate(w, name, data); err != nil {
+	if err := tmpl.ExecuteTemplate(w, name, pd); err != nil {
 		log.WithError(err).Error("Failed to render template")
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
 
 func (h *Handler) welcome(w http.ResponseWriter, r *http.Request) {
-	h.render(w, "welcome.html", h.data)
+	h.render(w, "welcome.html", pageData{Step: 0, Data: h.data})
 }
 
 func (h *Handler) handleServerURL(w http.ResponseWriter, r *http.Request) {
 	h.data.ServerURL = r.FormValue("server_url")
-	h.render(w, "admin-key.html", h.data)
+	h.render(w, "admin-key.html", pageData{Step: 1, Data: h.data})
 }
 
 func (h *Handler) handleAdminKey(w http.ResponseWriter, r *http.Request) {
 	h.data.AdminAPIKey = r.FormValue("admin_api_key")
-	h.render(w, "zoom.html", h.data)
+	h.render(w, "zoom.html", pageData{Step: 2, Data: h.data})
 }
 
 func (h *Handler) handleZoom(w http.ResponseWriter, r *http.Request) {
 	h.data.ZoomSecret = r.FormValue("zoom_secret")
-
-	// slack.html expects .ManifestURL and .Data (SetupData)
-	type slackPageData struct {
-		ManifestURL string
-		Data        *SetupData
-	}
-	h.render(w, "slack.html", slackPageData{
-		ManifestURL: SlackManifestURL(h.data.ServerURL),
+	h.render(w, "slack.html", pageData{
+		Step:        3,
 		Data:        h.data,
+		ManifestURL: SlackManifestURL(h.data.ServerURL),
 	})
 }
 
@@ -133,7 +146,7 @@ func (h *Handler) handleSlack(w http.ResponseWriter, r *http.Request) {
 	h.data.SlackClientID = r.FormValue("slack_client_id")
 	h.data.SlackClientSecret = r.FormValue("slack_client_secret")
 	h.data.SlackSigningSecret = r.FormValue("slack_signing_secret")
-	h.render(w, "advanced.html", h.data)
+	h.render(w, "advanced.html", pageData{Step: 4, Data: h.data})
 }
 
 func (h *Handler) handleAdvanced(w http.ResponseWriter, r *http.Request) {
@@ -143,7 +156,7 @@ func (h *Handler) handleAdvanced(w http.ResponseWriter, r *http.Request) {
 	}
 	h.data.DatabasePath = r.FormValue("database_path")
 	h.data.LogLevel = r.FormValue("log_level")
-	h.render(w, "review.html", h.data)
+	h.render(w, "review.html", pageData{Step: 5, Data: h.data})
 }
 
 func (h *Handler) handleSave(w http.ResponseWriter, r *http.Request) {
@@ -175,7 +188,7 @@ func (h *Handler) handleSave(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to save configuration. Check that the path is writable.", http.StatusInternalServerError)
 		return
 	}
-	h.render(w, "complete.html", h.data)
+	h.render(w, "complete.html", pageData{Step: 6, Data: h.data})
 }
 
 func (h *Handler) generateKey(w http.ResponseWriter, r *http.Request) {

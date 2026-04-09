@@ -6,65 +6,65 @@
 <table class="review-table">
     <tr>
         <th>Server URL</th>
-        <td>{{.ServerURL}}</td>
+        <td>{{.Data.ServerURL}}</td>
     </tr>
     <tr>
         <th>Admin API Key</th>
         <td>
-            <span class="secret-value" data-secret="{{.AdminAPIKey}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <span class="secret-value" data-secret="{{.Data.AdminAPIKey}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
             <button type="button" class="btn btn-small toggle-secret">Show</button>
         </td>
     </tr>
     <tr>
         <th>Zoom Webhook Secret</th>
         <td>
-            <span class="secret-value" data-secret="{{.ZoomSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <span class="secret-value" data-secret="{{.Data.ZoomSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
             <button type="button" class="btn btn-small toggle-secret">Show</button>
         </td>
     </tr>
     <tr>
         <th>Slack Client ID</th>
-        <td>{{.SlackClientID}}</td>
+        <td>{{.Data.SlackClientID}}</td>
     </tr>
     <tr>
         <th>Slack Client Secret</th>
         <td>
-            <span class="secret-value" data-secret="{{.SlackClientSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <span class="secret-value" data-secret="{{.Data.SlackClientSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
             <button type="button" class="btn btn-small toggle-secret">Show</button>
         </td>
     </tr>
     <tr>
         <th>Slack Signing Secret</th>
         <td>
-            <span class="secret-value" data-secret="{{.SlackSigningSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <span class="secret-value" data-secret="{{.Data.SlackSigningSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
             <button type="button" class="btn btn-small toggle-secret">Show</button>
         </td>
     </tr>
     <tr>
         <th>Server Host</th>
-        <td>{{.ServerHost}}</td>
+        <td>{{.Data.ServerHost}}</td>
     </tr>
     <tr>
         <th>Server Port</th>
-        <td>{{.ServerPort}}</td>
+        <td>{{.Data.ServerPort}}</td>
     </tr>
     <tr>
         <th>Database Path</th>
-        <td>{{.DatabasePath}}</td>
+        <td>{{.Data.DatabasePath}}</td>
     </tr>
     <tr>
         <th>Log Level</th>
-        <td>{{.LogLevel}}</td>
+        <td>{{.Data.LogLevel}}</td>
     </tr>
 </table>
 
 <details>
     <summary>Environment variable equivalents</summary>
-    <pre><code>export ZOOMNOTIFIER_ADMIN_KEY="{{.AdminAPIKey}}"
-export ZOOM_SECRET="{{.ZoomSecret}}"
-export SLACK_CLIENT_ID="{{.SlackClientID}}"
-export SLACK_CLIENT_SECRET="{{.SlackClientSecret}}"
-export SLACK_SIGNING_SECRET="{{.SlackSigningSecret}}"</code></pre>
+    <pre><code>export ZOOMNOTIFIER_ADMIN_KEY="{{.Data.AdminAPIKey}}"
+export ZOOM_SECRET="{{.Data.ZoomSecret}}"
+export SLACK_CLIENT_ID="{{.Data.SlackClientID}}"
+export SLACK_CLIENT_SECRET="{{.Data.SlackClientSecret}}"
+export SLACK_SIGNING_SECRET="{{.Data.SlackSigningSecret}}"</code></pre>
 </details>
 
 <form method="POST" action="/setup/save">

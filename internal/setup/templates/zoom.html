@@ -6,7 +6,7 @@
 <div class="info-box">
     <strong>Your webhook endpoint:</strong>
     <div class="copyable">
-        <code id="webhook-url">{{.ServerURL}}/webhook/zoom</code>
+        <code id="webhook-url">{{.Data.ServerURL}}/webhook/zoom</code>
         <button type="button" class="btn btn-small" onclick="copyToClipboard(document.getElementById('webhook-url').textContent)">Copy</button>
     </div>
     <p class="help-text">Use this URL as the Event Notification Endpoint in your Zoom app settings.</p>
@@ -15,7 +15,7 @@
 <form method="POST" action="/setup/zoom">
     <div class="form-group">
         <label for="zoom_secret">Webhook Secret Token</label>
-        <input type="text" id="zoom_secret" name="zoom_secret" value="{{.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" required>
+        <input type="text" id="zoom_secret" name="zoom_secret" value="{{.Data.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" required>
         <details>
             <summary>Where do I find this?</summary>
             <ol>
