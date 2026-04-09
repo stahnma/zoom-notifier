@@ -3,6 +3,7 @@ package setup
 import (
 	"bytes"
 	"os"
+	"strings"
 	"text/template"
 )
 
@@ -20,32 +21,42 @@ type SetupData struct {
 	LogLevel           string
 }
 
+// tomlEscape escapes backslashes and double quotes for TOML basic strings.
+func tomlEscape(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	return s
+}
+
+var tomlFuncs = template.FuncMap{"toml": tomlEscape}
+
 const configTemplate = `[server]
 port = {{.ServerPort}}
-host = "{{.ServerHost}}"
+host = "{{.ServerHost | toml}}"
 
 [database]
-path = "{{.DatabasePath}}"
+path = "{{.DatabasePath | toml}}"
 
 [zoom]
-webhook_secret = "{{.ZoomSecret}}"
+webhook_secret = "{{.ZoomSecret | toml}}"
 
 [slack]
-client_id = "{{.SlackClientID}}"
-client_secret = "{{.SlackClientSecret}}"
-signing_secret = "{{.SlackSigningSecret}}"
+client_id = "{{.SlackClientID | toml}}"
+client_secret = "{{.SlackClientSecret | toml}}"
+signing_secret = "{{.SlackSigningSecret | toml}}"
 
 [admin]
-api_key = "{{.AdminAPIKey}}"
+api_key = "{{.AdminAPIKey | toml}}"
 
 [log]
-level = "{{.LogLevel}}"
+level = "{{.LogLevel | toml}}"
 `
 
 // WriteConfig renders the TOML config template with the given SetupData and
 // writes it to path with 0600 permissions.
 func WriteConfig(path string, data *SetupData) error {
-	tmpl, err := template.New("config").Parse(configTemplate)
+	tmpl, err := template.New("config").Funcs(tomlFuncs).Parse(configTemplate)
 	if err != nil {
 		return err
 	}

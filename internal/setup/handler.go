@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
@@ -146,9 +147,32 @@ func (h *Handler) handleAdvanced(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleSave(w http.ResponseWriter, r *http.Request) {
+	// Validate required fields before writing
+	var missing []string
+	if h.data.AdminAPIKey == "" {
+		missing = append(missing, "Admin API Key")
+	}
+	if h.data.ZoomSecret == "" {
+		missing = append(missing, "Zoom Webhook Secret")
+	}
+	if h.data.SlackClientID == "" {
+		missing = append(missing, "Slack Client ID")
+	}
+	if h.data.SlackClientSecret == "" {
+		missing = append(missing, "Slack Client Secret")
+	}
+	if h.data.SlackSigningSecret == "" {
+		missing = append(missing, "Slack Signing Secret")
+	}
+	if len(missing) > 0 {
+		log.WithField("missing", missing).Warn("Setup wizard submitted with missing fields")
+		http.Error(w, "Missing required fields: "+strings.Join(missing, ", "), http.StatusBadRequest)
+		return
+	}
+
 	if err := WriteConfig(h.configPath, h.data); err != nil {
 		log.WithError(err).Error("Failed to write config")
-		http.Error(w, "Failed to save configuration: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to save configuration. Check that the path is writable.", http.StatusInternalServerError)
 		return
 	}
 	h.render(w, "complete.html", h.data)

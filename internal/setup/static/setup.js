@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
     var regenBtn = document.getElementById("regenerate-key-btn");
     if (regenBtn) {
         regenBtn.addEventListener("click", function () {
-            fetch("/setup/api/generate-key", { method: "POST" })
+            fetch("/setup/api/generate-key")
                 .then(function (resp) {
                     return resp.json();
                 })
