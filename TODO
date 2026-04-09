@@ -13,3 +13,4 @@ enhancements
 * document zoom api usage
 * slack client with slash commands
 * slack slash command to query the meeting and status of the notifier
+* Style the Slack OAuth install success page (currently inline HTML in oauth.go)
