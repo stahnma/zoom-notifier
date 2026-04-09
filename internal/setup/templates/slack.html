@@ -13,10 +13,15 @@
 </div>
 {{end}}
 
+<div class="info-box">
+    <strong>Don't forget to install the app to your workspace.</strong>
+    <p>After creating the Slack app and entering the credentials below, you still need to install it to your workspace. Once the setup wizard is complete and zoom-notifier is restarted, visit <code>{{.Data.ServerURL}}/slack/install</code> to start the OAuth install flow.</p>
+</div>
+
 <form method="POST" action="/setup/slack">
     <div class="form-group">
         <label for="slack_client_id">Client ID</label>
-        <input type="text" id="slack_client_id" name="slack_client_id" value="{{.Data.SlackClientID}}" placeholder="Enter Slack app Client ID" required>
+        <input type="text" id="slack_client_id" name="slack_client_id" value="{{.Data.SlackClientID}}" placeholder="Enter Slack app Client ID" autocomplete="off" required>
         <details>
             <summary>Where do I find this?</summary>
             <p>In your Slack app settings, go to <strong>Basic Information</strong> &rarr; <strong>App Credentials</strong>. The Client ID is listed there.</p>
@@ -25,7 +30,7 @@
 
     <div class="form-group">
         <label for="slack_client_secret">Client Secret</label>
-        <input type="password" id="slack_client_secret" name="slack_client_secret" value="{{.Data.SlackClientSecret}}" placeholder="Enter Slack app Client Secret" required>
+        <input type="password" id="slack_client_secret" name="slack_client_secret" value="{{.Data.SlackClientSecret}}" placeholder="Enter Slack app Client Secret" autocomplete="off" required>
         <details>
             <summary>Where do I find this?</summary>
             <p>In your Slack app settings, go to <strong>Basic Information</strong> &rarr; <strong>App Credentials</strong>. Click <strong>Show</strong> next to Client Secret.</p>
@@ -34,7 +39,7 @@
 
     <div class="form-group">
         <label for="slack_signing_secret">Signing Secret</label>
-        <input type="password" id="slack_signing_secret" name="slack_signing_secret" value="{{.Data.SlackSigningSecret}}" placeholder="Enter Slack app Signing Secret" required>
+        <input type="password" id="slack_signing_secret" name="slack_signing_secret" value="{{.Data.SlackSigningSecret}}" placeholder="Enter Slack app Signing Secret" autocomplete="off" required>
         <details>
             <summary>Where do I find this?</summary>
             <p>In your Slack app settings, go to <strong>Basic Information</strong> &rarr; <strong>App Credentials</strong>. The Signing Secret is listed below the Client Secret.</p>
