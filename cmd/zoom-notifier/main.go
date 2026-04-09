@@ -116,13 +116,47 @@ func main() {
 	// Build main router
 	r := chi.NewRouter()
 
+	// Landing page
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprintf(w, `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><title>zoom-notifier</title>
+<style>
+body{font-family:system-ui,sans-serif;max-width:600px;margin:2rem auto;padding:0 1rem;color:#333}
+h1{margin-bottom:0.25rem}
+.version{color:#888;font-size:0.9rem;margin-bottom:1.5rem}
+ul{list-style:none;padding:0}
+li{margin:0.5rem 0}
+a{color:#1a73e8;text-decoration:none}
+a:hover{text-decoration:underline}
+code{background:#f0f0f0;padding:0.15rem 0.4rem;border-radius:3px;font-size:0.9rem}
+</style></head><body>
+<h1>zoom-notifier</h1>
+<p class="version">%s</p>
+<ul>
+<li><a href="/healthz">Health Check</a></li>
+<li><a href="/slack/install">Install Slack App</a></li>
+<li><code>POST /webhook/zoom</code> &mdash; Zoom webhook endpoint</li>
+<li><code>POST /slack/commands</code> &mdash; Slash command endpoint</li>
+<li><code>/api/v1/...</code> &mdash; REST API</li>
+</ul>
+</body></html>`, version)
+	})
+
 	// Slack OAuth routes (outside generated API)
 	if cfg.Slack.ClientID != "" {
+		redirectURI := fmt.Sprintf("http://%s:%d/slack/callback", cfg.Server.Host, cfg.Server.Port)
+		if cfg.Server.URL != "" {
+			redirectURI = cfg.Server.URL + "/slack/callback"
+		}
 		oauthHandler := appslack.NewOAuthHandler(appslack.OAuthConfig{
-			ClientID:     cfg.Slack.ClientID,
-			ClientSecret: cfg.Slack.ClientSecret,
-			RedirectURI:  fmt.Sprintf("http://%s:%d/slack/callback", cfg.Server.Host, cfg.Server.Port),
-			Store:        store,
+			ClientID:         cfg.Slack.ClientID,
+			ClientSecret:     cfg.Slack.ClientSecret,
+			RedirectURI:      redirectURI,
+			Store:            store,
+			ZoomAccountID:    cfg.Zoom.AccountID,
+			ZoomClientID:     cfg.Zoom.ClientID,
+			ZoomClientSecret: cfg.Zoom.ClientSecret,
 		})
 		r.Get("/slack/install", oauthHandler.HandleInstall)
 		r.Get("/slack/callback", oauthHandler.HandleCallback)
