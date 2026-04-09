@@ -45,9 +45,9 @@ type oauthScopes struct {
 }
 
 type manifestSettings struct {
-	SocketModeEnabled     bool `json:"socket_mode_enabled"`
-	OrgDeployEnabled      bool `json:"org_deploy_enabled"`
-	TokenRotationEnabled  bool `json:"token_rotation_enabled"`
+	SocketModeEnabled    bool `json:"socket_mode_enabled"`
+	OrgDeployEnabled     bool `json:"org_deploy_enabled"`
+	TokenRotationEnabled bool `json:"token_rotation_enabled"`
 }
 
 // GenerateSlackManifest returns a JSON string containing a Slack app manifest

@@ -129,8 +129,8 @@ func TestSetupFullFlow(t *testing.T) {
 
 	// Step 5: POST /setup/slack
 	resp, err = client.PostForm(srv.URL+"/setup/slack", url.Values{
-		"slack_client_id":     {"slack-client-id"},
-		"slack_client_secret": {"slack-client-secret"},
+		"slack_client_id":      {"slack-client-id"},
+		"slack_client_secret":  {"slack-client-secret"},
 		"slack_signing_secret": {"slack-signing-secret"},
 	})
 	if err != nil {
@@ -174,13 +174,13 @@ func TestSetupFullFlow(t *testing.T) {
 	content := string(data)
 
 	checks := map[string]string{
-		"admin_api_key":      "test-admin-key-12345",
+		"admin_api_key":       "test-admin-key-12345",
 		"zoom webhook_secret": "zoom-secret-token",
-		"slack client_id":    "slack-client-id",
-		"server port":        "9999",
-		"server host":        "0.0.0.0",
-		"database path":      "./test.db",
-		"log level":          "debug",
+		"slack client_id":     "slack-client-id",
+		"server port":         "9999",
+		"server host":         "0.0.0.0",
+		"database path":       "./test.db",
+		"log level":           "debug",
 	}
 	for desc, want := range checks {
 		if !strings.Contains(content, want) {
