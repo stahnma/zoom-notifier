@@ -1,0 +1,41 @@
+{{template "layout" .}}
+{{define "content"}}
+<h2>Advanced Settings</h2>
+<p>These settings have sensible defaults. Adjust them if needed for your environment.</p>
+
+<form method="POST" action="/setup/advanced">
+    <div class="form-group">
+        <label for="server_host">Server Host</label>
+        <input type="text" id="server_host" name="server_host" value="{{.ServerHost}}" placeholder="localhost">
+        <p class="help-text">The address the server binds to. Use <code>0.0.0.0</code> to listen on all interfaces.</p>
+    </div>
+
+    <div class="form-group">
+        <label for="server_port">Server Port</label>
+        <input type="number" id="server_port" name="server_port" value="{{.ServerPort}}" min="1" max="65535" placeholder="8888">
+        <p class="help-text">The port the HTTP server listens on.</p>
+    </div>
+
+    <div class="form-group">
+        <label for="database_path">Database Path</label>
+        <input type="text" id="database_path" name="database_path" value="{{.DatabasePath}}" placeholder="./zoom-notifier.db">
+        <p class="help-text">Path to the SQLite database file. Relative paths are resolved from the working directory.</p>
+    </div>
+
+    <div class="form-group">
+        <label for="log_level">Log Level</label>
+        <select id="log_level" name="log_level">
+            <option value="debug"{{if eq .LogLevel "debug"}} selected{{end}}>debug</option>
+            <option value="info"{{if eq .LogLevel "info"}} selected{{end}}>info</option>
+            <option value="warn"{{if eq .LogLevel "warn"}} selected{{end}}>warn</option>
+            <option value="error"{{if eq .LogLevel "error"}} selected{{end}}>error</option>
+        </select>
+        <p class="help-text">Controls how verbose the application logs are.</p>
+    </div>
+
+    <div class="form-actions">
+        <a href="/setup" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next</button>
+    </div>
+</form>
+{{end}}

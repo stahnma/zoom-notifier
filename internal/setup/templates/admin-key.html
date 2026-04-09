@@ -1,0 +1,23 @@
+{{template "layout" .}}
+{{define "content"}}
+<h2>Admin API Key</h2>
+<p>This key is used to authenticate admin API requests for managing tenants and configuration.</p>
+
+<form method="POST" action="/setup/admin-key">
+    <div class="form-group">
+        <label for="admin_api_key">API Key</label>
+        <div class="input-with-button">
+            <input type="text" id="admin_api_key" name="admin_api_key" value="{{.AdminAPIKey}}" required readonly>
+            <button type="button" class="btn btn-secondary" id="regenerate-key-btn">Regenerate</button>
+        </div>
+        <details>
+            <summary>What is the admin API key?</summary>
+            <p>The admin API key grants full access to the zoom-notifier REST API, including creating and managing tenants. Keep this secret and do not share it publicly. You can regenerate it at any time during setup.</p>
+        </details>
+    </div>
+    <div class="form-actions">
+        <a href="/setup" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next</button>
+    </div>
+</form>
+{{end}}

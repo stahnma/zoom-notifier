@@ -1,0 +1,76 @@
+{{template "layout" .}}
+{{define "content"}}
+<h2>Review Configuration</h2>
+<p>Please review your settings before saving.</p>
+
+<table class="review-table">
+    <tr>
+        <th>Server URL</th>
+        <td>{{.ServerURL}}</td>
+    </tr>
+    <tr>
+        <th>Admin API Key</th>
+        <td>
+            <span class="secret-value" data-secret="{{.AdminAPIKey}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <button type="button" class="btn btn-small toggle-secret">Show</button>
+        </td>
+    </tr>
+    <tr>
+        <th>Zoom Webhook Secret</th>
+        <td>
+            <span class="secret-value" data-secret="{{.ZoomSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <button type="button" class="btn btn-small toggle-secret">Show</button>
+        </td>
+    </tr>
+    <tr>
+        <th>Slack Client ID</th>
+        <td>{{.SlackClientID}}</td>
+    </tr>
+    <tr>
+        <th>Slack Client Secret</th>
+        <td>
+            <span class="secret-value" data-secret="{{.SlackClientSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <button type="button" class="btn btn-small toggle-secret">Show</button>
+        </td>
+    </tr>
+    <tr>
+        <th>Slack Signing Secret</th>
+        <td>
+            <span class="secret-value" data-secret="{{.SlackSigningSecret}}">&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;</span>
+            <button type="button" class="btn btn-small toggle-secret">Show</button>
+        </td>
+    </tr>
+    <tr>
+        <th>Server Host</th>
+        <td>{{.ServerHost}}</td>
+    </tr>
+    <tr>
+        <th>Server Port</th>
+        <td>{{.ServerPort}}</td>
+    </tr>
+    <tr>
+        <th>Database Path</th>
+        <td>{{.DatabasePath}}</td>
+    </tr>
+    <tr>
+        <th>Log Level</th>
+        <td>{{.LogLevel}}</td>
+    </tr>
+</table>
+
+<details>
+    <summary>Environment variable equivalents</summary>
+    <pre><code>export ZOOMNOTIFIER_ADMIN_KEY="{{.AdminAPIKey}}"
+export ZOOM_SECRET="{{.ZoomSecret}}"
+export SLACK_CLIENT_ID="{{.SlackClientID}}"
+export SLACK_CLIENT_SECRET="{{.SlackClientSecret}}"
+export SLACK_SIGNING_SECRET="{{.SlackSigningSecret}}"</code></pre>
+</details>
+
+<form method="POST" action="/setup/save">
+    <div class="form-actions">
+        <a href="/setup" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Save Configuration</button>
+    </div>
+</form>
+{{end}}

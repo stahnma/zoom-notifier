@@ -1,0 +1,35 @@
+{{template "layout" .}}
+{{define "content"}}
+<h2>Zoom Configuration</h2>
+<p>Configure the Zoom webhook integration. You'll need a webhook secret from your Zoom app.</p>
+
+<div class="info-box">
+    <strong>Your webhook endpoint:</strong>
+    <div class="copyable">
+        <code id="webhook-url">{{.ServerURL}}/webhook/zoom</code>
+        <button type="button" class="btn btn-small" onclick="copyToClipboard(document.getElementById('webhook-url').textContent)">Copy</button>
+    </div>
+    <p class="help-text">Use this URL as the Event Notification Endpoint in your Zoom app settings.</p>
+</div>
+
+<form method="POST" action="/setup/zoom">
+    <div class="form-group">
+        <label for="zoom_secret">Webhook Secret Token</label>
+        <input type="text" id="zoom_secret" name="zoom_secret" value="{{.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" required>
+        <details>
+            <summary>Where do I find this?</summary>
+            <ol>
+                <li>Go to the <a href="https://marketplace.zoom.us/" target="_blank" rel="noopener">Zoom App Marketplace</a> and sign in.</li>
+                <li>Navigate to <strong>Develop</strong> &rarr; <strong>Build App</strong>.</li>
+                <li>Select or create a <strong>Webhook Only</strong> app.</li>
+                <li>Under <strong>Feature</strong>, find the <strong>Secret Token</strong> field.</li>
+                <li>Copy the token and paste it here.</li>
+            </ol>
+        </details>
+    </div>
+    <div class="form-actions">
+        <a href="/setup" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next</button>
+    </div>
+</form>
+{{end}}

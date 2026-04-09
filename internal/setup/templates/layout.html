@@ -1,0 +1,33 @@
+{{define "layout"}}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>zoom-notifier Setup</title>
+    <link rel="stylesheet" href="/setup/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="site-title">zoom-notifier</h1>
+            <nav class="progress-bar">
+                <ol>
+                    <li>Server URL</li>
+                    <li>Admin Key</li>
+                    <li>Zoom</li>
+                    <li>Slack</li>
+                    <li>Advanced</li>
+                    <li>Review</li>
+                </ol>
+            </nav>
+        </header>
+        <main>
+            {{template "content" .}}
+        </main>
+        <footer>
+            <p>zoom-notifier setup wizard</p>
+        </footer>
+    </div>
+    <script src="/setup/static/setup.js"></script>
+</body>
+</html>{{end}}

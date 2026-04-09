@@ -1,0 +1,18 @@
+{{template "layout" .}}
+{{define "content"}}
+<div class="complete-page">
+    <h2>Setup Complete</h2>
+    <div class="success-box">
+        <p><strong>Configuration saved to <code>config.toml</code></strong></p>
+    </div>
+    <p>To apply the new configuration, restart zoom-notifier:</p>
+    <pre><code>./zoom-notifier -config config.toml</code></pre>
+    <p>Once running, the setup wizard will no longer appear and the application will start normally.</p>
+    <h3>Next Steps</h3>
+    <ul>
+        <li>Verify Zoom webhook connectivity by checking the <code>/webhook/zoom</code> endpoint</li>
+        <li>Install the Slack app to your workspace using the OAuth flow</li>
+        <li>Create your first subscription with <code>/zoom-notifier subscribe #channel</code></li>
+    </ul>
+</div>
+{{end}}
