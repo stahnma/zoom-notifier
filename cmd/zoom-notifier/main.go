@@ -17,6 +17,7 @@ import (
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/config"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/irc"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/notify"
+	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/setup"
 	appslack "github.com/stahnma/mandatoryFun/zoom-notifier/internal/slack"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store/sqlite"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/zoom"
@@ -32,6 +33,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version information")
 	configPath := flag.String("config", "", "Path to config file")
 	migrateOnly := flag.Bool("migrate", false, "Run migrations and exit")
+	setupListen := flag.String("setup-listen", "localhost:8888", "Listen address for setup wizard (only used when config is missing)")
 	flag.Parse()
 
 	if *showVersion {
@@ -43,6 +45,31 @@ func main() {
 	cfg, err := config.Load(*configPath)
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
+	}
+
+	// Check if setup is needed
+	if setup.NeedsSetup(cfg) {
+		configOutput := *configPath
+		if configOutput == "" {
+			configOutput = "./config.toml"
+		}
+		log.Infof("No configuration found. Setup wizard available at http://%s/setup", *setupListen)
+		setupHandler := setup.NewHandler(configOutput)
+		srv := &http.Server{
+			Addr:    *setupListen,
+			Handler: setupHandler.Router(),
+		}
+		go func() {
+			sigCh := make(chan os.Signal, 1)
+			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+			<-sigCh
+			log.Info("shutting down setup wizard...")
+			srv.Shutdown(context.Background())
+		}()
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("setup server error: %v", err)
+		}
+		return
 	}
 
 	// Setup logging
