@@ -65,6 +65,8 @@ func (h *CommandHandler) Handle(ctx context.Context, cmd SlashCommand) (*SlashRe
 		})
 	case "filters":
 		return h.listFilters(ctx, cmd)
+	case "subscriptions":
+		return h.listSubscriptions(ctx, cmd)
 	case "setup":
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
 			return h.setup(ctx, cmd)
@@ -241,6 +243,35 @@ func (h *CommandHandler) listFilters(ctx context.Context, cmd SlashCommand) (*Sl
 	return ephemeral(sb.String()), nil
 }
 
+func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
+	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
+	if err != nil {
+		return nil, fmt.Errorf("list subscriptions: %w", err)
+	}
+
+	if len(subs) == 0 {
+		return ephemeral("No subscriptions configured. Use `/zoom-notifier subscribe #channel` to add one."), nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("*Subscriptions (%d):*\n", len(subs)))
+	for _, s := range subs {
+		status := "enabled"
+		if !s.Enabled {
+			status = "disabled"
+		}
+		details := fmt.Sprintf("• %s → %s (%s)", s.Type, s.Target, status)
+		if s.IncludeLink {
+			details += " [links on]"
+		}
+		if s.MsgSuffix != "" {
+			details += fmt.Sprintf(" suffix: `%s`", s.MsgSuffix)
+		}
+		sb.WriteString(details + "\n")
+	}
+	return ephemeral(sb.String()), nil
+}
+
 func (h *CommandHandler) setup(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
 	return ephemeral("To configure Zoom credentials, use the REST API:\n" +
 		"```\n" +
@@ -357,6 +388,7 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 		"• `/zoom-notifier unsubscribe #channel` — Unsubscribe channel _(admin)_\n" +
 		"• `/zoom-notifier filter \"Topic\"` — Add a meeting topic filter _(admin)_\n" +
 		"• `/zoom-notifier filters` — List active filters\n" +
+		"• `/zoom-notifier subscriptions` — List channel subscriptions\n" +
 		"• `/zoom-notifier set-suffix #channel \"text\"` — Set message suffix _(admin)_\n" +
 		"• `/zoom-notifier set-link #channel on|off` — Toggle meeting links _(admin)_\n" +
 		"• `/zoom-notifier admins add @user` — Add an admin _(admin)_\n" +
