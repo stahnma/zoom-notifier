@@ -39,7 +39,7 @@ A separate deploy workflow builds linux-amd64, deploys via SCP, and restarts the
 
 ## Architecture
 
-Multi-tenant Go service that receives Zoom webhook events and dispatches notifications to Slack and/or IRC. Includes a native Slack app with Socket Mode bot and slash commands, and a spec-first REST API.
+Multi-tenant Go service that receives Zoom webhook events and dispatches notifications to Slack and/or IRC. Includes a native Slack app with HTTP slash commands (verified via signing secret), OAuth install flow, and a spec-first REST API. A web-based setup wizard launches automatically when no configuration exists.
 
 ```
 cmd/zoom-notifier/main.go    # Entry point: config, wiring, startup, graceful shutdown
@@ -48,7 +48,8 @@ internal/
   store/                      # Store interface (types.go, store.go)
     sqlite/                   # SQLite implementation with golang-migrate migrations
   zoom/                       # Webhook handler, CRC validation, Zoom REST API client
-  slack/                      # Slack sender, OAuth install flow, Socket Mode bot, slash commands
+  setup/                      # Web-based setup wizard (embedded templates, config writer)
+  slack/                      # Slack sender, OAuth install flow, HTTP slash commands
   irc/                        # IRC relay (notification sink, connect-per-message)
   notify/                     # Notification dispatcher (fan-out to Slack/IRC per subscription)
   api/                        # Generated Chi server (oapi-codegen), auth middleware, server impl
@@ -58,7 +59,7 @@ api/
 
 **Flow:** Zoom POST → webhook handler → tenant resolution → meeting state → dispatcher → matching subscriptions → Slack/IRC backends
 
-**Slack App Flow:** Socket Mode WebSocket → slash command router → store operations → ephemeral responses
+**Slack App Flow:** HTTP POST /slack/commands → signing secret verification → slash command router → store operations → JSON response
 
 **API Flow:** HTTP request → Chi router → oapi-codegen strict handler → auth middleware (AdminKey/TenantKey scopes) → server methods → store
 
@@ -80,9 +81,9 @@ All configuration via TOML config file and/or environment variables:
 | `server.host` | - | HTTP listen host | localhost |
 | `database.path` | - | SQLite database path | ./zoom-notifier.db |
 | `zoom.webhook_secret` | `ZOOM_SECRET` | Zoom CRC validation token | (required) |
-| `slack.client_id` | `SLACK_CLIENT_ID` | Slack app client ID | - |
-| `slack.client_secret` | `SLACK_CLIENT_SECRET` | Slack app client secret | - |
-| `slack.app_token` | `SLACK_APP_TOKEN` | Slack Socket Mode app token | - |
+| `slack.client_id` | `SLACK_CLIENT_ID` | Slack app client ID | (required) |
+| `slack.client_secret` | `SLACK_CLIENT_SECRET` | Slack app client secret | (required) |
+| `slack.signing_secret` | `SLACK_SIGNING_SECRET` | Slack request signing secret | (required) |
 | `admin.api_key` | `ZOOMNOTIFIER_ADMIN_KEY` | Admin API key for tenant management | (required) |
 | `log.level` | - | Log level (debug/info/warn/error) | info |
 

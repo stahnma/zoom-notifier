@@ -5,7 +5,7 @@ Multi-tenant service that receives Zoom webhook events and dispatches notificati
 ## Features
 
 - **Multi-tenant**: Supports multiple Slack workspaces and IRC configurations
-- **Slack App**: OAuth install flow, Socket Mode bot with slash commands
+- **Slack App**: OAuth install flow, HTTP slash commands with signing secret verification
 - **IRC Relay**: Per-tenant IRC notification support with TLS
 - **REST API**: Full CRUD API for managing tenants, subscriptions, filters, and credentials
 - **Meeting State**: Tracks active meetings and participants in SQLite
@@ -22,9 +22,29 @@ make build
 
 Requires Go 1.25+. No C compiler needed (pure Go SQLite).
 
-### Configure
+### Configure (Setup Wizard)
 
-Create a config file (see `config.dev.toml` for example):
+Just run the binary with no config file — a web-based setup wizard launches automatically:
+
+```bash
+./zoom-notifier
+# => No configuration found. Setup wizard available at http://localhost:8888/setup
+```
+
+The wizard walks you through:
+1. Setting your server's public URL
+2. Generating an admin API key
+3. Configuring your Zoom webhook secret
+4. Creating a Slack app (via pre-built manifest link) and entering credentials
+5. Optional advanced settings (host, port, database path, log level)
+
+On completion it writes a `config.toml` file. Restart to apply.
+
+For headless servers without a local browser, use `--setup-listen 0.0.0.0:8888` to expose the wizard on all interfaces.
+
+### Configure (Manual)
+
+Advanced users can skip the wizard and create a config file directly (see `config.dev.toml` for example):
 
 ```toml
 [server]
@@ -35,13 +55,15 @@ host = "0.0.0.0"
 path = "./zoom-notifier.db"
 
 [zoom]
-# Set via ZOOM_SECRET env var
+webhook_secret = "your-zoom-webhook-secret"  # or set ZOOM_SECRET env var
 
 [slack]
-# Set via SLACK_CLIENT_ID, SLACK_CLIENT_SECRET, SLACK_APP_TOKEN env vars
+client_id = "your-slack-client-id"            # or SLACK_CLIENT_ID
+client_secret = "your-slack-client-secret"    # or SLACK_CLIENT_SECRET
+signing_secret = "your-slack-signing-secret"  # or SLACK_SIGNING_SECRET
 
 [admin]
-# Set via ZOOMNOTIFIER_ADMIN_KEY env var
+api_key = "your-admin-key"                    # or ZOOMNOTIFIER_ADMIN_KEY
 
 [log]
 level = "info"
@@ -50,15 +72,7 @@ level = "info"
 ### Run
 
 ```bash
-# Set required env vars
-export ZOOM_SECRET=your-zoom-webhook-secret
-export ZOOMNOTIFIER_ADMIN_KEY=your-admin-key
-
-# Run with config file
 ./zoom-notifier --config config.toml
-
-# Or just run with defaults + env vars
-./zoom-notifier
 ```
 
 ### Flags
@@ -66,6 +80,7 @@ export ZOOMNOTIFIER_ADMIN_KEY=your-admin-key
 - `--version` — Show version information
 - `--config <path>` — Path to TOML config file
 - `--migrate` — Run database migrations and exit
+- `--setup-listen <host:port>` — Listen address for setup wizard (default: `localhost:8888`)
 
 ## Setup
 
@@ -101,12 +116,13 @@ Point your Zoom app's webhook URL to `http://your-host:8888/webhook/zoom`.
 
 ## Slack App Setup
 
-1. Create a Slack app at https://api.slack.com/apps
-2. Enable Socket Mode and get an App-Level Token
-3. Add the `/zoom-notifier` slash command
-4. Set OAuth scopes: `commands`, `chat:write`, `channels:read`
-5. Set the OAuth redirect URL to `http://your-host:8888/slack/callback`
-6. Configure the env vars: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_APP_TOKEN`
+The setup wizard automates most of this by providing a "Create Slack App" button with a pre-built manifest. If setting up manually:
+
+1. Create a Slack app at https://api.slack.com/apps using the app manifest (or manually)
+2. Add the `/zoom-notifier` slash command with request URL `http://your-host:8888/slack/commands`
+3. Set OAuth scopes: `commands`, `chat:write`, `channels:read`
+4. Set the OAuth redirect URL to `http://your-host:8888/slack/callback`
+5. Configure: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`
 
 ### Slash Commands
 
