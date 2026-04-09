@@ -78,6 +78,17 @@ func (s *SQLiteStore) ListTenants(ctx context.Context) ([]*store.Tenant, error) 
 	return tenants, rows.Err()
 }
 
+func (s *SQLiteStore) UpdateTenant(ctx context.Context, t *store.Tenant) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE tenants SET team_name = ?, bot_token = ? WHERE id = ?`,
+		t.TeamName, t.BotToken, t.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("update tenant: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLiteStore) DeleteTenant(ctx context.Context, id string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM tenants WHERE id = ?`, id)
 	if err != nil {

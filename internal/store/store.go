@@ -12,6 +12,7 @@ type Store interface {
 	GetTenantByZoomAccount(ctx context.Context, zoomAccountID string) ([]*Tenant, error)
 	ListTenants(ctx context.Context) ([]*Tenant, error)
 	DeleteTenant(ctx context.Context, id string) error
+	UpdateTenant(ctx context.Context, t *Tenant) error
 	UpdateTenantAPIKey(ctx context.Context, id string, newKey string) error
 
 	// Tenant Admins
