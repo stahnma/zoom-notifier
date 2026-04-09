@@ -12,6 +12,9 @@ type SetupData struct {
 	ServerURL          string
 	AdminAPIKey        string
 	ZoomSecret         string
+	ZoomAccountID      string
+	ZoomClientID       string
+	ZoomClientSecret   string
 	SlackClientID      string
 	SlackClientSecret  string
 	SlackSigningSecret string
@@ -34,12 +37,18 @@ var tomlFuncs = template.FuncMap{"toml": tomlEscape}
 const configTemplate = `[server]
 port = {{.ServerPort}}
 host = "{{.ServerHost | toml}}"
+url = "{{.ServerURL | toml}}"
 
 [database]
 path = "{{.DatabasePath | toml}}"
 
 [zoom]
 webhook_secret = "{{.ZoomSecret | toml}}"
+{{- if .ZoomAccountID}}
+account_id = "{{.ZoomAccountID | toml}}"
+client_id = "{{.ZoomClientID | toml}}"
+client_secret = "{{.ZoomClientSecret | toml}}"
+{{- end}}
 
 [slack]
 client_id = "{{.SlackClientID | toml}}"

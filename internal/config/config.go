@@ -18,6 +18,7 @@ type Config struct {
 type ServerConfig struct {
 	Port int
 	Host string
+	URL  string
 }
 
 type DatabaseConfig struct {
@@ -27,6 +28,9 @@ type DatabaseConfig struct {
 
 type ZoomConfig struct {
 	WebhookSecret string
+	AccountID     string
+	ClientID      string
+	ClientSecret  string
 }
 
 type SlackConfig struct {
@@ -82,9 +86,13 @@ func Load(configPath string) (*Config, error) {
 	cfg := &Config{}
 	cfg.Server.Port = v.GetInt("server.port")
 	cfg.Server.Host = v.GetString("server.host")
+	cfg.Server.URL = v.GetString("server.url")
 	cfg.Database.Path = v.GetString("database.path")
 	cfg.Database.EncryptionKey = v.GetString("database.encryption_key")
 	cfg.Zoom.WebhookSecret = v.GetString("zoom.webhook_secret")
+	cfg.Zoom.AccountID = v.GetString("zoom.account_id")
+	cfg.Zoom.ClientID = v.GetString("zoom.client_id")
+	cfg.Zoom.ClientSecret = v.GetString("zoom.client_secret")
 	cfg.Slack.ClientID = v.GetString("slack.client_id")
 	cfg.Slack.ClientSecret = v.GetString("slack.client_secret")
 	cfg.Slack.SigningSecret = v.GetString("slack.signing_secret")
