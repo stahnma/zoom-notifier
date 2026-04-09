@@ -1,7 +1,40 @@
 {{template "layout" .}}
 {{define "content"}}
 <h2>Zoom Configuration</h2>
-<p>Configure the Zoom webhook integration. You'll need a webhook secret from your Zoom app.</p>
+<p>Connect zoom-notifier to your Zoom account so it can receive meeting events (started, ended, participant joined/left).</p>
+
+<div class="info-box">
+    <strong>Which Zoom app type do I need?</strong>
+    <p>You need a <strong>Webhook Only</strong> app. This is the simplest app type &mdash; it just sends event notifications to your server. You do <em>not</em> need a General App or a Server-to-Server OAuth app for basic notifications.</p>
+    <p class="help-text">A Server-to-Server OAuth app is only needed if you want meeting links with passcodes in notifications. You can add that later in Advanced settings.</p>
+</div>
+
+<details>
+    <summary>Step-by-step: Create a Webhook Only app in Zoom</summary>
+    <ol>
+        <li>Go to the <a href="https://marketplace.zoom.us/user/build" target="_blank" rel="noopener">Zoom App Marketplace &mdash; Build App</a> page and sign in with your Zoom account.</li>
+        <li>Choose <strong>Webhook Only</strong> as the app type and give it a name (e.g. "zoom-notifier").</li>
+        <li>Fill out the required basic information fields (company name, developer contact) and click <strong>Continue</strong>.</li>
+        <li>On the <strong>Feature</strong> page, toggle <strong>Event Subscriptions</strong> to on.</li>
+        <li>Click <strong>+ Add Event Subscription</strong>, then:
+            <ul>
+                <li>Set the <strong>Event Notification Endpoint URL</strong> to the webhook URL shown below.</li>
+                <li>Click <strong>+ Add Events</strong> and select these under <strong>Meeting</strong>:
+                    <ul>
+                        <li>Start Meeting</li>
+                        <li>End Meeting</li>
+                        <li>Participant/Host Joined the Meeting</li>
+                        <li>Participant/Host Left the Meeting</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li>Copy the <strong>Secret Token</strong> from the Feature page and paste it below.</li>
+        <li>Click <strong>Save Secret</strong> below so the wizard can respond to Zoom's validation challenge.</li>
+        <li>Back in Zoom, click <strong>Validate</strong> to verify the endpoint. It should succeed now.</li>
+        <li>Click <strong>Save</strong> in Zoom, then come back here and click <strong>Next</strong>.</li>
+    </ol>
+</details>
 
 <div class="info-box">
     <strong>Your webhook endpoint:</strong>
@@ -9,27 +42,48 @@
         <code id="webhook-url">{{.Data.ServerURL}}/webhook/zoom</code>
         <button type="button" class="btn btn-small" onclick="copyToClipboard(document.getElementById('webhook-url').textContent)">Copy</button>
     </div>
-    <p class="help-text">Use this URL as the Event Notification Endpoint in your Zoom app settings.</p>
+    <p class="help-text">Paste this URL into the Event Notification Endpoint field in your Zoom app.</p>
 </div>
 
 <form method="POST" action="/setup/zoom">
     <div class="form-group">
         <label for="zoom_secret">Webhook Secret Token</label>
-        <input type="text" id="zoom_secret" name="zoom_secret" value="{{.Data.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" required>
+        <input type="text" id="zoom_secret" name="zoom_secret" value="{{.Data.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" autocomplete="off" required>
         <details>
-            <summary>Where do I find this?</summary>
-            <ol>
-                <li>Go to the <a href="https://marketplace.zoom.us/" target="_blank" rel="noopener">Zoom App Marketplace</a> and sign in.</li>
-                <li>Navigate to <strong>Develop</strong> &rarr; <strong>Build App</strong>.</li>
-                <li>Select or create a <strong>Webhook Only</strong> app.</li>
-                <li>Under <strong>Feature</strong>, find the <strong>Secret Token</strong> field.</li>
-                <li>Copy the token and paste it here.</li>
-            </ol>
+            <summary>Where is the Secret Token?</summary>
+            <p>In your Zoom Webhook Only app, go to the <strong>Feature</strong> page. The <strong>Secret Token</strong> is displayed near the top, above the Event Subscriptions section. This token is used to validate that webhook requests are genuinely from Zoom.</p>
         </details>
+    </div>
+    <div class="form-group">
+        <button type="button" id="save-secret-btn" class="btn btn-secondary" onclick="saveZoomSecret()">Save Secret</button>
+        <span id="save-secret-status" class="help-text"></span>
+        <p class="help-text">Save the secret first so Zoom's <strong>Validate</strong> button will work. Then click <strong>Next</strong> to continue.</p>
     </div>
     <div class="form-actions">
         <a href="/setup" class="btn btn-secondary">Back</a>
         <button type="submit" class="btn btn-primary">Next</button>
     </div>
 </form>
+<script>
+function saveZoomSecret() {
+    var secret = document.getElementById('zoom_secret').value.trim();
+    if (!secret) {
+        document.getElementById('save-secret-status').textContent = 'Please enter the secret token first.';
+        return;
+    }
+    fetch('/setup/api/save-zoom-secret', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({secret: secret})
+    }).then(function(resp) {
+        if (resp.ok) {
+            document.getElementById('save-secret-status').textContent = 'Saved! You can now validate in Zoom.';
+        } else {
+            document.getElementById('save-secret-status').textContent = 'Failed to save. Please try again.';
+        }
+    }).catch(function() {
+        document.getElementById('save-secret-status').textContent = 'Network error. Please try again.';
+    });
+}
+</script>
 {{end}}

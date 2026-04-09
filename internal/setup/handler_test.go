@@ -103,19 +103,7 @@ func TestSetupFullFlow(t *testing.T) {
 		t.Fatalf("POST /setup/server-url: expected 200, got %d", resp.StatusCode)
 	}
 
-	// Step 3: POST /setup/admin-key
-	resp, err = client.PostForm(srv.URL+"/setup/admin-key", url.Values{
-		"admin_api_key": {"test-admin-key-12345"},
-	})
-	if err != nil {
-		t.Fatalf("POST /setup/admin-key failed: %v", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("POST /setup/admin-key: expected 200, got %d", resp.StatusCode)
-	}
-
-	// Step 4: POST /setup/zoom
+	// Step 3: POST /setup/zoom
 	resp, err = client.PostForm(srv.URL+"/setup/zoom", url.Values{
 		"zoom_secret": {"zoom-secret-token"},
 	})
@@ -127,7 +115,7 @@ func TestSetupFullFlow(t *testing.T) {
 		t.Fatalf("POST /setup/zoom: expected 200, got %d", resp.StatusCode)
 	}
 
-	// Step 5: POST /setup/slack
+	// Step 4: POST /setup/slack
 	resp, err = client.PostForm(srv.URL+"/setup/slack", url.Values{
 		"slack_client_id":      {"slack-client-id"},
 		"slack_client_secret":  {"slack-client-secret"},
@@ -141,12 +129,13 @@ func TestSetupFullFlow(t *testing.T) {
 		t.Fatalf("POST /setup/slack: expected 200, got %d", resp.StatusCode)
 	}
 
-	// Step 6: POST /setup/advanced
+	// Step 5: POST /setup/advanced (includes optional admin API key override)
 	resp, err = client.PostForm(srv.URL+"/setup/advanced", url.Values{
 		"server_host":   {"0.0.0.0"},
 		"server_port":   {"9999"},
 		"database_path": {"./test.db"},
 		"log_level":     {"debug"},
+		"admin_api_key": {"test-admin-key-12345"},
 	})
 	if err != nil {
 		t.Fatalf("POST /setup/advanced failed: %v", err)
@@ -156,7 +145,7 @@ func TestSetupFullFlow(t *testing.T) {
 		t.Fatalf("POST /setup/advanced: expected 200, got %d", resp.StatusCode)
 	}
 
-	// Step 7: POST /setup/save
+	// Step 6: POST /setup/save
 	resp, err = client.PostForm(srv.URL+"/setup/save", url.Values{})
 	if err != nil {
 		t.Fatalf("POST /setup/save failed: %v", err)
