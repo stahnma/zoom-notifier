@@ -129,23 +129,16 @@ func main() {
 		log.Info("Slack OAuth routes enabled")
 	}
 
+	// Slack slash commands via HTTP
+	if cfg.Slack.SigningSecret != "" {
+		cmdHandler := appslack.NewCommandHandler(store)
+		httpCmdHandler := appslack.NewHTTPCommandHandler(cmdHandler, cfg.Slack.SigningSecret)
+		r.Post("/slack/commands", httpCmdHandler.ServeHTTP)
+		log.Info("Slack slash command HTTP endpoint enabled")
+	}
+
 	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
 	r.Mount("/", apiRouter)
-
-	// Start Slack Socket Mode bot if configured
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	if cfg.Slack.AppToken != "" {
-		cmdHandler := appslack.NewCommandHandler(store)
-		bot := appslack.NewBot(cfg.Slack.AppToken, "", cmdHandler)
-		go func() {
-			if err := bot.Start(ctx); err != nil {
-				log.WithError(err).Error("Slack bot stopped")
-			}
-		}()
-		log.Info("Slack Socket Mode bot starting")
-	}
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
@@ -161,7 +154,6 @@ func main() {
 		<-sigCh
 
 		log.Info("shutting down...")
-		cancel()
 
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer shutdownCancel()

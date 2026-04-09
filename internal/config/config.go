@@ -32,7 +32,6 @@ type ZoomConfig struct {
 type SlackConfig struct {
 	ClientID      string
 	ClientSecret  string
-	AppToken      string
 	SigningSecret string
 }
 
@@ -60,7 +59,6 @@ func Load(configPath string) (*Config, error) {
 	v.BindEnv("database.encryption_key", "ZOOMNOTIFIER_DB_KEY")
 	v.BindEnv("slack.client_id", "SLACK_CLIENT_ID")
 	v.BindEnv("slack.client_secret", "SLACK_CLIENT_SECRET")
-	v.BindEnv("slack.app_token", "SLACK_APP_TOKEN")
 	v.BindEnv("slack.signing_secret", "SLACK_SIGNING_SECRET")
 	v.BindEnv("admin.api_key", "ZOOMNOTIFIER_ADMIN_KEY")
 
@@ -89,7 +87,6 @@ func Load(configPath string) (*Config, error) {
 	cfg.Zoom.WebhookSecret = v.GetString("zoom.webhook_secret")
 	cfg.Slack.ClientID = v.GetString("slack.client_id")
 	cfg.Slack.ClientSecret = v.GetString("slack.client_secret")
-	cfg.Slack.AppToken = v.GetString("slack.app_token")
 	cfg.Slack.SigningSecret = v.GetString("slack.signing_secret")
 	cfg.Admin.APIKey = v.GetString("admin.api_key")
 	cfg.Log.Level = v.GetString("log.level")
