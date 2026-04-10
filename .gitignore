@@ -7,4 +7,4 @@ coverage.out
 .DS_Store
 creds
 config.toml
-zoom-notifier.db
+zoom-notifier.db*
