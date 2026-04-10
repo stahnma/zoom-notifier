@@ -240,12 +240,12 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 			return nil, fmt.Errorf("get participants: %w", err)
 		}
 		if len(participants) == 0 {
-			sb.WriteString(fmt.Sprintf("No active participants in *%s*.\n", m.Topic))
+			fmt.Fprintf(&sb, "No active participants in *%s*.\n", m.Topic)
 			continue
 		}
-		sb.WriteString(fmt.Sprintf("*Participants in %s (%d):*\n", m.Topic, len(participants)))
+		fmt.Fprintf(&sb, "*Participants in %s (%d):*\n", m.Topic, len(participants))
 		for _, p := range participants {
-			sb.WriteString(fmt.Sprintf("• %s\n", p.UserName))
+			fmt.Fprintf(&sb, "• %s\n", p.UserName)
 		}
 	}
 	return ephemeral(sb.String()), nil
