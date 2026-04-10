@@ -112,8 +112,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	for _, sub := range subs {
 		displaySuffix := suffix
 		if meetingLink != "" {
+			linkText := suffix
+			if linkText == "" {
+				linkText = "the Zoom meeting"
+			}
 			// Slack format: <url|text> makes the suffix a clickable link
-			displaySuffix = "<" + meetingLink + "|" + suffix + ">"
+			displaySuffix = "<" + meetingLink + "|" + linkText + ">"
 		}
 		subMsg := formatMessageWithSuffix(payload, displaySuffix)
 
