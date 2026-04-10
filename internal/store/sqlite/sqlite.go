@@ -8,6 +8,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	migsqlite "github.com/golang-migrate/migrate/v4/database/sqlite"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
+	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/zoom-notifier/internal/store"
 	_ "modernc.org/sqlite"
 )
@@ -60,4 +61,12 @@ func (s *SQLiteStore) Migrate() error {
 
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()
+}
+
+// closeRows closes a sql.Rows and logs if the close fails, which can indicate
+// a leaked database connection.
+func closeRows(rows *sql.Rows) {
+	if err := rows.Close(); err != nil {
+		log.WithError(err).Warn("failed to close database rows")
+	}
 }

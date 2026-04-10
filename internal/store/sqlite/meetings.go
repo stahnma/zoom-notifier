@@ -50,7 +50,7 @@ func (s *SQLiteStore) ListActiveMeetings(ctx context.Context, tenantID string) (
 	if err != nil {
 		return nil, fmt.Errorf("list active meetings: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer closeRows(rows)
 
 	var meetings []*store.ActiveMeeting
 	for rows.Next() {
@@ -109,7 +109,7 @@ func (s *SQLiteStore) GetActiveParticipants(ctx context.Context, meetingID strin
 	if err != nil {
 		return nil, fmt.Errorf("get active participants: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer closeRows(rows)
 
 	var participants []*store.Participant
 	for rows.Next() {

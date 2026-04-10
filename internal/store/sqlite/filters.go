@@ -50,7 +50,7 @@ func (s *SQLiteStore) ListFilters(ctx context.Context, tenantID string) ([]*stor
 	if err != nil {
 		return nil, fmt.Errorf("list filters: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer closeRows(rows)
 
 	var filters []*store.MeetingFilter
 	for rows.Next() {

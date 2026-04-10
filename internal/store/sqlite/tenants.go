@@ -44,7 +44,7 @@ func (s *SQLiteStore) GetTenantByZoomAccount(ctx context.Context, zoomAccountID 
 	if err != nil {
 		return nil, fmt.Errorf("get tenants by zoom account: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer closeRows(rows)
 
 	var tenants []*store.Tenant
 	for rows.Next() {
@@ -65,7 +65,7 @@ func (s *SQLiteStore) ListTenants(ctx context.Context) ([]*store.Tenant, error) 
 	if err != nil {
 		return nil, fmt.Errorf("list tenants: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer closeRows(rows)
 
 	var tenants []*store.Tenant
 	for rows.Next() {

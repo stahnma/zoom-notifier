@@ -36,7 +36,7 @@ func (s *SQLiteStore) ListAdmins(ctx context.Context, tenantID string) ([]*store
 	if err != nil {
 		return nil, fmt.Errorf("list admins: %w", err)
 	}
-	defer func() { _ = rows.Close() }()
+	defer closeRows(rows)
 
 	var admins []*store.TenantAdmin
 	for rows.Next() {
