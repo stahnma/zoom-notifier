@@ -637,3 +637,55 @@ func TestCommandSettingsEmpty(t *testing.T) {
 		t.Errorf("expected (none) for empty suffix, got: %s", resp.Text)
 	}
 }
+
+func TestCommandSetup(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	h.SetServerURL("https://example.com")
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "setup",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "Open Zoom Setup") {
+		t.Errorf("expected setup link in response, got: %s", resp.Text)
+	}
+	if !strings.Contains(resp.Text, "https://example.com/tenant/setup?key=test-api-key") {
+		t.Errorf("expected full setup URL, got: %s", resp.Text)
+	}
+	if !strings.Contains(resp.Text, "Keep this link private") {
+		t.Errorf("expected privacy warning, got: %s", resp.Text)
+	}
+}
+
+func TestCommandSetupNoServerURL(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "setup",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "/tenant/setup?key=test-api-key") {
+		t.Errorf("expected setup URL with path fallback, got: %s", resp.Text)
+	}
+}
+
+func TestCommandSetupNonAdmin(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-NOBODY", Text: "setup",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "Permission denied") {
+		t.Errorf("expected permission denied, got: %s", resp.Text)
+	}
+}

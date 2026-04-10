@@ -72,8 +72,9 @@ func formatChannel(target string) string {
 
 // CommandHandler routes slash commands to their implementations.
 type CommandHandler struct {
-	store  store.Store
-	modals ModalOpener
+	store     store.Store
+	modals    ModalOpener
+	serverURL string
 }
 
 func NewCommandHandler(s store.Store) *CommandHandler {
@@ -84,6 +85,11 @@ func NewCommandHandler(s store.Store) *CommandHandler {
 // If nil, commands fall back to text-based parsing.
 func (h *CommandHandler) SetModalOpener(m ModalOpener) {
 	h.modals = m
+}
+
+// SetServerURL sets the base URL used to build setup links.
+func (h *CommandHandler) SetServerURL(url string) {
+	h.serverURL = url
 }
 
 // Handle routes a slash command to the appropriate handler.
@@ -453,13 +459,16 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 }
 
 func (h *CommandHandler) setup(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
-	return ephemeral("To configure Zoom credentials, use the REST API:\n" +
-		"```\n" +
-		"curl -X PUT /api/v1/tenants/" + cmd.TeamID + "/zoom \\\n" +
-		"  -H 'Authorization: Bearer <api-key>' \\\n" +
-		"  -d '{\"client_id\": \"...\", \"client_secret\": \"...\", \"account_id\": \"...\"}'\n" +
-		"```\n" +
-		"You can get your API key with `/zoom-notifier api-key`."), nil
+	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+	if err != nil || tenant == nil {
+		return ephemeral("Tenant not found. Has the app been installed?"), nil
+	}
+	setupURL := h.serverURL + "/tenant/setup?key=" + tenant.APIKey
+	return ephemeral(fmt.Sprintf(
+		"Configure Zoom credentials for this workspace:\n<%s|Open Zoom Setup>\n\n"+
+			"Keep this link private — it contains your API key.",
+		setupURL,
+	)), nil
 }
 
 // parseQuotedArgs splits args respecting quoted strings.
