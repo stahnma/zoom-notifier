@@ -891,18 +891,20 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 			"admin_id": userID,
 		}).Info("added admin via command")
 
-		// Notify the new admin via DM
-		botToken := h.getBotToken(ctx, cmd.TeamID)
-		if botToken != "" {
-			api := slackapi.New(botToken)
-			msg := fmt.Sprintf("<@%s> added you as a zoom-notifier admin. Run `/zoom-notifier help` to see available commands.", cmd.UserID)
-			channel, _, _, err := api.OpenConversationContext(ctx, &slackapi.OpenConversationParameters{Users: []string{userID}})
-			if err != nil {
-				log.WithError(err).WithField("user_id", userID).Warn("failed to open DM conversation for admin notification")
-			} else {
-				_, _, err = api.PostMessageContext(ctx, channel.ID, slackapi.MsgOptionText(msg, false))
+		// Notify the new admin via DM (only if we have a real Slack user ID)
+		if strings.HasPrefix(userID, "U") {
+			botToken := h.getBotToken(ctx, cmd.TeamID)
+			if botToken != "" {
+				api := slackapi.New(botToken)
+				msg := fmt.Sprintf("<@%s> added you as a zoom-notifier admin. Run `/zoom-notifier help` to see available commands.", cmd.UserID)
+				channel, _, _, err := api.OpenConversationContext(ctx, &slackapi.OpenConversationParameters{Users: []string{userID}})
 				if err != nil {
-					log.WithError(err).WithField("user_id", userID).Warn("failed to send admin notification DM")
+					log.WithError(err).WithField("user_id", userID).Warn("failed to open DM conversation for admin notification")
+				} else {
+					_, _, err = api.PostMessageContext(ctx, channel.ID, slackapi.MsgOptionText(msg, false))
+					if err != nil {
+						log.WithError(err).WithField("user_id", userID).Warn("failed to send admin notification DM")
+					}
 				}
 			}
 		}
