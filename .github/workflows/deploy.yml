@@ -28,7 +28,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: [build-and-test]
-    if: github.ref == 'refs/heads/main'
+    if: false # disabled until deployment target is ready
     steps:
       - uses: actions/checkout@v6
         with:
