@@ -35,6 +35,12 @@ func (h *CommandHandler) postConfirmation(ctx context.Context, teamID, channelID
 	_, err := api.PostEphemeralContext(ctx, channelID, userID, slackapi.MsgOptionText(text, false))
 	if err != nil {
 		log.WithError(err).Debug("failed to send modal confirmation")
+	} else {
+		log.WithFields(log.Fields{
+			"team_id":    teamID,
+			"channel_id": channelID,
+			"user_id":    userID,
+		}).Debug("sent modal confirmation")
 	}
 }
 
@@ -82,6 +88,10 @@ func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) e
 		if err := h.store.UpdateTenantDefaults(ctx, teamID, suffixValue, tenant.DefaultIncludeLink); err != nil {
 			return err
 		}
+		log.WithFields(log.Fields{
+			"team_id": teamID,
+			"suffix":  suffixValue,
+		}).Info("updated tenant default message suffix via modal")
 		h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Updated default message suffix to `%s`.", suffixValue))
 		return nil
 	}
@@ -97,6 +107,11 @@ func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) e
 	if err := h.store.UpdateFilter(ctx, filter); err != nil {
 		return err
 	}
+	log.WithFields(log.Fields{
+		"team_id": teamID,
+		"filter":  filter.Pattern,
+		"suffix":  suffixValue,
+	}).Info("updated filter suffix override via modal")
 	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Updated suffix on filter `%s` to `%s`.", filter.Pattern, suffixValue))
 	return nil
 }
@@ -142,6 +157,10 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 		if err := h.store.UpdateTenantDefaults(ctx, teamID, tenant.DefaultMsgSuffix, includeLink); err != nil {
 			return err
 		}
+		log.WithFields(log.Fields{
+			"team_id":      teamID,
+			"include_link": state,
+		}).Info("updated tenant default meeting link setting via modal")
 		h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s (default).", state))
 		return nil
 	}
@@ -157,6 +176,11 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 	if err := h.store.UpdateFilter(ctx, filter); err != nil {
 		return err
 	}
+	log.WithFields(log.Fields{
+		"team_id":      teamID,
+		"filter":       filter.Pattern,
+		"include_link": state,
+	}).Info("updated filter link override via modal")
 	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s on filter `%s`.", state, filter.Pattern))
 	return nil
 }
@@ -232,6 +256,11 @@ func (h *CommandHandler) handleUnsubscribeSubmission(payload InteractionPayload)
 		return fmt.Errorf("no channel selected")
 	}
 
+	log.WithFields(log.Fields{
+		"team_id": teamID,
+		"channel": selectedChannel,
+	}).Debug("unsubscribe modal submission")
+
 	subs, err := h.store.ListSubscriptions(ctx, teamID)
 	if err != nil {
 		return fmt.Errorf("list subscriptions: %w", err)
@@ -242,6 +271,10 @@ func (h *CommandHandler) handleUnsubscribeSubmission(payload InteractionPayload)
 			if err := h.store.DeleteSubscription(ctx, sub.ID); err != nil {
 				return fmt.Errorf("delete subscription: %w", err)
 			}
+			log.WithFields(log.Fields{
+				"team_id": teamID,
+				"channel": selectedChannel,
+			}).Info("unsubscribed channel via modal")
 			h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Unsubscribed <#%s> from meeting notifications.", selectedChannel))
 			return nil
 		}
@@ -301,6 +334,12 @@ func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) e
 	if err := h.store.CreateFilter(ctx, f); err != nil {
 		return err
 	}
+	log.WithFields(log.Fields{
+		"team_id":      teamID,
+		"pattern":      pattern,
+		"has_suffix":   f.MsgSuffix != nil,
+		"has_link_ovr": f.IncludeLink != nil,
+	}).Info("created meeting filter via modal")
 	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Added meeting filter `%s`.", pattern))
 	return nil
 }

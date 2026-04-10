@@ -87,6 +87,11 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.WithFields(log.Fields{
+		"response_type": resp.ResponseType,
+		"text_length":   len(resp.Text),
+	}).Debug("sending slash command response")
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{
 		"response_type": resp.ResponseType,

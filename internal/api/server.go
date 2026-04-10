@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/zoom"
 )
@@ -63,10 +64,12 @@ func (s *Server) GetHealthz(ctx context.Context, request GetHealthzRequestObject
 // --- Tenants ---
 
 func (s *Server) ListTenants(ctx context.Context, request ListTenantsRequestObject) (ListTenantsResponseObject, error) {
+	log.Debug("listing tenants")
 	tenants, err := s.store.ListTenants(ctx)
 	if err != nil {
 		return nil, err
 	}
+	log.WithField("count", len(tenants)).Debug("listed tenants")
 	result := make(ListTenants200JSONResponse, 0, len(tenants))
 	for _, t := range tenants {
 		result = append(result, toAPITenant(t))
@@ -101,6 +104,7 @@ func (s *Server) CreateTenant(ctx context.Context, request CreateTenantRequestOb
 		return nil, err
 	}
 
+	log.WithField("tenant_id", id).Info("tenant created via API")
 	return CreateTenant201JSONResponse{
 		Id:     id,
 		ApiKey: apiKey,
@@ -108,6 +112,7 @@ func (s *Server) CreateTenant(ctx context.Context, request CreateTenantRequestOb
 }
 
 func (s *Server) GetTenant(ctx context.Context, request GetTenantRequestObject) (GetTenantResponseObject, error) {
+	log.WithField("tenant_id", request.TenantId).Debug("getting tenant")
 	tenant, err := s.store.GetTenant(ctx, request.TenantId)
 	if err != nil {
 		return nil, err
@@ -119,6 +124,7 @@ func (s *Server) GetTenant(ctx context.Context, request GetTenantRequestObject) 
 }
 
 func (s *Server) DeleteTenant(ctx context.Context, request DeleteTenantRequestObject) (DeleteTenantResponseObject, error) {
+	log.WithField("tenant_id", request.TenantId).Debug("deleting tenant")
 	tenant, err := s.store.GetTenant(ctx, request.TenantId)
 	if err != nil {
 		return nil, err
@@ -135,6 +141,7 @@ func (s *Server) DeleteTenant(ctx context.Context, request DeleteTenantRequestOb
 // --- Tenant Defaults ---
 
 func (s *Server) PutTenantDefaults(ctx context.Context, request PutTenantDefaultsRequestObject) (PutTenantDefaultsResponseObject, error) {
+	log.WithField("tenant_id", request.TenantId).Info("updating tenant defaults via API")
 	tenant, err := s.store.GetTenant(ctx, request.TenantId)
 	if err != nil {
 		return nil, err
@@ -198,6 +205,7 @@ func (s *Server) RemoveAdmin(ctx context.Context, request RemoveAdminRequestObje
 // --- Subscriptions ---
 
 func (s *Server) ListSubscriptions(ctx context.Context, request ListSubscriptionsRequestObject) (ListSubscriptionsResponseObject, error) {
+	log.WithField("tenant_id", request.TenantId).Debug("listing subscriptions")
 	subs, err := s.store.ListSubscriptions(ctx, request.TenantId)
 	if err != nil {
 		return nil, err
@@ -223,10 +231,16 @@ func (s *Server) CreateSubscription(ctx context.Context, request CreateSubscript
 		return nil, err
 	}
 
+	log.WithFields(log.Fields{
+		"tenant_id": request.TenantId,
+		"type":      sub.Type,
+		"target":    sub.Target,
+	}).Info("subscription created via API")
 	return CreateSubscription201JSONResponse(toAPISubscription(sub)), nil
 }
 
 func (s *Server) UpdateSubscription(ctx context.Context, request UpdateSubscriptionRequestObject) (UpdateSubscriptionResponseObject, error) {
+	log.WithField("subscription_id", request.SubscriptionId).Info("updating subscription via API")
 	sub, err := s.store.GetSubscription(ctx, request.SubscriptionId)
 	if err != nil {
 		return nil, err
@@ -249,6 +263,7 @@ func (s *Server) UpdateSubscription(ctx context.Context, request UpdateSubscript
 }
 
 func (s *Server) DeleteSubscription(ctx context.Context, request DeleteSubscriptionRequestObject) (DeleteSubscriptionResponseObject, error) {
+	log.WithField("subscription_id", request.SubscriptionId).Info("deleting subscription via API")
 	sub, err := s.store.GetSubscription(ctx, request.SubscriptionId)
 	if err != nil {
 		return nil, err
@@ -265,6 +280,7 @@ func (s *Server) DeleteSubscription(ctx context.Context, request DeleteSubscript
 // --- Filters ---
 
 func (s *Server) ListFilters(ctx context.Context, request ListFiltersRequestObject) (ListFiltersResponseObject, error) {
+	log.WithField("tenant_id", request.TenantId).Debug("listing filters")
 	filters, err := s.store.ListFilters(ctx, request.TenantId)
 	if err != nil {
 		return nil, err
@@ -286,10 +302,18 @@ func (s *Server) CreateFilter(ctx context.Context, request CreateFilterRequestOb
 	if err := s.store.CreateFilter(ctx, f); err != nil {
 		return nil, err
 	}
+	log.WithFields(log.Fields{
+		"tenant_id": request.TenantId,
+		"pattern":   f.Pattern,
+	}).Info("filter created via API")
 	return CreateFilter201JSONResponse(toAPIFilter(f)), nil
 }
 
 func (s *Server) UpdateFilter(ctx context.Context, request UpdateFilterRequestObject) (UpdateFilterResponseObject, error) {
+	log.WithFields(log.Fields{
+		"tenant_id": request.TenantId,
+		"filter_id": request.FilterId,
+	}).Info("updating filter via API")
 	// Get existing filters to find this one
 	filters, err := s.store.ListFilters(ctx, request.TenantId)
 	if err != nil {
@@ -320,6 +344,7 @@ func (s *Server) UpdateFilter(ctx context.Context, request UpdateFilterRequestOb
 }
 
 func (s *Server) DeleteFilter(ctx context.Context, request DeleteFilterRequestObject) (DeleteFilterResponseObject, error) {
+	log.WithField("filter_id", request.FilterId).Info("deleting filter via API")
 	if err := s.store.DeleteFilter(ctx, request.FilterId); err != nil {
 		return nil, err
 	}
@@ -375,6 +400,7 @@ func (s *Server) PutIRCConfig(ctx context.Context, request PutIRCConfigRequestOb
 // --- Meetings ---
 
 func (s *Server) ListMeetings(ctx context.Context, request ListMeetingsRequestObject) (ListMeetingsResponseObject, error) {
+	log.WithField("tenant_id", request.TenantId).Debug("listing meetings")
 	meetings, err := s.store.ListActiveMeetings(ctx, request.TenantId)
 	if err != nil {
 		return nil, err
@@ -387,6 +413,7 @@ func (s *Server) ListMeetings(ctx context.Context, request ListMeetingsRequestOb
 }
 
 func (s *Server) ListParticipants(ctx context.Context, request ListParticipantsRequestObject) (ListParticipantsResponseObject, error) {
+	log.WithField("meeting_id", request.MeetingId).Debug("listing participants")
 	meeting, err := s.store.GetMeeting(ctx, request.MeetingId)
 	if err != nil {
 		return nil, err
@@ -422,6 +449,7 @@ func (s *Server) RotateAPIKey(ctx context.Context, request RotateAPIKeyRequestOb
 // --- Zoom Credentials ---
 
 func (s *Server) PutZoomCredentials(ctx context.Context, request PutZoomCredentialsRequestObject) (PutZoomCredentialsResponseObject, error) {
+	log.WithField("tenant_id", request.TenantId).Info("updating zoom credentials via API")
 	z := &store.ZoomCredentials{
 		TenantID:     request.TenantId,
 		ClientID:     request.Body.ClientId,
@@ -448,6 +476,7 @@ func (r webhookCRCResponse) VisitPostWebhookZoomResponse(w http.ResponseWriter) 
 }
 
 func (s *Server) PostWebhookZoom(ctx context.Context, request PostWebhookZoomRequestObject) (PostWebhookZoomResponseObject, error) {
+	log.Debug("received zoom webhook via API endpoint")
 	if request.Body == nil {
 		return PostWebhookZoom200Response{}, nil
 	}

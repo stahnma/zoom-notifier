@@ -29,6 +29,13 @@ func (r *Relay) Send(ctx context.Context, config *store.IRCConfig, channel strin
 		return fmt.Errorf("message is required")
 	}
 
+	log.WithFields(log.Fields{
+		"server":  config.Server,
+		"channel": channel,
+		"nick":    config.Nick,
+		"use_tls": config.UseTLS,
+	}).Debug("connecting to IRC server")
+
 	irccon := ircevent.IRC(config.Nick, config.Nick)
 	if config.UseTLS {
 		irccon.UseTLS = true
@@ -42,6 +49,7 @@ func (r *Relay) Send(ctx context.Context, config *store.IRCConfig, channel strin
 
 	err := irccon.Connect(config.Server)
 	if err != nil {
+		log.WithError(err).WithField("server", config.Server).Error("failed to connect to IRC server")
 		return fmt.Errorf("connect to IRC server %s: %w", config.Server, err)
 	}
 	defer irccon.Quit()
@@ -52,7 +60,7 @@ func (r *Relay) Send(ctx context.Context, config *store.IRCConfig, channel strin
 		"server":  config.Server,
 		"channel": channel,
 		"nick":    config.Nick,
-	}).Debug("sent IRC message")
+	}).Info("sent IRC message")
 
 	time.AfterFunc(1*time.Second, func() {
 		irccon.Quit()

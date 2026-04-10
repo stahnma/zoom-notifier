@@ -39,6 +39,8 @@ func (h *TenantSetupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.WithField("tenant_id", tenant.ID).Debug("tenant setup page accessed")
+
 	switch r.Method {
 	case http.MethodGet:
 		h.handleGet(w, r, tenant, apiKey)
@@ -109,6 +111,7 @@ func (h *TenantSetupHandler) handlePost(w http.ResponseWriter, r *http.Request, 
 	}
 
 	if accountID == "" {
+		log.WithField("tenant_id", tenant.ID).Warn("tenant setup validation failed: missing Zoom Account ID")
 		data.Error = "Zoom Account ID is required."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		h.tmpl.Execute(w, data)

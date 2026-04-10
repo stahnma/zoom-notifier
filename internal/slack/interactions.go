@@ -124,6 +124,8 @@ func (h *InteractionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	log.WithField("callback_id", payload.View.CallbackID).Debug("interaction handled successfully")
+
 	// Acknowledge — empty 200 tells Slack to close the modal
 	w.WriteHeader(http.StatusOK)
 }

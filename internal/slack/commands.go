@@ -168,6 +168,11 @@ func (h *CommandHandler) status(ctx context.Context, cmd SlashCommand) (*SlashRe
 		return nil, fmt.Errorf("list meetings: %w", err)
 	}
 
+	log.WithFields(log.Fields{
+		"team_id":         cmd.TeamID,
+		"active_meetings": len(meetings),
+	}).Debug("status command")
+
 	if len(meetings) == 0 {
 		return ephemeral("No active meetings."), nil
 	}
@@ -205,6 +210,11 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 	// Strip surrounding quotes if present (from copy-paste)
 	topic = strings.Trim(topic, "\"'\u201c\u201d")
 
+	log.WithFields(log.Fields{
+		"team_id": cmd.TeamID,
+		"search":  topic,
+	}).Debug("whois command")
+
 	var matched []*store.ActiveMeeting
 	for _, m := range meetings {
 		if strings.EqualFold(m.Topic, topic) || m.MeetingID == topic ||
@@ -212,6 +222,12 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 			matched = append(matched, m)
 		}
 	}
+
+	log.WithFields(log.Fields{
+		"team_id": cmd.TeamID,
+		"search":  topic,
+		"matched": len(matched),
+	}).Debug("whois search results")
 
 	if len(matched) == 0 {
 		return ephemeral(fmt.Sprintf("No active meeting found matching `%s`.", topic)), nil
@@ -256,6 +272,11 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 	}
 
 	target := parseChannelID(args[0])
+
+	log.WithFields(log.Fields{
+		"team_id": cmd.TeamID,
+		"channel": target,
+	}).Debug("subscribe command")
 
 	// Check for duplicate subscription
 	existing, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
@@ -305,6 +326,12 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 
 	target := parseChannelID(args[0])
 	targetName := parseChannelName(args[0])
+
+	log.WithFields(log.Fields{
+		"team_id":      cmd.TeamID,
+		"channel":      target,
+		"channel_name": targetName,
+	}).Debug("unsubscribe command")
 
 	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
 	if err != nil {
@@ -369,6 +396,11 @@ func (h *CommandHandler) addFilter(ctx context.Context, cmd SlashCommand, args [
 	// Strip surrounding quotes if present
 	pattern = strings.Trim(pattern, "\"'")
 
+	log.WithFields(log.Fields{
+		"team_id": cmd.TeamID,
+		"pattern": pattern,
+	}).Debug("add filter command")
+
 	f := &store.MeetingFilter{
 		TenantID: cmd.TeamID,
 		Pattern:  pattern,
@@ -385,6 +417,11 @@ func (h *CommandHandler) listFilters(ctx context.Context, cmd SlashCommand) (*Sl
 	if err != nil {
 		return nil, fmt.Errorf("list filters: %w", err)
 	}
+
+	log.WithFields(log.Fields{
+		"team_id": cmd.TeamID,
+		"count":   len(filters),
+	}).Debug("list filters command")
 
 	if len(filters) == 0 {
 		return ephemeral("No meeting filters configured. All meetings generate notifications."), nil
@@ -403,6 +440,11 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 	if err != nil {
 		return nil, fmt.Errorf("list subscriptions: %w", err)
 	}
+
+	log.WithFields(log.Fields{
+		"team_id": cmd.TeamID,
+		"count":   len(subs),
+	}).Debug("list subscriptions command")
 
 	if len(subs) == 0 {
 		return ephemeral("No subscriptions configured. Use `/zoom-notifier subscribe #channel` to add one."), nil
@@ -578,6 +620,11 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 		if err := h.store.UpdateFilter(ctx, filter); err != nil {
 			return nil, fmt.Errorf("update filter: %w", err)
 		}
+		log.WithFields(log.Fields{
+			"team_id": cmd.TeamID,
+			"filter":  pattern,
+			"suffix":  suffix,
+		}).Debug("set suffix on filter via command")
 		return ephemeral(fmt.Sprintf("Updated suffix override on filter `%s` to `%s`.", pattern, suffix)), nil
 	}
 
@@ -590,6 +637,10 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 	if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, suffix, tenant.DefaultIncludeLink); err != nil {
 		return nil, fmt.Errorf("update tenant defaults: %w", err)
 	}
+	log.WithFields(log.Fields{
+		"team_id": cmd.TeamID,
+		"suffix":  suffix,
+	}).Debug("set tenant default suffix via command")
 	return ephemeral(fmt.Sprintf("Updated default message suffix to `%s`.", suffix)), nil
 }
 
@@ -651,6 +702,10 @@ func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []s
 		if includeLink {
 			state = "enabled"
 		}
+		log.WithFields(log.Fields{
+			"team_id":      cmd.TeamID,
+			"include_link": state,
+		}).Debug("set tenant default link via command")
 		return ephemeral(fmt.Sprintf("Meeting links %s (tenant-wide default).", state)), nil
 	}
 
@@ -680,6 +735,11 @@ func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []s
 	if includeLink {
 		state = "enabled"
 	}
+	log.WithFields(log.Fields{
+		"team_id":      cmd.TeamID,
+		"filter":       pattern,
+		"include_link": state,
+	}).Debug("set link on filter via command")
 	return ephemeral(fmt.Sprintf("Meeting links %s for filter `%s`.", state, pattern)), nil
 }
 
@@ -697,6 +757,8 @@ func (h *CommandHandler) findFilterByPattern(ctx context.Context, tenantID, patt
 }
 
 func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
+	log.WithField("team_id", cmd.TeamID).Debug("settings command")
+
 	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
 	if err != nil || tenant == nil {
 		return nil, fmt.Errorf("get tenant: %w", err)
@@ -796,10 +858,16 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 		return nil, fmt.Errorf("add admin: %w", err)
 	}
 
+	log.WithFields(log.Fields{
+		"team_id":  cmd.TeamID,
+		"admin_id": userID,
+	}).Debug("added admin via command")
 	return ephemeral(fmt.Sprintf("Added <@%s> as admin.", userID)), nil
 }
 
 func (h *CommandHandler) apiKey(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
+	log.WithField("team_id", cmd.TeamID).Debug("api-key command requested")
+
 	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
 	if err != nil {
 		return nil, fmt.Errorf("get tenant: %w", err)
@@ -812,6 +880,12 @@ func (h *CommandHandler) apiKey(ctx context.Context, cmd SlashCommand) (*SlashRe
 }
 
 func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
+	isAdminUser, _ := h.store.IsAdmin(ctx, cmd.TeamID, cmd.UserID)
+	log.WithFields(log.Fields{
+		"team_id":  cmd.TeamID,
+		"is_admin": isAdminUser,
+	}).Debug("help command")
+
 	text := "*zoom-notifier commands:*\n" +
 		"• `/zoom-notifier status` — Show active meetings\n" +
 		"• `/zoom-notifier whois <search>` — List participants by topic (partial match)\n" +
