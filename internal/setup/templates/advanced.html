@@ -35,7 +35,7 @@
 
     <details>
         <summary><strong>Zoom API Credentials</strong> (optional &mdash; enables meeting links with passcodes)</summary>
-        <p class="help-text">These credentials come from a separate <strong>Server-to-Server OAuth</strong> app in the Zoom Marketplace. If you skip this, notifications will still work but won't include clickable meeting links. The Account ID from the Zoom step is reused automatically.</p>
+        <p class="help-text">These come from the same <strong>Server-to-Server OAuth</strong> app you created in the Zoom step. If you skip this, notifications will still work but won&rsquo;t include clickable meeting links.</p>
         <div class="form-group">
             <label for="zoom_client_id">Zoom Client ID</label>
             <input type="text" id="zoom_client_id" name="zoom_client_id" value="{{.Data.ZoomClientID}}" placeholder="Enter Zoom Client ID" autocomplete="off">
@@ -45,16 +45,8 @@
             <input type="password" id="zoom_client_secret" name="zoom_client_secret" value="{{.Data.ZoomClientSecret}}" placeholder="Enter Zoom Client Secret" autocomplete="off">
         </div>
         <details>
-            <summary>How do I create a Server-to-Server OAuth app?</summary>
-            <ol>
-                <li>Go to the <a href="https://marketplace.zoom.us/user/build" target="_blank" rel="noopener">Zoom App Marketplace &mdash; Build App</a> page.</li>
-                <li>Choose <strong>Server-to-Server OAuth</strong> as the app type.</li>
-                <li>Give it a name (e.g. "zoom-notifier API access").</li>
-                <li>On the app info page, copy the <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
-                <li>Fill out the required basic information and continue to <strong>Scopes</strong>.</li>
-                <li>Add these scopes: <code>meeting:read:meeting:admin</code> and <code>meeting:read:invitation:admin</code>.</li>
-                <li><strong>Activate</strong> the app.</li>
-            </ol>
+            <summary>Where are the Client ID and Client Secret?</summary>
+            <p>In your Zoom Server-to-Server OAuth app, go to the <strong>App Credentials</strong> tab. The Client ID and Client Secret are displayed alongside the Account ID you already entered in the Zoom step.</p>
         </details>
     </details>
 

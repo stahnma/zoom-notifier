@@ -5,19 +5,21 @@
 
 <div class="info-box">
     <strong>Which Zoom app type do I need?</strong>
-    <p>You need a <strong>Webhook Only</strong> app. This is the simplest app type &mdash; it just sends event notifications to your server. You do <em>not</em> need a General App or a Server-to-Server OAuth app for basic notifications.</p>
-    <p class="help-text">A Server-to-Server OAuth app is only needed if you want meeting links with passcodes in notifications. You can add that later in Advanced settings.</p>
+    <p>Create a <strong>Server-to-Server OAuth</strong> app. This single app handles both webhook event notifications <em>and</em> API access for meeting links. You only need one Zoom app.</p>
 </div>
 
 <details>
-    <summary>Step-by-step: Create a Webhook Only app in Zoom</summary>
+    <summary>Step-by-step: Create a Server-to-Server OAuth app in Zoom</summary>
     <ol>
-        <li>Go to the <a href="https://marketplace.zoom.us/user/build" target="_blank" rel="noopener">Zoom App Marketplace &mdash; Build App</a> page and sign in with your Zoom account.</li>
-        <li>Choose <strong>Webhook Only</strong> as the app type and give it a name (e.g. "zoom-notifier").</li>
-        <li>Fill out the required basic information fields (company name, developer contact) and click <strong>Continue</strong>.</li>
-        <li>On the <strong>Feature</strong> page, toggle <strong>Event Subscriptions</strong> to on.</li>
-        <li>Click <strong>+ Add Event Subscription</strong>, then:
+        <li>Go to the <a href="https://marketplace.zoom.us/user/build" target="_blank" rel="noopener">Zoom App Marketplace &mdash; Build App</a> page and sign in.</li>
+        <li>Choose <strong>Server-to-Server OAuth</strong> as the app type and click <strong>Create</strong>.</li>
+        <li>Give it a name (e.g. "zoom-notifier") and click <strong>Create</strong>.</li>
+        <li>On the <strong>App Credentials</strong> tab, note your <strong>Account ID</strong>, <strong>Client ID</strong>, and <strong>Client Secret</strong>. You&rsquo;ll need the Account ID below; the Client ID and Secret can be configured later for meeting links.</li>
+        <li>Go to the <strong>Information</strong> tab. Fill in the required fields (company name, developer name and email) and click <strong>Continue</strong>.</li>
+        <li>Go to the <strong>Feature</strong> tab. Toggle <strong>Event Subscriptions</strong> to on.</li>
+        <li>Click <strong>+ Add New Event Subscription</strong>:
             <ul>
+                <li>Enter a <strong>Subscription Name</strong> (e.g. "Meeting Events").</li>
                 <li>Set the <strong>Event Notification Endpoint URL</strong> to the webhook URL shown below.</li>
                 <li>Click <strong>+ Add Events</strong> and select these under <strong>Meeting</strong>:
                     <ul>
@@ -29,10 +31,13 @@
                 </li>
             </ul>
         </li>
-        <li>Copy the <strong>Secret Token</strong> from the Feature page and paste it below.</li>
+        <li>Copy the <strong>Secret Token</strong> from the Feature tab (above the Event Subscriptions section) and paste it below.</li>
         <li>Click <strong>Save Secret</strong> below so the wizard can respond to Zoom's validation challenge.</li>
         <li>Back in Zoom, click <strong>Validate</strong> to verify the endpoint. It should succeed now.</li>
-        <li>Click <strong>Save</strong> in Zoom, then come back here and click <strong>Next</strong>.</li>
+        <li>Click <strong>Save</strong> in Zoom.</li>
+        <li>Go to the <strong>Scopes</strong> tab. Click <strong>+ Add Scopes</strong>, search for "meeting", and add <strong>meeting:read:admin</strong>. This enables fetching meeting join links.</li>
+        <li>Go to the <strong>Activation</strong> tab and click <strong>Activate your app</strong>.</li>
+        <li>Come back here and click <strong>Next</strong>.</li>
     </ol>
 </details>
 
@@ -51,7 +56,7 @@
         <input type="text" id="zoom_secret" name="zoom_secret" value="{{.Data.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" autocomplete="off" required>
         <details>
             <summary>Where is the Secret Token?</summary>
-            <p>In your Zoom Webhook Only app, go to the <strong>Feature</strong> page. The <strong>Secret Token</strong> is displayed near the top, above the Event Subscriptions section. This token is used to validate that webhook requests are genuinely from Zoom.</p>
+            <p>In your Zoom Server-to-Server OAuth app, go to the <strong>Feature</strong> tab. The <strong>Secret Token</strong> is displayed near the top, above the Event Subscriptions section. This is <em>not</em> the same as the Client Secret &mdash; it&rsquo;s used specifically for webhook CRC validation.</p>
         </details>
     </div>
     <div class="form-group">
@@ -59,7 +64,7 @@
         <input type="text" id="zoom_account_id" name="zoom_account_id" value="{{.Data.ZoomAccountID}}" placeholder="Enter your Zoom Account ID" autocomplete="off" required>
         <details>
             <summary>Where is the Account ID?</summary>
-            <p>In your Zoom Webhook Only app, the <strong>Account ID</strong> is displayed at the top of the app's <strong>Basic Information</strong> page. This is used to link incoming Zoom events to your workspace.</p>
+            <p>In your Zoom Server-to-Server OAuth app, go to the <strong>App Credentials</strong> tab. The <strong>Account ID</strong> is shown at the top, alongside the Client ID and Client Secret. This is used to link incoming Zoom events to your workspace.</p>
         </details>
     </div>
     <div class="form-group">
