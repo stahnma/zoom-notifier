@@ -148,6 +148,7 @@ func main() {
   <h3>Quick Links</h3>
   <ul>
     <li><a href="/slack/install">Install Slack App</a></li>
+    <li><a href="/api/docs">API Documentation</a></li>
     <li><a href="/healthz">Health Check</a></li>
   </ul>
 
@@ -201,6 +202,43 @@ func main() {
 	tenantSetup := appslack.NewTenantSetupHandler(store)
 	r.Get("/tenant/setup", tenantSetup.ServeHTTP)
 	r.Post("/tenant/setup", tenantSetup.ServeHTTP)
+
+	// API documentation
+	r.Get("/api/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
+		http.ServeFile(w, r, "api/openapi.yaml")
+	})
+	r.Get("/api/docs", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		fmt.Fprint(w, `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>zoom-notifier API Docs</title>
+<link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css">
+<style>
+  html { box-sizing: border-box; }
+  *, *:before, *:after { box-sizing: inherit; }
+  body { margin: 0; background: #fafafa; }
+  .topbar { display: none; }
+</style>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+<script>
+SwaggerUIBundle({
+  url: "/api/docs/openapi.yaml",
+  dom_id: "#swagger-ui",
+  deepLinking: true,
+  presets: [SwaggerUIBundle.presets.apis, SwaggerUIBundle.SwaggerUIStandalonePreset],
+  layout: "BaseLayout"
+});
+</script>
+</body>
+</html>`)
+	})
 
 	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
 	r.Mount("/", apiRouter)
