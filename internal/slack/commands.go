@@ -190,7 +190,7 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 		return nil, fmt.Errorf("create subscription: %w", err)
 	}
 
-	return ephemeral(fmt.Sprintf("Subscribed %s to meeting notifications.", target)), nil
+	return ephemeral(fmt.Sprintf("Subscribed <#%s> to meeting notifications.\nRemember to invite the bot to the channel: `/invite @zoom-notifier`", target)), nil
 }
 
 func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
