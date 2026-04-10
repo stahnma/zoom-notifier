@@ -22,7 +22,11 @@ func setupOAuthTestStore(t *testing.T) *sqlite.SQLiteStore {
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("failed to migrate: %v", err)
 	}
-	t.Cleanup(func() { _ = s.Close() })
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	})
 	return s
 }
 
@@ -74,7 +78,9 @@ func TestOAuthCallbackSuccess(t *testing.T) {
 			resp.AuthedUser.ID = "U12345"
 
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Log("encode:", err)
+			}
 			return
 		}
 		http.NotFound(w, r)
@@ -163,7 +169,9 @@ func TestOAuthCallbackInvalidCode(t *testing.T) {
 				Error: "invalid_code",
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(resp)
+			if err := json.NewEncoder(w).Encode(resp); err != nil {
+				t.Log("encode:", err)
+			}
 			return
 		}
 		http.NotFound(w, r)

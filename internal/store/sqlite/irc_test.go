@@ -50,7 +50,9 @@ func TestUpsertIRCConfig_UpdateExisting(t *testing.T) {
 		Password: "oldpass",
 		UseTLS:   true,
 	}
-	_ = s.UpsertIRCConfig(ctx, cfg)
+	if err := s.UpsertIRCConfig(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
 
 	cfg.Nick = "newnick"
 	cfg.Password = "newpass"
@@ -58,7 +60,10 @@ func TestUpsertIRCConfig_UpdateExisting(t *testing.T) {
 		t.Fatalf("upsert irc config (update): %v", err)
 	}
 
-	configs, _ := s.GetIRCConfig(ctx, "T1")
+	configs, err := s.GetIRCConfig(ctx, "T1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(configs) != 1 {
 		t.Fatalf("expected 1 config after upsert, got %d", len(configs))
 	}
@@ -72,8 +77,12 @@ func TestGetIRCConfig_MultipleServers(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	_ = s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.libera.chat:6697", Nick: "bot1", Password: "p1", UseTLS: true})
-	_ = s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.oftc.net:6697", Nick: "bot2", Password: "p2", UseTLS: true})
+	if err := s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.libera.chat:6697", Nick: "bot1", Password: "p1", UseTLS: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.oftc.net:6697", Nick: "bot2", Password: "p2", UseTLS: true}); err != nil {
+		t.Fatal(err)
+	}
 
 	configs, err := s.GetIRCConfig(ctx, "T1")
 	if err != nil {

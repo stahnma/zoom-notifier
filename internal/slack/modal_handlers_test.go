@@ -88,7 +88,10 @@ func TestSetSuffixWithArgsSkipsModal(t *testing.T) {
 		t.Error("expected response text")
 	}
 
-	tenant, _ := s.GetTenant(ctx, "T-MODAL")
+	tenant, err := s.GetTenant(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if tenant.DefaultMsgSuffix != "hello world" {
 		t.Errorf("expected suffix 'hello world', got '%s'", tenant.DefaultMsgSuffix)
 	}
@@ -151,7 +154,10 @@ func TestSetLinkWithArgSkipsModal(t *testing.T) {
 		t.Error("expected response text")
 	}
 
-	tenant, _ := s.GetTenant(ctx, "T-MODAL")
+	tenant, err2 := s.GetTenant(ctx, "T-MODAL")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	if !tenant.DefaultIncludeLink {
 		t.Error("expected default include link to be true")
 	}
@@ -188,7 +194,10 @@ func TestSubscribeWithArgSkipsModal(t *testing.T) {
 		t.Error("expected subscribed message")
 	}
 
-	subs, _ := s.ListSubscriptions(ctx, "T-MODAL")
+	subs, err2 := s.ListSubscriptions(ctx, "T-MODAL")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	if len(subs) != 1 {
 		t.Fatalf("expected 1 subscription, got %d", len(subs))
 	}
@@ -225,7 +234,10 @@ func TestFilterWithArgSkipsModal(t *testing.T) {
 		t.Error("expected filter added message")
 	}
 
-	filters, _ := s.ListFilters(ctx, "T-MODAL")
+	filters, err2 := s.ListFilters(ctx, "T-MODAL")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	if len(filters) != 1 {
 		t.Fatalf("expected 1 filter, got %d", len(filters))
 	}
@@ -258,7 +270,10 @@ func TestHandleSetSuffixSubmission_TenantDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tenant, _ := s.GetTenant(ctx, "T-MODAL")
+	tenant, err := s.GetTenant(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if tenant.DefaultMsgSuffix != "the meeting" {
 		t.Errorf("expected suffix 'the meeting', got '%s'", tenant.DefaultMsgSuffix)
 	}
@@ -269,8 +284,13 @@ func TestHandleSetSuffixSubmission_FilterOverride(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a filter
-	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Standup"})
-	filters, _ := s.ListFilters(ctx, "T-MODAL")
+	if err := s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Standup"}); err != nil {
+		t.Fatal(err)
+	}
+	filters, err := s.ListFilters(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	filterID := filters[0].ID
 
 	suffix := "standup suffix"
@@ -289,12 +309,15 @@ func TestHandleSetSuffixSubmission_FilterOverride(t *testing.T) {
 		},
 	}
 
-	err := h.handleSetSuffixSubmission(payload)
+	err = h.handleSetSuffixSubmission(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	filters, _ = s.ListFilters(ctx, "T-MODAL")
+	filters, err = s.ListFilters(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if filters[0].MsgSuffix == nil || *filters[0].MsgSuffix != "standup suffix" {
 		t.Errorf("expected filter suffix 'standup suffix', got %v", filters[0].MsgSuffix)
 	}
@@ -324,7 +347,10 @@ func TestHandleSetLinkSubmission_TenantDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tenant, _ := s.GetTenant(ctx, "T-MODAL")
+	tenant, err2 := s.GetTenant(ctx, "T-MODAL")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	if !tenant.DefaultIncludeLink {
 		t.Error("expected default include link to be true")
 	}
@@ -334,8 +360,13 @@ func TestHandleSetLinkSubmission_FilterOverride(t *testing.T) {
 	h, s, _ := setupModalCommandHandler(t)
 	ctx := context.Background()
 
-	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Retro"})
-	filters, _ := s.ListFilters(ctx, "T-MODAL")
+	if err := s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Retro"}); err != nil {
+		t.Fatal(err)
+	}
+	filters, err := s.ListFilters(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	filterID := filters[0].ID
 
 	payload := InteractionPayload{Type: "view_submission"}
@@ -353,12 +384,15 @@ func TestHandleSetLinkSubmission_FilterOverride(t *testing.T) {
 		},
 	}
 
-	err := h.handleSetLinkSubmission(payload)
+	err = h.handleSetLinkSubmission(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	filters, _ = s.ListFilters(ctx, "T-MODAL")
+	filters, err = s.ListFilters(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if filters[0].IncludeLink == nil || *filters[0].IncludeLink {
 		t.Error("expected filter include link to be false")
 	}
@@ -386,7 +420,10 @@ func TestHandleSubscribeSubmission(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	subs, _ := s.ListSubscriptions(ctx, "T-MODAL")
+	subs, err2 := s.ListSubscriptions(ctx, "T-MODAL")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	if len(subs) != 1 {
 		t.Fatalf("expected 1 subscription, got %d", len(subs))
 	}
@@ -424,7 +461,10 @@ func TestHandleAddFilterSubmission(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	filters, _ := s.ListFilters(ctx, "T-MODAL")
+	filters, err2 := s.ListFilters(ctx, "T-MODAL")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	if len(filters) != 1 {
 		t.Fatalf("expected 1 filter, got %d", len(filters))
 	}
@@ -467,7 +507,10 @@ func TestHandleAddFilterSubmission_DefaultLink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	filters, _ := s.ListFilters(ctx, "T-MODAL")
+	filters, err2 := s.ListFilters(ctx, "T-MODAL")
+	if err2 != nil {
+		t.Fatal(err2)
+	}
 	if len(filters) != 1 {
 		t.Fatalf("expected 1 filter, got %d", len(filters))
 	}
@@ -484,11 +527,16 @@ func TestHandleUnsubscribeSubmission(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a subscription
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T-MODAL", Type: "slack", Target: "C99999", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
-	subs, _ := s.ListSubscriptions(ctx, "T-MODAL")
+	subs, err := s.ListSubscriptions(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(subs) != 1 {
 		t.Fatalf("expected 1 subscription before unsubscribe, got %d", len(subs))
 	}
@@ -505,12 +553,15 @@ func TestHandleUnsubscribeSubmission(t *testing.T) {
 		},
 	}
 
-	err := h.handleUnsubscribeSubmission(payload)
+	err = h.handleUnsubscribeSubmission(payload)
 	if err != nil {
 		t.Fatalf("handleUnsubscribeSubmission: %v", err)
 	}
 
-	subs, _ = s.ListSubscriptions(ctx, "T-MODAL")
+	subs, err = s.ListSubscriptions(ctx, "T-MODAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(subs) != 0 {
 		t.Errorf("expected 0 subscriptions after unsubscribe, got %d", len(subs))
 	}

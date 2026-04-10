@@ -54,17 +54,23 @@ func setupDispatcherTest(t *testing.T) (*sqlite.SQLiteStore, *mockSlackSender, *
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	t.Cleanup(func() { _ = s.Close() })
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	})
 
 	ctx := context.Background()
 	botToken := "xoxb-test-token"
-	_ = s.CreateTenant(ctx, &store.Tenant{
+	if err := s.CreateTenant(ctx, &store.Tenant{
 		ID:               "T1",
 		APIKey:           "key-1",
 		BotToken:         &botToken,
 		ZoomAccountID:    "zoom-1",
 		DefaultMsgSuffix: "the meeting.",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	slackSender := &mockSlackSender{}
 	ircSender := &mockIRCSender{}
@@ -96,18 +102,26 @@ func TestDispatchFanOut(t *testing.T) {
 	ctx := context.Background()
 
 	// Create 2 slack subs and 1 IRC sub
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#dev", Enabled: true,
-	})
-	_ = s.UpsertIRCConfig(ctx, &store.IRCConfig{
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertIRCConfig(ctx, &store.IRCConfig{
 		TenantID: "T1", Server: "irc.libera.chat:6697", Nick: "bot", Password: "pass", UseTLS: true,
-	})
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "irc", Target: "#irc-channel", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeJoinPayload("Alice", "Daily Standup", "m-100")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -129,10 +143,14 @@ func TestDispatchRespectsFilters(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	// "All Hands" does not match filter "Daily Standup"
 	payload := makeJoinPayload("Alice", "All Hands", "m-200")
@@ -149,10 +167,14 @@ func TestDispatchFilters_MatchingTopic(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	// "Daily Standup" matches the filter
 	payload := makeJoinPayload("Alice", "Daily Standup", "m-300")
@@ -169,9 +191,11 @@ func TestDispatchDisabledSubscription(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#disabled", Enabled: false,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeJoinPayload("Alice", "Any Meeting", "m-400")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -187,9 +211,11 @@ func TestDispatchLeaveMessage(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeLeavePayload("Bob", "Daily Standup", "m-500")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -210,9 +236,11 @@ func TestDispatchJoinMessage(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeJoinPayload("Alice", "My Meeting", "m-600")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -234,11 +262,15 @@ func TestDispatchUsesTenantDefaultSuffix(t *testing.T) {
 	ctx := context.Background()
 
 	// Update tenant default suffix
-	_ = s.UpdateTenantDefaults(ctx, "T1", "the zoom call.", false)
+	if err := s.UpdateTenantDefaults(ctx, "T1", "the zoom call.", false); err != nil {
+		t.Fatal(err)
+	}
 
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeJoinPayload("Alice", "My Meeting", "m-700")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -261,15 +293,19 @@ func TestDispatchFilterOverrideTakesPrecedence(t *testing.T) {
 	// Tenant default is "the meeting." (set in setupDispatcherTest)
 	// Filter override for "Daily Standup" uses "the standup."
 	filterSuffix := "the standup."
-	_ = s.CreateFilter(ctx, &store.MeetingFilter{
+	if err := s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID:  "T1",
 		Pattern:   "Daily Standup",
 		MsgSuffix: &filterSuffix,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeJoinPayload("Alice", "Daily Standup", "m-800")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -290,14 +326,18 @@ func TestDispatchFilterWithoutOverrideUsesTenantDefault(t *testing.T) {
 	ctx := context.Background()
 
 	// Filter without suffix override -- should fall back to tenant default
-	_ = s.CreateFilter(ctx, &store.MeetingFilter{
+	if err := s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID: "T1",
 		Pattern:  "Daily Standup",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeJoinPayload("Alice", "Daily Standup", "m-900")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -319,12 +359,16 @@ func TestDispatchSuffixAppliedToAllSubscriptions(t *testing.T) {
 	ctx := context.Background()
 
 	// Create two subscriptions -- both should get the same suffix
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
-	})
-	_ = s.CreateSubscription(ctx, &store.Subscription{
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#dev", Enabled: true,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	payload := makeJoinPayload("Alice", "My Meeting", "m-1000")
 	dispatcher.Dispatch(ctx, "T1", payload)
@@ -346,10 +390,12 @@ func TestGetMeetingLink_NoCredentials(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a tenant with no zoom credentials stored
-	_ = s.CreateTenant(ctx, &store.Tenant{
+	if err := s.CreateTenant(ctx, &store.Tenant{
 		ID:     "T-NOCREDS",
 		APIKey: "key-nocreds",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	link := dispatcher.getMeetingLink(ctx, "T-NOCREDS", "m-999")
 	if link != "" {

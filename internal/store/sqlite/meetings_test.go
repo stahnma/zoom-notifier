@@ -50,7 +50,9 @@ func TestUpsertMeeting_UpdateExisting(t *testing.T) {
 		TenantID:  "T1",
 		Topic:     "Old Topic",
 	}
-	_ = s.UpsertMeeting(ctx, meeting)
+	if err := s.UpsertMeeting(ctx, meeting); err != nil {
+		t.Fatal(err)
+	}
 
 	meeting.Topic = "New Topic"
 	meeting.JoinURL = "https://zoom.us/j/updated"
@@ -58,7 +60,10 @@ func TestUpsertMeeting_UpdateExisting(t *testing.T) {
 		t.Fatalf("upsert meeting (update): %v", err)
 	}
 
-	got, _ := s.GetMeeting(ctx, "m-100")
+	got, err := s.GetMeeting(ctx, "m-100")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got.Topic != "New Topic" {
 		t.Errorf("expected updated topic, got '%s'", got.Topic)
 	}
@@ -73,9 +78,15 @@ func TestListActiveMeetings(t *testing.T) {
 	createTestTenant(t, s, "T1")
 	createTestTenant(t, s, "T2")
 
-	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "A"})
-	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-2", TenantID: "T1", Topic: "B"})
-	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-3", TenantID: "T2", Topic: "C"})
+	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "A"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-2", TenantID: "T1", Topic: "B"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-3", TenantID: "T2", Topic: "C"}); err != nil {
+		t.Fatal(err)
+	}
 
 	meetings, err := s.ListActiveMeetings(ctx, "T1")
 	if err != nil {
@@ -92,12 +103,18 @@ func TestMeetingLifecycle(t *testing.T) {
 	createTestTenant(t, s, "T1")
 
 	// Create meeting
-	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "Standup"})
+	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "Standup"}); err != nil {
+		t.Fatal(err)
+	}
 
 	// Add participants
 	now := time.Now().Truncate(time.Second)
-	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", Email: "alice@example.com", JoinTime: now})
-	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", Email: "bob@example.com", JoinTime: now})
+	if err := s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", Email: "alice@example.com", JoinTime: now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", Email: "bob@example.com", JoinTime: now}); err != nil {
+		t.Fatal(err)
+	}
 
 	// Get active participants — both should be active
 	active, err := s.GetActiveParticipants(ctx, "m-1")
@@ -130,11 +147,17 @@ func TestMeetingLifecycle(t *testing.T) {
 	if err := s.DeleteMeeting(ctx, "m-1"); err != nil {
 		t.Fatalf("delete meeting: %v", err)
 	}
-	got, _ := s.GetMeeting(ctx, "m-1")
+	got, err := s.GetMeeting(ctx, "m-1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got != nil {
 		t.Error("expected nil meeting after delete")
 	}
-	active, _ = s.GetActiveParticipants(ctx, "m-1")
+	active, err = s.GetActiveParticipants(ctx, "m-1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(active) != 0 {
 		t.Errorf("expected 0 participants after meeting delete, got %d", len(active))
 	}
@@ -145,14 +168,23 @@ func TestDeleteParticipantsForMeeting(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1"})
-	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", JoinTime: time.Now()})
-	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", JoinTime: time.Now()})
+	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", JoinTime: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", JoinTime: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := s.DeleteParticipantsForMeeting(ctx, "m-1"); err != nil {
 		t.Fatalf("delete participants: %v", err)
 	}
-	active, _ := s.GetActiveParticipants(ctx, "m-1")
+	active, err := s.GetActiveParticipants(ctx, "m-1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(active) != 0 {
 		t.Errorf("expected 0 participants, got %d", len(active))
 	}

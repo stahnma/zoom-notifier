@@ -45,15 +45,22 @@ func TestUpsertZoomCredentials_Update(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	_ = s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
+	if err := s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
 		TenantID: "T1", ClientID: "old-id", ClientSecret: "old-secret", AccountID: "old-acct",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
-	_ = s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
+	if err := s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
 		TenantID: "T1", ClientID: "new-id", ClientSecret: "new-secret", AccountID: "new-acct",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
-	got, _ := s.GetZoomCredentials(ctx, "T1")
+	got, err := s.GetZoomCredentials(ctx, "T1")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if got.ClientID != "new-id" {
 		t.Errorf("expected updated client_id, got '%s'", got.ClientID)
 	}

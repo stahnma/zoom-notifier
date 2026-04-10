@@ -20,7 +20,11 @@ func TestSetupHandlerWelcome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /setup failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -39,7 +43,11 @@ func TestSetupStaticAssets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /setup/static/style.css failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -55,7 +63,11 @@ func TestSetupGenerateKeyEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /setup/api/generate-key failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -84,7 +96,11 @@ func TestSaveZoomSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /setup/api/save-zoom-secret failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -117,7 +133,11 @@ func TestSaveZoomSecret_MissingSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Errorf("expected status 400 for empty secret, got %d", resp.StatusCode)
@@ -139,7 +159,11 @@ func TestWebhookZoomCRC_NoSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /webhook/zoom failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusServiceUnavailable {
 		t.Errorf("expected status 503 when no secret configured, got %d", resp.StatusCode)
@@ -160,7 +184,11 @@ func TestWebhookZoomCRC_WithSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /webhook/zoom failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("expected status 200, got %d", resp.StatusCode)
@@ -192,7 +220,11 @@ func TestWebhookZoomCRC_NonCRCEvent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /webhook/zoom failed: %v", err)
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
 
 	// Non-CRC events during setup should return 200 and be ignored
 	if resp.StatusCode != http.StatusOK {
@@ -216,7 +248,9 @@ func TestSetupFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GET /setup failed: %v", err)
 	}
-	_ = resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Log("close:", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("GET /setup: expected 200, got %d", resp.StatusCode)
 	}
@@ -228,7 +262,9 @@ func TestSetupFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /setup/server-url failed: %v", err)
 	}
-	_ = resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Log("close:", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST /setup/server-url: expected 200, got %d", resp.StatusCode)
 	}
@@ -241,7 +277,9 @@ func TestSetupFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /setup/zoom failed: %v", err)
 	}
-	_ = resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Log("close:", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST /setup/zoom: expected 200, got %d", resp.StatusCode)
 	}
@@ -255,7 +293,9 @@ func TestSetupFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /setup/slack failed: %v", err)
 	}
-	_ = resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Log("close:", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST /setup/slack: expected 200, got %d", resp.StatusCode)
 	}
@@ -271,7 +311,9 @@ func TestSetupFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /setup/advanced failed: %v", err)
 	}
-	_ = resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Log("close:", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST /setup/advanced: expected 200, got %d", resp.StatusCode)
 	}
@@ -281,7 +323,9 @@ func TestSetupFullFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /setup/save failed: %v", err)
 	}
-	_ = resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		t.Log("close:", err)
+	}
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("POST /setup/save: expected 200, got %d", resp.StatusCode)
 	}

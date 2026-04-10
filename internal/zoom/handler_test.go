@@ -23,15 +23,21 @@ func setupHandlerTest(t *testing.T) (*sqlite.SQLiteStore, *Handler) {
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	t.Cleanup(func() { _ = s.Close() })
+	t.Cleanup(func() {
+		if err := s.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	})
 
 	// Create a test tenant
 	ctx := context.Background()
-	_ = s.CreateTenant(ctx, &store.Tenant{
+	if err := s.CreateTenant(ctx, &store.Tenant{
 		ID:            "T1",
 		APIKey:        "key-1",
 		ZoomAccountID: "uUpLA0YDRhWZvYIu_JxPpg",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	handler := NewHandler(s, "test-secret", nil)
 	return s, handler
@@ -135,8 +141,8 @@ func TestHandler_ParticipantLeft(t *testing.T) {
 
 	// Verify the handler processed without error — the participant_left payload
 	// may reference a different meeting ID than participant_joined
-	_ = s
-	_ = ctx
+	_ = s   //nolint:revive // kept for potential future assertions
+	_ = ctx //nolint:revive // kept for potential future assertions
 }
 
 func TestHandler_MeetingStarted(t *testing.T) {
@@ -145,11 +151,13 @@ func TestHandler_MeetingStarted(t *testing.T) {
 
 	// meeting_started has account_id "uUpLO0YDAhWZvYIu_JxPpg" — different from T1's
 	// Create a tenant matching this account
-	_ = s.CreateTenant(ctx, &store.Tenant{
+	if err := s.CreateTenant(ctx, &store.Tenant{
 		ID:            "T2",
 		APIKey:        "key-2",
 		ZoomAccountID: "uUpLO0YDAhWZvYIu_JxPpg",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	body := loadPayload(t, "meeting_started.json")
 	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
@@ -161,7 +169,10 @@ func TestHandler_MeetingStarted(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	meeting, _ := s.GetMeeting(ctx, "6704648745")
+	meeting, err := s.GetMeeting(ctx, "6704648745")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if meeting == nil {
 		t.Fatal("expected meeting to be created on meeting.started")
 	}
@@ -172,11 +183,13 @@ func TestHandler_MeetingEnded(t *testing.T) {
 	ctx := context.Background()
 
 	// First create the meeting
-	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{
+	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{
 		MeetingID: "6703648745",
 		TenantID:  "T1",
 		Topic:     "Test Meeting",
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	body := loadPayload(t, "meeting_ended.json")
 	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
@@ -188,7 +201,10 @@ func TestHandler_MeetingEnded(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	meeting, _ := s.GetMeeting(ctx, "6703648745")
+	meeting, err := s.GetMeeting(ctx, "6703648745")
+	if err != nil {
+		t.Fatal(err)
+	}
 	if meeting != nil {
 		t.Error("expected meeting to be deleted on meeting.ended")
 	}
