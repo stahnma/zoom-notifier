@@ -76,10 +76,10 @@ func (s *SQLiteStore) MatchesFilter(ctx context.Context, tenantID string, topic 
 		return true, nil
 	}
 
-	// Check if topic matches any filter
+	// Check if topic matches any filter (case-insensitive substring)
 	var matchCount int
 	err = s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM meeting_filters WHERE tenant_id = ? AND pattern = ?`,
+		`SELECT COUNT(*) FROM meeting_filters WHERE tenant_id = ? AND LOWER(?) LIKE '%' || LOWER(pattern) || '%'`,
 		tenantID, topic,
 	).Scan(&matchCount)
 	if err != nil {
@@ -101,10 +101,10 @@ func (s *SQLiteStore) GetMatchingFilter(ctx context.Context, tenantID string, to
 		return nil, nil
 	}
 
-	// Return the first matching filter
+	// Return the first matching filter (case-insensitive substring)
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, tenant_id, pattern, msg_suffix, include_link
-		 FROM meeting_filters WHERE tenant_id = ? AND pattern = ?
+		 FROM meeting_filters WHERE tenant_id = ? AND LOWER(?) LIKE '%' || LOWER(pattern) || '%'
 		 ORDER BY id LIMIT 1`,
 		tenantID, topic,
 	)
