@@ -30,6 +30,17 @@ func inChannel(text string) *SlashResponse {
 	return &SlashResponse{Text: text, ResponseType: "in_channel"}
 }
 
+// parseChannelID extracts a channel ID from Slack's mention format.
+// Slack sends "#general" as "<#C05MXNTTHM4>" or "<#C05MXNTTHM4|general>".
+func parseChannelID(s string) string {
+	s = strings.TrimPrefix(s, "<#")
+	s = strings.TrimSuffix(s, ">")
+	if idx := strings.Index(s, "|"); idx >= 0 {
+		s = s[:idx]
+	}
+	return s
+}
+
 // CommandHandler routes slash commands to their implementations.
 type CommandHandler struct {
 	store store.Store
@@ -168,7 +179,7 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 		return ephemeral("Usage: `/zoom-notifier subscribe #channel`"), nil
 	}
 
-	target := args[0]
+	target := parseChannelID(args[0])
 	sub := &store.Subscription{
 		TenantID: cmd.TeamID,
 		Type:     "slack",
@@ -187,7 +198,7 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 		return ephemeral("Usage: `/zoom-notifier unsubscribe #channel`"), nil
 	}
 
-	target := args[0]
+	target := parseChannelID(args[0])
 	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
 	if err != nil {
 		return nil, fmt.Errorf("list subscriptions: %w", err)
@@ -287,7 +298,7 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 		return ephemeral("Usage: `/zoom-notifier set-suffix #channel \"the standup\"`"), nil
 	}
 
-	target := args[0]
+	target := parseChannelID(args[0])
 	suffix := strings.Join(args[1:], " ")
 	suffix = strings.Trim(suffix, "\"'")
 
@@ -314,7 +325,7 @@ func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []s
 		return ephemeral("Usage: `/zoom-notifier set-link #channel on|off`"), nil
 	}
 
-	target := args[0]
+	target := parseChannelID(args[0])
 	var includeLink bool
 	switch strings.ToLower(args[1]) {
 	case "on", "true", "yes":
