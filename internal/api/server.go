@@ -132,6 +132,38 @@ func (s *Server) DeleteTenant(ctx context.Context, request DeleteTenantRequestOb
 	return DeleteTenant204Response{}, nil
 }
 
+// --- Tenant Defaults ---
+
+func (s *Server) PutTenantDefaults(ctx context.Context, request PutTenantDefaultsRequestObject) (PutTenantDefaultsResponseObject, error) {
+	tenant, err := s.store.GetTenant(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
+	}
+	if tenant == nil {
+		return PutTenantDefaults404JSONResponse{NotFoundJSONResponse{Error: "tenant not found"}}, nil
+	}
+
+	suffix := tenant.DefaultMsgSuffix
+	includeLink := tenant.DefaultIncludeLink
+	if request.Body.DefaultMsgSuffix != nil {
+		suffix = *request.Body.DefaultMsgSuffix
+	}
+	if request.Body.DefaultIncludeLink != nil {
+		includeLink = *request.Body.DefaultIncludeLink
+	}
+
+	if err := s.store.UpdateTenantDefaults(ctx, request.TenantId, suffix, includeLink); err != nil {
+		return nil, err
+	}
+
+	// Re-fetch to return updated tenant
+	tenant, err = s.store.GetTenant(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
+	}
+	return PutTenantDefaults200JSONResponse(toAPITenant(tenant)), nil
+}
+
 // --- Admins ---
 
 func (s *Server) ListAdmins(ctx context.Context, request ListAdminsRequestObject) (ListAdminsResponseObject, error) {
@@ -187,9 +219,6 @@ func (s *Server) CreateSubscription(ctx context.Context, request CreateSubscript
 	if request.Body.MeetingId != nil {
 		sub.MeetingID = request.Body.MeetingId
 	}
-	// MsgSuffix and IncludeLink are now tenant-wide defaults; ignoring per-sub values from API
-	// TODO: wire these to tenant defaults or filter overrides
-
 	if err := s.store.CreateSubscription(ctx, sub); err != nil {
 		return nil, err
 	}
@@ -212,9 +241,6 @@ func (s *Server) UpdateSubscription(ctx context.Context, request UpdateSubscript
 	if request.Body.Target != nil {
 		sub.Target = *request.Body.Target
 	}
-	// MsgSuffix and IncludeLink are now tenant-wide defaults; ignoring per-sub values from API
-	// TODO: wire these to tenant defaults or filter overrides
-
 	if err := s.store.UpdateSubscription(ctx, sub); err != nil {
 		return nil, err
 	}
@@ -245,28 +271,52 @@ func (s *Server) ListFilters(ctx context.Context, request ListFiltersRequestObje
 	}
 	result := make(ListFilters200JSONResponse, 0, len(filters))
 	for _, f := range filters {
-		result = append(result, MeetingFilter{
-			Id:       f.ID,
-			TenantId: f.TenantID,
-			Pattern:  f.Pattern,
-		})
+		result = append(result, toAPIFilter(f))
 	}
 	return result, nil
 }
 
 func (s *Server) CreateFilter(ctx context.Context, request CreateFilterRequestObject) (CreateFilterResponseObject, error) {
 	f := &store.MeetingFilter{
-		TenantID: request.TenantId,
-		Pattern:  request.Body.Pattern,
+		TenantID:    request.TenantId,
+		Pattern:     request.Body.Pattern,
+		MsgSuffix:   request.Body.MsgSuffix,
+		IncludeLink: request.Body.IncludeLink,
 	}
 	if err := s.store.CreateFilter(ctx, f); err != nil {
 		return nil, err
 	}
-	return CreateFilter201JSONResponse{
-		Id:       f.ID,
-		TenantId: f.TenantID,
-		Pattern:  f.Pattern,
-	}, nil
+	return CreateFilter201JSONResponse(toAPIFilter(f)), nil
+}
+
+func (s *Server) UpdateFilter(ctx context.Context, request UpdateFilterRequestObject) (UpdateFilterResponseObject, error) {
+	// Get existing filters to find this one
+	filters, err := s.store.ListFilters(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
+	}
+	var existing *store.MeetingFilter
+	for _, f := range filters {
+		if f.ID == request.FilterId {
+			existing = f
+			break
+		}
+	}
+	if existing == nil {
+		return UpdateFilter404JSONResponse{NotFoundJSONResponse{Error: "filter not found"}}, nil
+	}
+
+	if request.Body.Pattern != nil {
+		existing.Pattern = *request.Body.Pattern
+	}
+	// These are nullable: a non-nil pointer means the caller sent the field
+	existing.MsgSuffix = request.Body.MsgSuffix
+	existing.IncludeLink = request.Body.IncludeLink
+
+	if err := s.store.UpdateFilter(ctx, existing); err != nil {
+		return nil, err
+	}
+	return UpdateFilter200JSONResponse(toAPIFilter(existing)), nil
 }
 
 func (s *Server) DeleteFilter(ctx context.Context, request DeleteFilterRequestObject) (DeleteFilterResponseObject, error) {
@@ -432,9 +482,11 @@ func (s *Server) PostWebhookZoom(ctx context.Context, request PostWebhookZoomReq
 
 func toAPITenant(t *store.Tenant) Tenant {
 	tenant := Tenant{
-		Id:          t.ID,
-		ApiKey:      t.APIKey,
-		InstalledAt: &t.InstalledAt,
+		Id:                 t.ID,
+		ApiKey:             t.APIKey,
+		InstalledAt:        &t.InstalledAt,
+		DefaultMsgSuffix:   &t.DefaultMsgSuffix,
+		DefaultIncludeLink: &t.DefaultIncludeLink,
 	}
 	if t.TeamName != "" {
 		tenant.TeamName = &t.TeamName
@@ -446,7 +498,7 @@ func toAPITenant(t *store.Tenant) Tenant {
 }
 
 func toAPISubscription(sub *store.Subscription) Subscription {
-	s := Subscription{
+	return Subscription{
 		Id:        sub.ID,
 		TenantId:  sub.TenantID,
 		Type:      SubscriptionType(sub.Type),
@@ -455,9 +507,16 @@ func toAPISubscription(sub *store.Subscription) Subscription {
 		MeetingId: sub.MeetingID,
 		CreatedAt: &sub.CreatedAt,
 	}
-	// MsgSuffix and IncludeLink are now on Tenant/Filter, not Subscription
-	// TODO: populate from tenant defaults or matching filter
-	return s
+}
+
+func toAPIFilter(f *store.MeetingFilter) MeetingFilter {
+	return MeetingFilter{
+		Id:          f.ID,
+		TenantId:    f.TenantID,
+		Pattern:     f.Pattern,
+		MsgSuffix:   f.MsgSuffix,
+		IncludeLink: f.IncludeLink,
+	}
 }
 
 func toAPIMeeting(m *store.ActiveMeeting) ActiveMeeting {

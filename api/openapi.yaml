@@ -113,6 +113,33 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/tenants/{tenantId}/defaults:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    put:
+      operationId: putTenantDefaults
+      summary: Update tenant notification defaults
+      tags: [tenants]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantDefaultsRequest"
+      responses:
+        "200":
+          description: Defaults updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/tenants/{tenantId}/subscriptions:
     parameters:
       - $ref: "#/components/parameters/TenantId"
@@ -284,6 +311,29 @@ paths:
     parameters:
       - $ref: "#/components/parameters/TenantId"
       - $ref: "#/components/parameters/FilterId"
+    patch:
+      operationId: updateFilter
+      summary: Update a meeting filter
+      tags: [filters]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFilterRequest"
+      responses:
+        "200":
+          description: Filter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingFilter"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
     delete:
       operationId: deleteFilter
       summary: Delete a meeting filter
@@ -530,6 +580,10 @@ components:
           format: date-time
         zoom_account_id:
           type: string
+        default_msg_suffix:
+          type: string
+        default_include_link:
+          type: boolean
 
     CreateTenantRequest:
       type: object
@@ -568,10 +622,6 @@ components:
           nullable: true
         target:
           type: string
-        msg_suffix:
-          type: string
-        include_link:
-          type: boolean
         enabled:
           type: boolean
         created_at:
@@ -590,22 +640,12 @@ components:
           nullable: true
         target:
           type: string
-        msg_suffix:
-          type: string
-          default: "the zoom meeting."
-        include_link:
-          type: boolean
-          default: true
 
     UpdateSubscriptionRequest:
       type: object
       properties:
         target:
           type: string
-        msg_suffix:
-          type: string
-        include_link:
-          type: boolean
         enabled:
           type: boolean
 
@@ -620,6 +660,12 @@ components:
           type: string
         pattern:
           type: string
+        msg_suffix:
+          type: string
+          nullable: true
+        include_link:
+          type: boolean
+          nullable: true
 
     CreateFilterRequest:
       type: object
@@ -627,6 +673,32 @@ components:
       properties:
         pattern:
           type: string
+        msg_suffix:
+          type: string
+          nullable: true
+        include_link:
+          type: boolean
+          nullable: true
+
+    TenantDefaultsRequest:
+      type: object
+      properties:
+        default_msg_suffix:
+          type: string
+        default_include_link:
+          type: boolean
+
+    UpdateFilterRequest:
+      type: object
+      properties:
+        pattern:
+          type: string
+        msg_suffix:
+          type: string
+          nullable: true
+        include_link:
+          type: boolean
+          nullable: true
 
     ActiveMeeting:
       type: object

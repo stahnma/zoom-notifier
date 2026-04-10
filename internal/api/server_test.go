@@ -576,6 +576,162 @@ func TestRotateAPIKey(t *testing.T) {
 	}
 }
 
+func TestTenantDefaultsInResponse(t *testing.T) {
+	router, _ := setupTestRouter(t)
+
+	// Create tenant
+	createBody := CreateTenantRequest{Id: strPtr("defaults-tenant"), TeamName: strPtr("Defaults Team")}
+	b, _ := json.Marshal(createBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tenants", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testAdminKey)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create failed: %d %s", w.Code, w.Body.String())
+	}
+	var createResp CreateTenantResponse
+	json.NewDecoder(w.Body).Decode(&createResp)
+
+	// Get tenant and check defaults are present
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/tenants/defaults-tenant", nil)
+	req.Header.Set("Authorization", "Bearer "+createResp.ApiKey)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var tenant Tenant
+	json.NewDecoder(w.Body).Decode(&tenant)
+	if tenant.DefaultMsgSuffix == nil {
+		t.Error("expected default_msg_suffix to be present")
+	}
+	if tenant.DefaultIncludeLink == nil {
+		t.Error("expected default_include_link to be present")
+	}
+}
+
+func TestPutTenantDefaults(t *testing.T) {
+	router, _ := setupTestRouter(t)
+
+	// Create tenant
+	createBody := CreateTenantRequest{Id: strPtr("put-defaults-tenant")}
+	b, _ := json.Marshal(createBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tenants", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testAdminKey)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var createResp CreateTenantResponse
+	json.NewDecoder(w.Body).Decode(&createResp)
+	auth := "Bearer " + createResp.ApiKey
+
+	// Update defaults
+	defaultsBody := TenantDefaultsRequest{
+		DefaultMsgSuffix:   strPtr("a custom suffix"),
+		DefaultIncludeLink: boolPtr(false),
+	}
+	b, _ = json.Marshal(defaultsBody)
+	req = httptest.NewRequest(http.MethodPut, "/api/v1/tenants/put-defaults-tenant/defaults", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", auth)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("put defaults: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var tenant Tenant
+	json.NewDecoder(w.Body).Decode(&tenant)
+	if tenant.DefaultMsgSuffix == nil || *tenant.DefaultMsgSuffix != "a custom suffix" {
+		t.Errorf("expected default_msg_suffix 'a custom suffix', got %v", tenant.DefaultMsgSuffix)
+	}
+	if tenant.DefaultIncludeLink == nil || *tenant.DefaultIncludeLink != false {
+		t.Errorf("expected default_include_link false, got %v", tenant.DefaultIncludeLink)
+	}
+}
+
+func TestFilterWithOverrides(t *testing.T) {
+	router, _ := setupTestRouter(t)
+
+	// Create tenant
+	createBody := CreateTenantRequest{Id: strPtr("filter-override-tenant")}
+	b, _ := json.Marshal(createBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/tenants", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+testAdminKey)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var createResp CreateTenantResponse
+	json.NewDecoder(w.Body).Decode(&createResp)
+	auth := "Bearer " + createResp.ApiKey
+
+	// Create filter with overrides
+	filterBody := CreateFilterRequest{
+		Pattern:     "standup",
+		MsgSuffix:   strPtr("the standup."),
+		IncludeLink: boolPtr(false),
+	}
+	b, _ = json.Marshal(filterBody)
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/tenants/filter-override-tenant/filters", bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", auth)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create filter: expected 201, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var filter MeetingFilter
+	json.NewDecoder(w.Body).Decode(&filter)
+	if filter.MsgSuffix == nil || *filter.MsgSuffix != "the standup." {
+		t.Errorf("expected msg_suffix 'the standup.', got %v", filter.MsgSuffix)
+	}
+	if filter.IncludeLink == nil || *filter.IncludeLink != false {
+		t.Errorf("expected include_link false, got %v", filter.IncludeLink)
+	}
+
+	// List filters and verify overrides present
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/tenants/filter-override-tenant/filters", nil)
+	req.Header.Set("Authorization", auth)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	var filters []MeetingFilter
+	json.NewDecoder(w.Body).Decode(&filters)
+	if len(filters) != 1 {
+		t.Fatalf("expected 1 filter, got %d", len(filters))
+	}
+	if filters[0].MsgSuffix == nil || *filters[0].MsgSuffix != "the standup." {
+		t.Errorf("list: expected msg_suffix 'the standup.', got %v", filters[0].MsgSuffix)
+	}
+
+	// Update filter
+	updateBody := UpdateFilterRequest{
+		MsgSuffix: strPtr("updated suffix"),
+	}
+	b, _ = json.Marshal(updateBody)
+	req = httptest.NewRequest(http.MethodPatch, fmt.Sprintf("/api/v1/tenants/filter-override-tenant/filters/%d", filter.Id), bytes.NewReader(b))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", auth)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("update filter: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var updatedFilter MeetingFilter
+	json.NewDecoder(w.Body).Decode(&updatedFilter)
+	if updatedFilter.MsgSuffix == nil || *updatedFilter.MsgSuffix != "updated suffix" {
+		t.Errorf("expected msg_suffix 'updated suffix', got %v", updatedFilter.MsgSuffix)
+	}
+}
+
 func TestZoomCredentialsPut(t *testing.T) {
 	router, _ := setupTestRouter(t)
 
