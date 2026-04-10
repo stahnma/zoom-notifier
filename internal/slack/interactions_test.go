@@ -140,7 +140,11 @@ func TestInteractionHandler_HandlerError(t *testing.T) {
 
 	handler.ServeHTTP(w, req)
 
-	if w.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d: %s", w.Code, w.Body.String())
+	// Slack requires 200 even on errors — we return validation errors in the body
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "response_action") {
+		t.Errorf("expected error response body, got: %s", w.Body.String())
 	}
 }

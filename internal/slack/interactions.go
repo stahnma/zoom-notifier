@@ -108,7 +108,15 @@ func (h *InteractionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if fn, ok := h.handlers[callbackID]; ok {
 			if err := fn(payload); err != nil {
 				log.WithError(err).WithField("callback_id", callbackID).Error("interaction handler failed")
-				w.WriteHeader(http.StatusInternalServerError)
+				// Slack requires 200 for view_submission — return validation error
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"response_action": "errors",
+					"errors": map[string]string{
+						"pattern_block": err.Error(),
+					},
+				})
 				return
 			}
 		} else {
@@ -116,5 +124,6 @@ func (h *InteractionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Acknowledge — empty 200 tells Slack to close the modal
 	w.WriteHeader(http.StatusOK)
 }

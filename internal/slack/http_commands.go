@@ -72,7 +72,12 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	resp, err := h.handler.Handle(r.Context(), cmd)
 	if err != nil {
 		log.WithError(err).Error("slash command handler failed")
-		http.Error(w, "internal error", http.StatusInternalServerError)
+		// Slack requires 200 — return ephemeral error message
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{
+			"response_type": "ephemeral",
+			"text":          "Something went wrong. Please try again.",
+		})
 		return
 	}
 
