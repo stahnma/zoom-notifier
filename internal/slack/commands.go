@@ -187,7 +187,7 @@ func (h *CommandHandler) status(ctx context.Context, cmd SlashCommand) (*SlashRe
 
 func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	if len(args) == 0 {
-		return ephemeral("Usage: `/zoom-notifier whois <meeting-topic>`"), nil
+		return ephemeral("Usage: `/zoom-notifier whois <search>` — search by meeting topic (partial match)"), nil
 	}
 
 	topic := strings.Join(args, " ")
@@ -778,7 +778,7 @@ func (h *CommandHandler) apiKey(ctx context.Context, cmd SlashCommand) (*SlashRe
 func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
 	text := "*zoom-notifier commands:*\n" +
 		"• `/zoom-notifier status` — Show active meetings\n" +
-		"• `/zoom-notifier whois <meeting>` — List participants in a meeting\n" +
+		"• `/zoom-notifier whois <search>` — List participants by topic (partial match)\n" +
 		"• `/zoom-notifier filters` — List active filters\n" +
 		"• `/zoom-notifier settings` — Show notification settings and filter overrides\n" +
 		"• `/zoom-notifier help` — Show this help"
