@@ -840,31 +840,53 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 	return ephemeral(sb.String()), nil
 }
 
+func parseUserID(s string) string {
+	s = strings.TrimPrefix(s, "<@")
+	s = strings.TrimSuffix(s, ">")
+	if idx := strings.Index(s, "|"); idx >= 0 {
+		s = s[:idx]
+	}
+	s = strings.TrimPrefix(s, "@")
+	return s
+}
+
 func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
-	if len(args) < 2 || args[0] != "add" {
-		return ephemeral("Usage: `/zoom-notifier admins add @user`"), nil
+	if len(args) < 2 || (args[0] != "add" && args[0] != "remove") {
+		return ephemeral("Usage:\n" +
+			"• `/zoom-notifier admins add @user`\n" +
+			"• `/zoom-notifier admins remove @user`"), nil
 	}
 
-	userID := args[1]
-	// Strip <@U123> or <@U123|name> Slack mention formatting
-	userID = strings.TrimPrefix(userID, "<@")
-	userID = strings.TrimSuffix(userID, ">")
-	// Handle <@U123|name> format
-	if idx := strings.Index(userID, "|"); idx >= 0 {
-		userID = userID[:idx]
-	}
-	// Strip leading @ if user typed @name without Slack auto-linking
-	userID = strings.TrimPrefix(userID, "@")
+	userID := parseUserID(args[1])
 
-	if err := h.store.AddAdmin(ctx, cmd.TeamID, userID); err != nil {
-		return nil, fmt.Errorf("add admin: %w", err)
+	switch args[0] {
+	case "add":
+		if err := h.store.AddAdmin(ctx, cmd.TeamID, userID); err != nil {
+			return nil, fmt.Errorf("add admin: %w", err)
+		}
+		log.WithFields(log.Fields{
+			"team_id":  cmd.TeamID,
+			"admin_id": userID,
+		}).Info("added admin via command")
+		return ephemeral(fmt.Sprintf("Added <@%s> as admin.", userID)), nil
+
+	case "remove":
+		if userID == cmd.UserID {
+			return ephemeral("You can't remove yourself as admin."), nil
+		}
+		if err := h.store.RemoveAdmin(ctx, cmd.TeamID, userID); err != nil {
+			return nil, fmt.Errorf("remove admin: %w", err)
+		}
+		log.WithFields(log.Fields{
+			"team_id":  cmd.TeamID,
+			"admin_id": userID,
+		}).Info("removed admin via command")
+		return ephemeral(fmt.Sprintf("Removed <@%s> as admin.", userID)), nil
 	}
 
-	log.WithFields(log.Fields{
-		"team_id":  cmd.TeamID,
-		"admin_id": userID,
-	}).Debug("added admin via command")
-	return ephemeral(fmt.Sprintf("Added <@%s> as admin.", userID)), nil
+	return ephemeral("Usage:\n" +
+		"• `/zoom-notifier admins add @user`\n" +
+		"• `/zoom-notifier admins remove @user`"), nil
 }
 
 func (h *CommandHandler) apiKey(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
@@ -907,6 +929,7 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 			"• `/zoom-notifier set-link on|off` — Toggle default meeting links\n" +
 			"• `/zoom-notifier set-link \"Filter\" on|off` — Toggle links on a filter\n" +
 			"• `/zoom-notifier admins add @user` — Add an admin\n" +
+			"• `/zoom-notifier admins remove @user` — Remove an admin\n" +
 			"• `/zoom-notifier api-key` — Show tenant API key\n" +
 			"• `/zoom-notifier setup` — Zoom credential setup instructions"
 	}
