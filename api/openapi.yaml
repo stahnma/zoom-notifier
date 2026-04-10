@@ -787,6 +787,9 @@ components:
           writeOnly: true
         use_tls:
           type: boolean
+        insecure_tls:
+          type: boolean
+          description: Skip TLS certificate verification (opt-in for self-signed certs)
 
     IRCConfigRequest:
       type: object
@@ -801,6 +804,10 @@ components:
         use_tls:
           type: boolean
           default: true
+        insecure_tls:
+          type: boolean
+          default: false
+          description: Skip TLS certificate verification (opt-in for self-signed certs)
 
     ZoomCredentialsRequest:
       type: object

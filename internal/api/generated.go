@@ -120,19 +120,23 @@ type HealthResponse struct {
 
 // IRCConfig defines model for IRCConfig.
 type IRCConfig struct {
-	Nick     string  `json:"nick"`
-	Password *string `json:"password,omitempty"`
-	Server   string  `json:"server"`
-	TenantId *string `json:"tenant_id,omitempty"`
-	UseTls   bool    `json:"use_tls"`
+	// InsecureTls Skip TLS certificate verification (opt-in for self-signed certs)
+	InsecureTls *bool   `json:"insecure_tls,omitempty"`
+	Nick        string  `json:"nick"`
+	Password    *string `json:"password,omitempty"`
+	Server      string  `json:"server"`
+	TenantId    *string `json:"tenant_id,omitempty"`
+	UseTls      bool    `json:"use_tls"`
 }
 
 // IRCConfigRequest defines model for IRCConfigRequest.
 type IRCConfigRequest struct {
-	Nick     string `json:"nick"`
-	Password string `json:"password"`
-	Server   string `json:"server"`
-	UseTls   *bool  `json:"use_tls,omitempty"`
+	// InsecureTls Skip TLS certificate verification (opt-in for self-signed certs)
+	InsecureTls *bool  `json:"insecure_tls,omitempty"`
+	Nick        string `json:"nick"`
+	Password    string `json:"password"`
+	Server      string `json:"server"`
+	UseTls      *bool  `json:"use_tls,omitempty"`
 }
 
 // MeetingFilter defines model for MeetingFilter.

@@ -39,7 +39,7 @@ func (r *Relay) Send(ctx context.Context, config *store.IRCConfig, channel strin
 	irccon := ircevent.IRC(config.Nick, config.Nick)
 	if config.UseTLS {
 		irccon.UseTLS = true
-		irccon.TLSConfig = &tls.Config{InsecureSkipVerify: true}
+		irccon.TLSConfig = &tls.Config{InsecureSkipVerify: config.InsecureTLS}
 	}
 	irccon.Password = config.Password
 

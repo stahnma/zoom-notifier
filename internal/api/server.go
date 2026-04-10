@@ -400,11 +400,13 @@ func (s *Server) GetIRCConfig(ctx context.Context, request GetIRCConfigRequestOb
 	result := make(GetIRCConfig200JSONResponse, 0, len(configs))
 	for _, c := range configs {
 		tenantID := c.TenantID
+		insecureTLS := c.InsecureTLS
 		result = append(result, IRCConfig{
-			TenantId: &tenantID,
-			Server:   c.Server,
-			Nick:     c.Nick,
-			UseTls:   c.UseTLS,
+			TenantId:    &tenantID,
+			Server:      c.Server,
+			Nick:        c.Nick,
+			UseTls:      c.UseTLS,
+			InsecureTls: &insecureTLS,
 		})
 	}
 	return result, nil
@@ -415,13 +417,18 @@ func (s *Server) PutIRCConfig(ctx context.Context, request PutIRCConfigRequestOb
 	if request.Body.UseTls != nil {
 		useTLS = *request.Body.UseTls
 	}
+	insecureTLS := false
+	if request.Body.InsecureTls != nil {
+		insecureTLS = *request.Body.InsecureTls
+	}
 
 	c := &store.IRCConfig{
-		TenantID: request.TenantId,
-		Server:   request.Body.Server,
-		Nick:     request.Body.Nick,
-		Password: request.Body.Password,
-		UseTLS:   useTLS,
+		TenantID:    request.TenantId,
+		Server:      request.Body.Server,
+		Nick:        request.Body.Nick,
+		Password:    request.Body.Password,
+		UseTLS:      useTLS,
+		InsecureTLS: insecureTLS,
 	}
 	if err := s.store.UpsertIRCConfig(ctx, c); err != nil {
 		return nil, err
@@ -429,10 +436,11 @@ func (s *Server) PutIRCConfig(ctx context.Context, request PutIRCConfigRequestOb
 
 	tenantID := request.TenantId
 	return PutIRCConfig200JSONResponse{
-		TenantId: &tenantID,
-		Server:   c.Server,
-		Nick:     c.Nick,
-		UseTls:   c.UseTLS,
+		TenantId:    &tenantID,
+		Server:      c.Server,
+		Nick:        c.Nick,
+		UseTls:      c.UseTLS,
+		InsecureTls: &insecureTLS,
 	}, nil
 }
 

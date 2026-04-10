@@ -55,11 +55,12 @@ type Participant struct {
 }
 
 type IRCConfig struct {
-	TenantID string
-	Server   string
-	Nick     string
-	Password string // encrypted at rest
-	UseTLS   bool
+	TenantID    string
+	Server      string
+	Nick        string
+	Password    string // encrypted at rest
+	UseTLS      bool
+	InsecureTLS bool // skip TLS certificate verification (operator opt-in)
 }
 
 type ZoomCredentials struct {
