@@ -156,25 +156,37 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 		return nil, fmt.Errorf("list meetings: %w", err)
 	}
 
+	// Strip surrounding quotes if present (from copy-paste)
+	topic = strings.Trim(topic, "\"'\u201c\u201d")
+
+	var matched []*store.ActiveMeeting
 	for _, m := range meetings {
-		if strings.EqualFold(m.Topic, topic) || m.MeetingID == topic {
-			participants, err := h.store.GetActiveParticipants(ctx, m.MeetingID)
-			if err != nil {
-				return nil, fmt.Errorf("get participants: %w", err)
-			}
-			if len(participants) == 0 {
-				return ephemeral(fmt.Sprintf("No active participants in *%s*.", m.Topic)), nil
-			}
-			var sb strings.Builder
-			sb.WriteString(fmt.Sprintf("*Participants in %s (%d):*\n", m.Topic, len(participants)))
-			for _, p := range participants {
-				sb.WriteString(fmt.Sprintf("• %s\n", p.UserName))
-			}
-			return ephemeral(sb.String()), nil
+		if strings.EqualFold(m.Topic, topic) || m.MeetingID == topic ||
+			strings.Contains(strings.ToLower(m.Topic), strings.ToLower(topic)) {
+			matched = append(matched, m)
 		}
 	}
 
-	return ephemeral(fmt.Sprintf("No active meeting found matching `%s`.", topic)), nil
+	if len(matched) == 0 {
+		return ephemeral(fmt.Sprintf("No active meeting found matching `%s`.", topic)), nil
+	}
+
+	var sb strings.Builder
+	for _, m := range matched {
+		participants, err := h.store.GetActiveParticipants(ctx, m.MeetingID)
+		if err != nil {
+			return nil, fmt.Errorf("get participants: %w", err)
+		}
+		if len(participants) == 0 {
+			sb.WriteString(fmt.Sprintf("No active participants in *%s*.\n", m.Topic))
+			continue
+		}
+		sb.WriteString(fmt.Sprintf("*Participants in %s (%d):*\n", m.Topic, len(participants)))
+		for _, p := range participants {
+			sb.WriteString(fmt.Sprintf("• %s\n", p.UserName))
+		}
+	}
+	return ephemeral(sb.String()), nil
 }
 
 func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
