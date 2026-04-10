@@ -3,3 +3,8 @@ zoom-notifier
 go.sum
 *.creds
 .worktrees/
+coverage.out
+.DS_Store
+creds
+config.toml
+zoom-notifier.db
