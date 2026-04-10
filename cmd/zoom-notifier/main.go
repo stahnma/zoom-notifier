@@ -169,6 +169,10 @@ code{background:#f0f0f0;padding:0.15rem 0.4rem;border-radius:3px;font-size:0.9re
 		httpCmdHandler := appslack.NewHTTPCommandHandler(cmdHandler, cfg.Slack.SigningSecret)
 		r.Post("/slack/commands", httpCmdHandler.ServeHTTP)
 		log.Info("Slack slash command HTTP endpoint enabled")
+
+		interactionHandler := appslack.NewInteractionHandler(store, cfg.Slack.SigningSecret)
+		r.Post("/slack/interactions", interactionHandler.ServeHTTP)
+		log.Info("Slack interaction endpoint enabled")
 	}
 
 	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
