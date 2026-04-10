@@ -283,16 +283,35 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 	// Extract channel ID and name from Slack mention format
 	target := parseChannelID(args[0])
 	targetName := parseChannelName(args[0])
+	targetID := ""
 
-	// If target is a channel ID and we didn't get a name from the mention,
-	// resolve it via the Slack API
-	if strings.HasPrefix(target, "C") && targetName == "" {
-		botToken := h.getBotToken(ctx, cmd.TeamID)
-		if botToken != "" {
-			api := slackapi.New(botToken)
-			info, err := api.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{ChannelID: target})
-			if err == nil && info != nil {
-				targetName = info.Name
+	botToken := h.getBotToken(ctx, cmd.TeamID)
+	if botToken != "" {
+		api := slackapi.New(botToken)
+		if strings.HasPrefix(target, "C") {
+			// Target is a channel ID — resolve to name
+			targetID = target
+			if targetName == "" {
+				info, err := api.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{ChannelID: target})
+				if err == nil && info != nil {
+					targetName = info.Name
+				}
+			}
+		} else {
+			// Target is a channel name — resolve to ID
+			targetName = target
+			channels, _, err := api.GetConversationsContext(ctx, &slackapi.GetConversationsParameters{
+				Types:           []string{"public_channel", "private_channel"},
+				ExcludeArchived: true,
+				Limit:           200,
+			})
+			if err == nil {
+				for _, ch := range channels {
+					if ch.Name == target {
+						targetID = ch.ID
+						break
+					}
+				}
 			}
 		}
 	}
@@ -306,7 +325,7 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 		if sub.Type != "slack" {
 			continue
 		}
-		if sub.Target == target || (targetName != "" && sub.Target == targetName) {
+		if sub.Target == target || (targetName != "" && sub.Target == targetName) || (targetID != "" && sub.Target == targetID) {
 			if err := h.store.DeleteSubscription(ctx, sub.ID); err != nil {
 				return nil, fmt.Errorf("delete subscription: %w", err)
 			}
