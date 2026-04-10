@@ -739,6 +739,33 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 		}
 	}
 
+	// Show subscriptions for admins
+	isAdmin, err := h.store.IsAdmin(ctx, cmd.TeamID, cmd.UserID)
+	if err == nil && isAdmin {
+		subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
+		if err == nil && len(subs) > 0 {
+			sb.WriteString(fmt.Sprintf("\n*Subscriptions (%d):*\n", len(subs)))
+
+			botToken := h.getBotToken(ctx, cmd.TeamID)
+			var api *slackapi.Client
+			if botToken != "" {
+				api = slackapi.New(botToken)
+			}
+
+			for _, s := range subs {
+				if s.Type != "slack" {
+					sb.WriteString(fmt.Sprintf("• %s → %s\n", s.Type, s.Target))
+					continue
+				}
+				target := formatChannel(s.Target)
+				if api != nil && strings.HasPrefix(s.Target, "C") {
+					target = "<#" + s.Target + ">"
+				}
+				sb.WriteString(fmt.Sprintf("• %s\n", target))
+			}
+		}
+	}
+
 	return ephemeral(sb.String()), nil
 }
 
