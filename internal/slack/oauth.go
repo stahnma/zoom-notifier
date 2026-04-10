@@ -61,10 +61,28 @@ func NewOAuthHandler(cfg OAuthConfig) *OAuthHandler {
 
 // HandleInstall redirects the user to Slack's OAuth authorization page.
 func (h *OAuthHandler) HandleInstall(w http.ResponseWriter, r *http.Request) {
+	stateBytes := make([]byte, 16)
+	if _, err := rand.Read(stateBytes); err != nil {
+		log.WithError(err).Error("failed to generate OAuth state token")
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+	state := hex.EncodeToString(stateBytes)
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    state,
+		MaxAge:   300,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Path:     "/",
+	})
+
 	params := url.Values{
 		"client_id":    {h.clientID},
 		"scope":        {h.scopes},
 		"redirect_uri": {h.redirectURI},
+		"state":        {state},
 	}
 	authorizeURL := h.oauthURL + "?" + params.Encode()
 	log.WithField("redirect_uri", h.redirectURI).Debug("starting Slack OAuth install flow")
@@ -74,6 +92,28 @@ func (h *OAuthHandler) HandleInstall(w http.ResponseWriter, r *http.Request) {
 // HandleCallback exchanges the OAuth code for a bot token and creates the tenant.
 func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	log.Debug("received Slack OAuth callback")
+
+	// Verify OAuth state parameter to prevent CSRF
+	stateCookie, err := r.Cookie("oauth_state")
+	if err != nil || stateCookie.Value == "" {
+		http.Error(w, "missing OAuth state cookie", http.StatusBadRequest)
+		return
+	}
+	stateParam := r.URL.Query().Get("state")
+	if stateParam == "" || stateParam != stateCookie.Value {
+		http.Error(w, "OAuth state mismatch", http.StatusBadRequest)
+		return
+	}
+	// Clear the state cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "oauth_state",
+		Value:    "",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Path:     "/",
+	})
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		http.Error(w, "missing code parameter", http.StatusBadRequest)
