@@ -370,6 +370,20 @@ func (s *Server) UpdateFilter(ctx context.Context, request UpdateFilterRequestOb
 
 func (s *Server) DeleteFilter(ctx context.Context, request DeleteFilterRequestObject) (DeleteFilterResponseObject, error) {
 	log.WithField("filter_id", request.FilterId).Info("deleting filter via API")
+	filters, err := s.store.ListFilters(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
+	}
+	var found bool
+	for _, f := range filters {
+		if f.ID == request.FilterId {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return DeleteFilter404JSONResponse{NotFoundJSONResponse{Error: "filter not found"}}, nil
+	}
 	if err := s.store.DeleteFilter(ctx, request.FilterId); err != nil {
 		return nil, err
 	}
