@@ -1,16 +1,19 @@
 # zoom-notifier
 
-Multi-tenant service that receives Zoom webhook events and dispatches notifications to Slack channels and/or IRC. Includes a native Slack app with slash commands for self-service management.
+Multi-tenant service that receives Zoom webhook events and dispatches notifications to Slack channels and/or IRC. Includes a native Slack app with slash commands, interactive modals, and a spec-first REST API.
 
 ## Features
 
-- **Multi-tenant**: Supports multiple Slack workspaces and IRC configurations
-- **Slack App**: OAuth install flow, HTTP slash commands with signing secret verification
+- **Multi-tenant**: Multiple Slack workspaces, each with their own Zoom account, subscriptions, and settings
+- **Slack App**: OAuth install flow, slash commands with signing secret verification, interactive modals for admin tasks
+- **Meeting Links**: Optional clickable join links with passcodes via Zoom Server-to-Server OAuth API
+- **Meeting Filters**: Only notify on matching meeting topics (case-insensitive substring match)
+- **Notification Settings**: Tenant-wide defaults for message suffix and meeting links, with per-filter overrides
+- **Setup Wizard**: Web-based first-run wizard guides you through Zoom and Slack app configuration
+- **Per-Tenant Setup**: Each workspace configures its own Zoom account via a web form
+- **REST API**: Full CRUD for tenants, subscriptions, filters, and credentials with Swagger UI docs
 - **IRC Relay**: Per-tenant IRC notification support with TLS
-- **REST API**: Full CRUD API for managing tenants, subscriptions, filters, and credentials
 - **Meeting State**: Tracks active meetings and participants in SQLite
-- **Meeting Filters**: Only notify on matching meeting topics
-- **Per-channel Config**: Customizable message suffix and meeting link toggle per subscription
 
 ## Quick Start
 
@@ -20,11 +23,11 @@ Multi-tenant service that receives Zoom webhook events and dispatches notificati
 make build
 ```
 
-Requires Go 1.25+. No C compiler needed (pure Go SQLite).
+Requires Go 1.25+. No C compiler needed (pure Go SQLite via `modernc.org/sqlite`).
 
 ### Configure (Setup Wizard)
 
-Just run the binary with no config file — a web-based setup wizard launches automatically:
+Run the binary with no config file — a web-based setup wizard launches automatically:
 
 ```bash
 ./zoom-notifier
@@ -33,37 +36,42 @@ Just run the binary with no config file — a web-based setup wizard launches au
 
 The wizard walks you through:
 1. Setting your server's public URL
-2. Generating an admin API key
-3. Configuring your Zoom webhook secret
-4. Creating a Slack app (via pre-built manifest link) and entering credentials
-5. Optional advanced settings (host, port, database path, log level)
+2. Creating a Zoom Server-to-Server OAuth app (Account ID, webhook secret, optional API credentials)
+3. Creating a Slack app (via pre-built manifest link) and entering credentials
+4. Advanced settings (host, port, database path, log level, admin API key)
 
 On completion it writes a `config.toml` file. Restart to apply.
 
-For headless servers without a local browser, use `--setup-listen 0.0.0.0:8888` to expose the wizard on all interfaces.
+For headless servers, use `--setup-listen 0.0.0.0:8888` to expose the wizard on all interfaces.
 
 ### Configure (Manual)
 
-Advanced users can skip the wizard and create a config file directly (see `config.dev.toml` for example):
+Create a config file directly:
 
 ```toml
 [server]
 port = 8888
 host = "0.0.0.0"
+url = "https://zoom.example.com"           # public URL for OAuth redirects
 
 [database]
 path = "./zoom-notifier.db"
 
 [zoom]
-webhook_secret = "your-zoom-webhook-secret"  # or set ZOOM_SECRET env var
+webhook_secret = "your-zoom-secret-token"   # or ZOOM_SECRET env var
+account_id = "your-zoom-account-id"
+
+# Optional: enables meeting join links in notifications
+# client_id = "your-zoom-client-id"
+# client_secret = "your-zoom-client-secret"
 
 [slack]
-client_id = "your-slack-client-id"            # or SLACK_CLIENT_ID
-client_secret = "your-slack-client-secret"    # or SLACK_CLIENT_SECRET
-signing_secret = "your-slack-signing-secret"  # or SLACK_SIGNING_SECRET
+client_id = "your-slack-client-id"          # or SLACK_CLIENT_ID
+client_secret = "your-slack-client-secret"  # or SLACK_CLIENT_SECRET
+signing_secret = "your-slack-signing-secret" # or SLACK_SIGNING_SECRET
 
 [admin]
-api_key = "your-admin-key"                    # or ZOOMNOTIFIER_ADMIN_KEY
+api_key = "your-admin-key"                  # or ZOOMNOTIFIER_ADMIN_KEY
 
 [log]
 level = "info"
@@ -77,73 +85,96 @@ level = "info"
 
 ### Flags
 
-- `--version` — Show version information
-- `--config <path>` — Path to TOML config file
-- `--migrate` — Run database migrations and exit
-- `--setup-listen <host:port>` — Listen address for setup wizard (default: `localhost:8888`)
+- `--version` -- Show version information
+- `--config <path>` -- Path to TOML config file
+- `--migrate` -- Run database migrations and exit
+- `--setup-listen <host:port>` -- Listen address for setup wizard (default: `localhost:8888`)
 
-## Setup
+## Zoom App Setup
 
-### 1. Create a Tenant
+Create a **Server-to-Server OAuth** app in the Zoom Marketplace. This single app handles both webhook events and API access:
 
-Using the admin API key:
-
-```bash
-curl -X POST http://localhost:8888/api/v1/tenants \
-  -H "Authorization: Bearer $ADMIN_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"team_name": "My Team", "zoom_account_id": "abc123"}'
-```
-
-Or install the Slack app via `/slack/install` (creates tenant automatically).
-
-### 2. Add a Subscription
-
-Using the tenant's API key (returned from tenant creation):
-
-```bash
-curl -X POST http://localhost:8888/api/v1/tenants/$TENANT_ID/subscriptions \
-  -H "Authorization: Bearer $TENANT_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"type": "slack", "target": "#general"}'
-```
-
-Or use the Slack slash command: `/zoom-notifier subscribe #general`
-
-### 3. Configure Zoom Webhook
-
-Point your Zoom app's webhook URL to `http://your-host:8888/webhook/zoom`.
+1. Go to [Zoom App Marketplace - Build App](https://marketplace.zoom.us/user/build) and sign in
+2. Choose **Server-to-Server OAuth**, give it a name (e.g. "zoom-notifier")
+3. Copy **Account ID**, **Client ID**, and **Client Secret** from the App Credentials tab
+4. Fill in the required fields on the Information tab
+5. On the Feature tab, enable **Event Subscriptions** and add:
+   - Event notification endpoint: `https://your-server/webhook/zoom`
+   - Events: Start Meeting, End Meeting, Participant/Host Joined, Participant/Host Left
+6. Copy the **Secret Token** from the Feature tab (this is the webhook secret, not the Client Secret)
+7. On the Scopes tab, add `meeting:read:admin`
+8. Activate the app
 
 ## Slack App Setup
 
-The setup wizard automates most of this by providing a "Create Slack App" button with a pre-built manifest. If setting up manually:
+The setup wizard provides a "Create Slack App from Manifest" button that pre-fills all settings. If setting up manually:
 
-1. Create a Slack app at https://api.slack.com/apps using the app manifest (or manually)
-2. Add the `/zoom-notifier` slash command with request URL `http://your-host:8888/slack/commands`
-3. Set OAuth scopes: `commands`, `chat:write`, `channels:read`
-4. Set the OAuth redirect URL to `http://your-host:8888/slack/callback`
-5. Configure: `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, `SLACK_SIGNING_SECRET`
+1. Create a Slack app at https://api.slack.com/apps
+2. Add the `/zoom-notifier` slash command with request URL `https://your-server/slack/commands`
+3. Enable Interactivity with request URL `https://your-server/slack/interactions`
+4. Set OAuth scopes: `commands`, `chat:write`, `chat:write.public`, `channels:read`, `groups:read`, `im:write`, `im:read`
+5. Set the OAuth redirect URL to `https://your-server/slack/callback`
+6. Install the app via `https://your-server/slack/install`
+
+The person who installs the app is automatically added as the first admin.
 
 ### Slash Commands
 
+**Everyone:**
+
 | Command | Description |
 |---|---|
-| `/zoom-notifier status` | Show active meetings and participant counts |
-| `/zoom-notifier whois <meeting>` | List who's in a specific meeting |
-| `/zoom-notifier subscribe #channel` | Subscribe a channel to notifications |
-| `/zoom-notifier unsubscribe #channel` | Unsubscribe a channel |
-| `/zoom-notifier filter "Topic"` | Only notify for matching meeting topics |
-| `/zoom-notifier filters` | List active filters |
-| `/zoom-notifier help` | Show all available commands |
+| `/zoom-notifier status` | Show active meetings with participants |
+| `/zoom-notifier whois <search>` | List participants by topic (partial match) |
+| `/zoom-notifier filters` | List active meeting filters |
+| `/zoom-notifier settings` | Show notification settings, filter overrides, and subscriptions (admin) |
+| `/zoom-notifier help` | Show available commands (admin commands shown to admins only) |
 
-Admin commands (subscribe, filter, etc.) require the user to be a tenant admin.
+**Admin only:**
+
+| Command | Description |
+|---|---|
+| `/zoom-notifier subscribe` | Subscribe a channel (opens channel picker modal) |
+| `/zoom-notifier unsubscribe` | Unsubscribe a channel (opens dropdown modal) |
+| `/zoom-notifier filter` | Add a meeting topic filter (opens modal) |
+| `/zoom-notifier set-suffix <text>` | Set default message suffix |
+| `/zoom-notifier set-suffix "Filter" "text"` | Set suffix override on a filter |
+| `/zoom-notifier set-link on\|off` | Toggle default meeting links |
+| `/zoom-notifier set-link "Filter" on\|off` | Toggle links on a filter |
+| `/zoom-notifier admins list` | List admins |
+| `/zoom-notifier admins add` | Add an admin (opens user picker modal) |
+| `/zoom-notifier admins remove @user` | Remove an admin |
+| `/zoom-notifier api-key` | Show tenant API key |
+| `/zoom-notifier setup` | Open per-tenant Zoom credential setup page |
+
+Commands with modals also accept text arguments as a fallback (e.g. `/zoom-notifier subscribe #channel`).
+
+Short aliases: `sub`, `unsub`, `subs`, `admin`/`admins`.
+
+## Per-Tenant Zoom Setup
+
+Each Slack workspace configures its own Zoom account. After installing the Slack app:
+
+1. An admin runs `/zoom-notifier setup` in Slack
+2. This returns a private link to a web-based setup form
+3. The form collects: Zoom Account ID (required), Client ID and Client Secret (optional, for meeting links)
+4. Save -- the workspace is now connected to its Zoom account
+
+## Notification Settings
+
+Notifications use a two-tier configuration model:
+
+- **Tenant defaults**: Message suffix and meeting link toggle apply to all notifications
+- **Filter overrides**: Individual filters can override the suffix and/or link setting
+
+Example: Tenant default suffix is "the Zoom meeting", but a filter for "Standup" has a suffix override of "the daily standup". Meetings matching "Standup" get the override; everything else gets the default.
 
 ## IRC Setup
 
 Configure IRC via the REST API:
 
 ```bash
-curl -X PUT http://localhost:8888/api/v1/tenants/$TENANT_ID/irc \
+curl -X PUT https://your-server/api/v1/tenants/$TENANT_ID/irc \
   -H "Authorization: Bearer $TENANT_KEY" \
   -H "Content-Type: application/json" \
   -d '{"server": "irc.libera.chat:6697", "nick": "zoombot", "password": "secret", "use_tls": true}'
@@ -152,7 +183,7 @@ curl -X PUT http://localhost:8888/api/v1/tenants/$TENANT_ID/irc \
 Then add an IRC subscription:
 
 ```bash
-curl -X POST http://localhost:8888/api/v1/tenants/$TENANT_ID/subscriptions \
+curl -X POST https://your-server/api/v1/tenants/$TENANT_ID/subscriptions \
   -H "Authorization: Bearer $TENANT_KEY" \
   -H "Content-Type: application/json" \
   -d '{"type": "irc", "target": "#mychannel"}'
@@ -160,15 +191,29 @@ curl -X POST http://localhost:8888/api/v1/tenants/$TENANT_ID/subscriptions \
 
 ## API Documentation
 
+Interactive Swagger UI docs are available at `/api/docs` when the server is running.
+
 The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 
-- `GET /healthz` — Health check
-- `POST /webhook/zoom` — Zoom webhook receiver
-- `GET/POST /api/v1/tenants` — Tenant management (admin key)
-- `GET/POST/PATCH/DELETE /api/v1/tenants/{id}/subscriptions` — Subscription CRUD
-- `GET/POST/DELETE /api/v1/tenants/{id}/filters` — Meeting filter management
-- `GET/PUT /api/v1/tenants/{id}/irc` — IRC configuration
-- `PUT /api/v1/tenants/{id}/zoom` — Zoom API credentials
+- `GET /healthz` -- Health check (version, uptime, database status, tenant count)
+- `POST /webhook/zoom` -- Zoom webhook receiver
+- `GET/POST /api/v1/tenants` -- Tenant management (admin key)
+- `PUT /api/v1/tenants/{id}/defaults` -- Update tenant notification defaults
+- `GET/POST/DELETE /api/v1/tenants/{id}/subscriptions` -- Subscription CRUD
+- `GET/POST/PATCH/DELETE /api/v1/tenants/{id}/filters` -- Meeting filter management
+- `GET/PUT /api/v1/tenants/{id}/irc` -- IRC configuration
+- `PUT /api/v1/tenants/{id}/zoom` -- Zoom API credentials
+
+## Web Pages
+
+| Path | Description |
+|---|---|
+| `/` | Landing page with links |
+| `/setup` | First-run setup wizard (only when unconfigured) |
+| `/slack/install` | Slack OAuth install flow |
+| `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
+| `/api/docs` | Swagger UI API documentation |
+| `/healthz` | Health check endpoint |
 
 ## Running via systemd
 
