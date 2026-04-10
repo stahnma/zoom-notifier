@@ -56,8 +56,25 @@ func TestCommandHelp(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !strings.Contains(resp.Text, "status") {
+		t.Error("expected help to mention status")
+	}
+	if strings.Contains(resp.Text, "Admin commands") {
+		t.Error("non-admin should not see admin commands")
+	}
+
+	// Admin should see admin commands
+	resp, err = h.Handle(context.Background(), SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "help",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "Admin commands") {
+		t.Error("admin should see admin commands")
+	}
 	if !strings.Contains(resp.Text, "subscribe") {
-		t.Error("expected help to mention subscribe")
+		t.Error("admin help should mention subscribe")
 	}
 }
 

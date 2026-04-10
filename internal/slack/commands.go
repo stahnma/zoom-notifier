@@ -683,19 +683,25 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 	text := "*zoom-notifier commands:*\n" +
 		"• `/zoom-notifier status` — Show active meetings\n" +
 		"• `/zoom-notifier whois <meeting>` — List participants in a meeting\n" +
-		"• `/zoom-notifier subscribe #channel` — Subscribe channel to notifications _(admin)_\n" +
-		"• `/zoom-notifier unsubscribe #channel` — Unsubscribe channel _(admin)_\n" +
-		"• `/zoom-notifier filter \"Topic\"` — Add a meeting topic filter _(admin)_\n" +
 		"• `/zoom-notifier filters` — List active filters\n" +
 		"• `/zoom-notifier subscriptions` — List channel subscriptions\n" +
 		"• `/zoom-notifier settings` — Show notification settings and filter overrides\n" +
-		"• `/zoom-notifier set-suffix \"text\"` — Set default message suffix _(admin)_\n" +
-		"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — Set suffix on a filter _(admin)_\n" +
-		"• `/zoom-notifier set-link on|off` — Toggle default meeting links _(admin)_\n" +
-		"• `/zoom-notifier set-link \"Filter\" on|off` — Toggle links on a filter _(admin)_\n" +
-		"• `/zoom-notifier admins add @user` — Add an admin _(admin)_\n" +
-		"• `/zoom-notifier api-key` — Show tenant API key _(admin)_\n" +
-		"• `/zoom-notifier setup` — Zoom credential setup instructions _(admin)_\n" +
 		"• `/zoom-notifier help` — Show this help"
+
+	isAdmin, err := h.store.IsAdmin(ctx, cmd.TeamID, cmd.UserID)
+	if err == nil && isAdmin {
+		text += "\n\n*Admin commands:*\n" +
+			"• `/zoom-notifier subscribe #channel` — Subscribe channel to notifications\n" +
+			"• `/zoom-notifier unsubscribe #channel` — Unsubscribe channel\n" +
+			"• `/zoom-notifier filter \"Topic\"` — Add a meeting topic filter\n" +
+			"• `/zoom-notifier set-suffix \"text\"` — Set default message suffix\n" +
+			"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — Set suffix on a filter\n" +
+			"• `/zoom-notifier set-link on|off` — Toggle default meeting links\n" +
+			"• `/zoom-notifier set-link \"Filter\" on|off` — Toggle links on a filter\n" +
+			"• `/zoom-notifier admins add @user` — Add an admin\n" +
+			"• `/zoom-notifier api-key` — Show tenant API key\n" +
+			"• `/zoom-notifier setup` — Zoom credential setup instructions"
+	}
+
 	return ephemeral(text), nil
 }
