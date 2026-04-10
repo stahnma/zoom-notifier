@@ -61,15 +61,33 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 		return
 	}
 
-	// Get tenant for bot token
+	// Get the matching filter for overrides (separate from the pass/fail check above)
+	matchedFilter, err := d.store.GetMatchingFilter(ctx, tenantID, topic)
+	if err != nil {
+		log.WithError(err).Error("failed to get matching filter")
+		// non-fatal: fall through to use tenant defaults
+	}
+
+	// Get tenant for bot token and defaults
 	tenant, err := d.store.GetTenant(ctx, tenantID)
 	if err != nil || tenant == nil {
 		log.WithError(err).WithField("tenant_id", tenantID).Error("failed to get tenant")
 		return
 	}
 
-	// Use tenant default suffix; per-filter overrides will be added later
+	// Resolve suffix: filter override takes precedence over tenant default
 	suffix := tenant.DefaultMsgSuffix
+	if matchedFilter != nil && matchedFilter.MsgSuffix != nil {
+		suffix = *matchedFilter.MsgSuffix
+	}
+
+	// Resolve includeLink: filter override takes precedence over tenant default
+	// Not yet used in message formatting but wired up for future use
+	includeLink := tenant.DefaultIncludeLink
+	if matchedFilter != nil && matchedFilter.IncludeLink != nil {
+		includeLink = *matchedFilter.IncludeLink
+	}
+	_ = includeLink // TODO: use in message formatting
 
 	for _, sub := range subs {
 		subMsg := formatMessageWithSuffix(payload, suffix)

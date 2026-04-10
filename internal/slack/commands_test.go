@@ -330,13 +330,13 @@ func TestCommandSetSuffix(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(resp.Text, "Updated message suffix") {
+	if !strings.Contains(resp.Text, "Updated default message suffix") {
 		t.Errorf("expected updated message, got: %s", resp.Text)
 	}
 
-	subs, _ := s.ListSubscriptions(ctx, "T-CMD")
-	if subs[0].MsgSuffix != "the daily standup" {
-		t.Errorf("expected suffix 'the daily standup', got '%s'", subs[0].MsgSuffix)
+	tenant, _ := s.GetTenant(ctx, "T-CMD")
+	if tenant.DefaultMsgSuffix != "the daily standup" {
+		t.Errorf("expected tenant default suffix 'the daily standup', got '%s'", tenant.DefaultMsgSuffix)
 	}
 }
 
@@ -358,8 +358,8 @@ func TestCommandSetLink(t *testing.T) {
 		t.Errorf("expected enabled message, got: %s", resp.Text)
 	}
 
-	subs, _ := s.ListSubscriptions(ctx, "T-CMD")
-	if !subs[0].IncludeLink {
-		t.Error("expected include_link to be true")
+	tenant, _ := s.GetTenant(ctx, "T-CMD")
+	if !tenant.DefaultIncludeLink {
+		t.Error("expected tenant default_include_link to be true")
 	}
 }
