@@ -411,6 +411,7 @@ func (h *CommandHandler) getBotToken(ctx context.Context, teamID string) string 
 func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	// Open modal if no args and modal support is available
 	if len(args) == 0 && h.canOpenModal(cmd) {
+		log.WithField("trigger_id", cmd.TriggerID).Debug("attempting to open set-suffix modal")
 		botToken := h.getBotToken(ctx, cmd.TeamID)
 		if botToken != "" {
 			tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
@@ -427,8 +428,11 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
 				log.WithError(err).Error("failed to open set-suffix modal")
 			} else {
+				log.Debug("set-suffix modal opened successfully")
 				return ephemeral(""), nil
 			}
+		} else {
+			log.Warn("no bot token available, falling back to text command")
 		}
 	}
 

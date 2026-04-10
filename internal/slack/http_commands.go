@@ -10,6 +10,8 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+
+	log "github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )
@@ -60,8 +62,16 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		TriggerID: values.Get("trigger_id"),
 	}
 
+	log.WithFields(log.Fields{
+		"team_id":    cmd.TeamID,
+		"user_id":    cmd.UserID,
+		"text":       cmd.Text,
+		"trigger_id": cmd.TriggerID != "",
+	}).Debug("received slash command")
+
 	resp, err := h.handler.Handle(r.Context(), cmd)
 	if err != nil {
+		log.WithError(err).Error("slash command handler failed")
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
