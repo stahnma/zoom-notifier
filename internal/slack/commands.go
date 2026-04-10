@@ -45,6 +45,21 @@ func parseChannelID(s string) string {
 	return s
 }
 
+// parseChannelName extracts the channel name from Slack's mention format.
+// e.g. "<#C05MXNTTHM4|bottery-new>" returns "bottery-new".
+// Returns empty string if no name is present.
+func parseChannelName(s string) string {
+	if !strings.HasPrefix(s, "<#") {
+		return ""
+	}
+	s = strings.TrimPrefix(s, "<#")
+	s = strings.TrimSuffix(s, ">")
+	if idx := strings.Index(s, "|"); idx >= 0 {
+		return s[idx+1:]
+	}
+	return ""
+}
+
 // formatChannel returns a Slack-linkable channel reference.
 // If target looks like a channel ID (e.g. C05MXNTTHM4), wraps it as <#ID>.
 // Otherwise returns #name for display.
@@ -265,18 +280,25 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 		return ephemeral("Usage: `/zoom-notifier unsubscribe #channel`"), nil
 	}
 
+	// Extract both channel ID and name from Slack mention format
+	// e.g. "<#C05MXNTTHM4|bottery-new>" gives ID=C05MXNTTHM4 and name=bottery-new
 	target := parseChannelID(args[0])
+	targetName := parseChannelName(args[0])
+
 	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
 	if err != nil {
 		return nil, fmt.Errorf("list subscriptions: %w", err)
 	}
 
 	for _, sub := range subs {
-		if sub.Target == target && sub.Type == "slack" {
+		if sub.Type != "slack" {
+			continue
+		}
+		if sub.Target == target || (targetName != "" && sub.Target == targetName) {
 			if err := h.store.DeleteSubscription(ctx, sub.ID); err != nil {
 				return nil, fmt.Errorf("delete subscription: %w", err)
 			}
-			return ephemeral(fmt.Sprintf("Unsubscribed %s from meeting notifications.", formatChannel(target))), nil
+			return ephemeral(fmt.Sprintf("Unsubscribed %s from meeting notifications.", formatChannel(sub.Target))), nil
 		}
 	}
 
