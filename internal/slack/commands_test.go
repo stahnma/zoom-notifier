@@ -184,8 +184,8 @@ func TestCommandSubscribeAsAdmin(t *testing.T) {
 	if len(subs) != 1 {
 		t.Fatalf("expected 1 subscription, got %d", len(subs))
 	}
-	if subs[0].Target != "#general" {
-		t.Errorf("expected target #general, got %s", subs[0].Target)
+	if subs[0].Target != "general" {
+		t.Errorf("expected target general, got %s", subs[0].Target)
 	}
 }
 
@@ -209,7 +209,7 @@ func TestCommandUnsubscribe(t *testing.T) {
 
 	// Create a subscription first
 	s.CreateSubscription(ctx, &store.Subscription{
-		TenantID: "T-CMD", Type: "slack", Target: "#alerts", Enabled: true,
+		TenantID: "T-CMD", Type: "slack", Target: "alerts", Enabled: true,
 	})
 
 	resp, err := h.Handle(ctx, SlashCommand{

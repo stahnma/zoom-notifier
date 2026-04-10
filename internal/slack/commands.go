@@ -38,7 +38,18 @@ func parseChannelID(s string) string {
 	if idx := strings.Index(s, "|"); idx >= 0 {
 		s = s[:idx]
 	}
+	s = strings.TrimPrefix(s, "#")
 	return s
+}
+
+// formatChannel returns a Slack-linkable channel reference.
+// If target looks like a channel ID (e.g. C05MXNTTHM4), wraps it as <#ID>.
+// Otherwise returns #name for display.
+func formatChannel(target string) string {
+	if strings.HasPrefix(target, "C") && len(target) > 5 {
+		return "<#" + target + ">"
+	}
+	return "#" + target
 }
 
 // CommandHandler routes slash commands to their implementations.
@@ -207,7 +218,7 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 		return nil, fmt.Errorf("create subscription: %w", err)
 	}
 
-	return ephemeral(fmt.Sprintf("Subscribed <#%s> to meeting notifications.\nRemember to invite the bot to the channel: `/invite @zoom-notifier`", target)), nil
+	return ephemeral(fmt.Sprintf("Subscribed %s to meeting notifications.", formatChannel(target))), nil
 }
 
 func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
@@ -226,11 +237,11 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 			if err := h.store.DeleteSubscription(ctx, sub.ID); err != nil {
 				return nil, fmt.Errorf("delete subscription: %w", err)
 			}
-			return ephemeral(fmt.Sprintf("Unsubscribed %s from meeting notifications.", target)), nil
+			return ephemeral(fmt.Sprintf("Unsubscribed %s from meeting notifications.", formatChannel(target))), nil
 		}
 	}
 
-	return ephemeral(fmt.Sprintf("No Slack subscription found for %s.", target)), nil
+	return ephemeral(fmt.Sprintf("No Slack subscription found for %s.", formatChannel(target))), nil
 }
 
 func (h *CommandHandler) addFilter(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
