@@ -270,7 +270,7 @@ func (s *Server) UpdateSubscription(ctx context.Context, request UpdateSubscript
 	if err != nil {
 		return nil, err
 	}
-	if sub == nil {
+	if sub == nil || sub.TenantID != request.TenantId {
 		return UpdateSubscription404JSONResponse{NotFoundJSONResponse{Error: "subscription not found"}}, nil
 	}
 
@@ -293,7 +293,7 @@ func (s *Server) DeleteSubscription(ctx context.Context, request DeleteSubscript
 	if err != nil {
 		return nil, err
 	}
-	if sub == nil {
+	if sub == nil || sub.TenantID != request.TenantId {
 		return DeleteSubscription404JSONResponse{NotFoundJSONResponse{Error: "subscription not found"}}, nil
 	}
 	if err := s.store.DeleteSubscription(ctx, request.SubscriptionId); err != nil {
