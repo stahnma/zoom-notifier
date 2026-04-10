@@ -34,6 +34,13 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	topic := payload.Payload.Object.Topic
 	meetingID := payload.Payload.Object.ID
 
+	log.WithFields(log.Fields{
+		"tenant_id":  tenantID,
+		"event":      payload.Event,
+		"meeting_id": meetingID,
+		"topic":      topic,
+	}).Debug("dispatcher received event")
+
 	// Check meeting filters
 	matches, err := d.store.MatchesFilter(ctx, tenantID, topic)
 	if err != nil {
@@ -52,6 +59,15 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	subs, err := d.store.GetSubscriptionsForMeeting(ctx, tenantID, meetingID)
 	if err != nil {
 		log.WithError(err).Error("failed to get subscriptions")
+		return
+	}
+
+	log.WithFields(log.Fields{
+		"tenant_id":     tenantID,
+		"subscriptions": len(subs),
+	}).Debug("found matching subscriptions")
+
+	if len(subs) == 0 {
 		return
 	}
 
@@ -91,6 +107,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 
 	for _, sub := range subs {
 		subMsg := formatMessageWithSuffix(payload, suffix)
+
+		log.WithFields(log.Fields{
+			"type":    sub.Type,
+			"target":  sub.Target,
+			"message": subMsg,
+		}).Debug("sending notification")
 
 		switch sub.Type {
 		case "slack":

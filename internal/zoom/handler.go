@@ -45,6 +45,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.WithField("event", payload.Event).Debug("received zoom webhook")
 	h.ProcessWebhook(r.Context(), payload)
 	w.WriteHeader(http.StatusOK)
 }
@@ -65,9 +66,22 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 
 	obj := payload.Payload.Object
 
+	log.WithFields(log.Fields{
+		"event":      payload.Event,
+		"account_id": accountID,
+		"meeting_id": obj.ID,
+		"topic":      obj.Topic,
+		"tenants":    len(tenants),
+	}).Debug("processing webhook event")
+
 	for _, tenant := range tenants {
 		switch payload.Event {
 		case "meeting.started":
+			log.WithFields(log.Fields{
+				"meeting_id": obj.ID,
+				"topic":      obj.Topic,
+				"tenant_id":  tenant.ID,
+			}).Debug("meeting started")
 			meeting := &store.ActiveMeeting{
 				MeetingID: obj.ID,
 				TenantID:  tenant.ID,
@@ -80,6 +94,11 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 			}
 
 		case "meeting.ended":
+			log.WithFields(log.Fields{
+				"meeting_id": obj.ID,
+				"topic":      obj.Topic,
+				"tenant_id":  tenant.ID,
+			}).Debug("meeting ended")
 			if err := h.store.DeleteParticipantsForMeeting(ctx, obj.ID); err != nil {
 				log.WithError(err).Error("failed to delete participants on meeting end")
 			}
@@ -88,6 +107,12 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 			}
 
 		case "meeting.participant_joined":
+			log.WithFields(log.Fields{
+				"meeting_id": obj.ID,
+				"topic":      obj.Topic,
+				"user":       obj.Participant.UserName,
+				"tenant_id":  tenant.ID,
+			}).Debug("participant joined")
 			// Ensure meeting exists
 			meeting := &store.ActiveMeeting{
 				MeetingID: obj.ID,
@@ -115,6 +140,12 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 			}
 
 		case "meeting.participant_left":
+			log.WithFields(log.Fields{
+				"meeting_id": obj.ID,
+				"topic":      obj.Topic,
+				"user":       obj.Participant.UserName,
+				"tenant_id":  tenant.ID,
+			}).Debug("participant left")
 			leaveTime := time.Now()
 			if !obj.Participant.LeaveTime.IsZero() {
 				leaveTime = obj.Participant.LeaveTime
