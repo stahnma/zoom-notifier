@@ -890,6 +890,18 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 			"team_id":  cmd.TeamID,
 			"admin_id": userID,
 		}).Info("added admin via command")
+
+		// Notify the new admin via DM
+		botToken := h.getBotToken(ctx, cmd.TeamID)
+		if botToken != "" {
+			api := slackapi.New(botToken)
+			msg := fmt.Sprintf("<@%s> added you as a zoom-notifier admin. Run `/zoom-notifier help` to see available commands.", cmd.UserID)
+			_, _, _, err := api.OpenConversationContext(ctx, &slackapi.OpenConversationParameters{Users: []string{userID}})
+			if err == nil {
+				api.PostMessageContext(ctx, userID, slackapi.MsgOptionText(msg, false))
+			}
+		}
+
 		return ephemeral(fmt.Sprintf("Added <@%s> as admin.", userID)), nil
 
 	case "remove":
