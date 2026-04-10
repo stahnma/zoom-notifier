@@ -846,13 +846,15 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 	}
 
 	userID := args[1]
-	// Strip <@ > Slack mention formatting
+	// Strip <@U123> or <@U123|name> Slack mention formatting
 	userID = strings.TrimPrefix(userID, "<@")
 	userID = strings.TrimSuffix(userID, ">")
 	// Handle <@U123|name> format
 	if idx := strings.Index(userID, "|"); idx >= 0 {
 		userID = userID[:idx]
 	}
+	// Strip leading @ if user typed @name without Slack auto-linking
+	userID = strings.TrimPrefix(userID, "@")
 
 	if err := h.store.AddAdmin(ctx, cmd.TeamID, userID); err != nil {
 		return nil, fmt.Errorf("add admin: %w", err)
