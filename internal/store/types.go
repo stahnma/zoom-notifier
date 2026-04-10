@@ -3,12 +3,14 @@ package store
 import "time"
 
 type Tenant struct {
-	ID            string
-	TeamName      string
-	BotToken      *string // NULL for IRC-only tenants
-	APIKey        string
-	InstalledAt   time.Time
-	ZoomAccountID string
+	ID                 string
+	TeamName           string
+	BotToken           *string // NULL for IRC-only tenants
+	APIKey             string
+	InstalledAt        time.Time
+	ZoomAccountID      string
+	DefaultMsgSuffix   string
+	DefaultIncludeLink bool
 }
 
 type TenantAdmin struct {
@@ -17,21 +19,21 @@ type TenantAdmin struct {
 }
 
 type Subscription struct {
-	ID          int64
-	TenantID    string
-	Type        string  // "slack" or "irc"
-	MeetingID   *string // NULL = all meetings
-	Target      string
-	MsgSuffix   string
-	IncludeLink bool
-	Enabled     bool
-	CreatedAt   time.Time
+	ID        int64
+	TenantID  string
+	Type      string  // "slack" or "irc"
+	MeetingID *string // NULL = all meetings
+	Target    string
+	Enabled   bool
+	CreatedAt time.Time
 }
 
 type MeetingFilter struct {
-	ID       int64
-	TenantID string
-	Pattern  string
+	ID          int64
+	TenantID    string
+	Pattern     string
+	MsgSuffix   *string // nullable override
+	IncludeLink *bool   // nullable override
 }
 
 type ActiveMeeting struct {

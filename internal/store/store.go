@@ -14,6 +14,7 @@ type Store interface {
 	DeleteTenant(ctx context.Context, id string) error
 	UpdateTenant(ctx context.Context, t *Tenant) error
 	UpdateTenantAPIKey(ctx context.Context, id string, newKey string) error
+	UpdateTenantDefaults(ctx context.Context, tenantID string, suffix string, includeLink bool) error
 
 	// Tenant Admins
 	AddAdmin(ctx context.Context, tenantID string, slackUserID string) error
@@ -34,6 +35,7 @@ type Store interface {
 	DeleteFilter(ctx context.Context, id int64) error
 	ListFilters(ctx context.Context, tenantID string) ([]*MeetingFilter, error)
 	MatchesFilter(ctx context.Context, tenantID string, topic string) (bool, error)
+	GetMatchingFilter(ctx context.Context, tenantID string, topic string) (*MeetingFilter, error)
 
 	// Active Meetings
 	UpsertMeeting(ctx context.Context, m *ActiveMeeting) error
