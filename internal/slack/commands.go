@@ -136,7 +136,7 @@ func (h *CommandHandler) Handle(ctx context.Context, cmd SlashCommand) (*SlashRe
 		})
 	case "settings":
 		return h.settings(ctx, cmd)
-	case "admins":
+	case "admin", "admins":
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
 			return h.admins(ctx, cmd, parts[1:])
 		})
