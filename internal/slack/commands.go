@@ -73,11 +73,11 @@ func (h *CommandHandler) Handle(ctx context.Context, cmd SlashCommand) (*SlashRe
 		return h.status(ctx, cmd)
 	case "whois":
 		return h.whois(ctx, cmd, parts[1:])
-	case "subscribe":
+	case "subscribe", "sub":
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
 			return h.subscribe(ctx, cmd, parts[1:])
 		})
-	case "unsubscribe":
+	case "unsubscribe", "unsub":
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
 			return h.unsubscribe(ctx, cmd, parts[1:])
 		})
@@ -87,7 +87,7 @@ func (h *CommandHandler) Handle(ctx context.Context, cmd SlashCommand) (*SlashRe
 		})
 	case "filters":
 		return h.listFilters(ctx, cmd)
-	case "subscriptions":
+	case "subscriptions", "subs":
 		return h.listSubscriptions(ctx, cmd)
 	case "setup":
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
