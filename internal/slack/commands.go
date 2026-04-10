@@ -280,10 +280,22 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 		return ephemeral("Usage: `/zoom-notifier unsubscribe #channel`"), nil
 	}
 
-	// Extract both channel ID and name from Slack mention format
-	// e.g. "<#C05MXNTTHM4|bottery-new>" gives ID=C05MXNTTHM4 and name=bottery-new
+	// Extract channel ID and name from Slack mention format
 	target := parseChannelID(args[0])
 	targetName := parseChannelName(args[0])
+
+	// If target is a channel ID and we didn't get a name from the mention,
+	// resolve it via the Slack API
+	if strings.HasPrefix(target, "C") && targetName == "" {
+		botToken := h.getBotToken(ctx, cmd.TeamID)
+		if botToken != "" {
+			api := slackapi.New(botToken)
+			info, err := api.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{ChannelID: target})
+			if err == nil && info != nil {
+				targetName = info.Name
+			}
+		}
+	}
 
 	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
 	if err != nil {
