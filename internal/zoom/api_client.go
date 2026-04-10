@@ -12,12 +12,22 @@ import (
 	"time"
 )
 
+const (
+	// oauthTimeout is the timeout for OAuth token exchange requests.
+	oauthTimeout = 30 * time.Second
+	// apiTimeout is the timeout for Zoom API requests (meeting info, etc).
+	apiTimeout = 10 * time.Second
+)
+
 type APIClient struct {
 	oauthBaseURL string
 	apiBaseURL   string
 	clientID     string
 	clientSecret string
 	accountID    string
+
+	tokenClient *http.Client // HTTP client for OAuth token requests
+	apiClient   *http.Client // HTTP client for API requests
 
 	mu          sync.Mutex
 	cachedToken string
@@ -43,6 +53,8 @@ func NewAPIClient(oauthBaseURL, apiBaseURL, clientID, clientSecret, accountID st
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		accountID:    accountID,
+		tokenClient:  &http.Client{Timeout: oauthTimeout},
+		apiClient:    &http.Client{Timeout: apiTimeout},
 	}
 }
 
@@ -70,7 +82,7 @@ func (c *APIClient) GetAccessToken() (string, error) {
 	req.Header.Set("Authorization", "Basic "+authEncoded)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.tokenClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("token request failed: %w", err)
 	}
@@ -106,7 +118,7 @@ func (c *APIClient) GetMeetingJoinLink(meetingID string) (string, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.apiClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("meeting request failed: %w", err)
 	}
