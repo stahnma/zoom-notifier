@@ -854,7 +854,7 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 	if len(args) == 0 || (args[0] != "add" && args[0] != "remove" && args[0] != "list") {
 		return ephemeral("Usage:\n" +
 			"• `/zoom-notifier admins list`\n" +
-			"• `/zoom-notifier admins add @user`\n" +
+			"• `/zoom-notifier admins add`\n" +
 			"• `/zoom-notifier admins remove @user`"), nil
 	}
 
@@ -873,11 +873,9 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 			sb.WriteString(fmt.Sprintf("• <@%s>\n", a.SlackUserID))
 		}
 		return ephemeral(sb.String()), nil
-	}
 
-	if len(args) < 2 {
-		// Open modal for add if no user specified
-		if args[0] == "add" && h.canOpenModal(cmd) {
+	case "add":
+		if h.canOpenModal(cmd) {
 			botToken := h.getBotToken(ctx, cmd.TeamID)
 			if botToken != "" {
 				modal := BuildAdminAddModal()
@@ -890,41 +888,16 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 				}
 			}
 		}
-		return ephemeral("Usage: `/zoom-notifier admins add|remove @user`"), nil
+		return ephemeral("Unable to open admin picker. Please try again."), nil
+	}
+
+	if len(args) < 2 {
+		return ephemeral("Usage: `/zoom-notifier admins remove @user`"), nil
 	}
 
 	userID := parseUserID(args[1])
 
 	switch args[0] {
-	case "add":
-		if err := h.store.AddAdmin(ctx, cmd.TeamID, userID); err != nil {
-			return nil, fmt.Errorf("add admin: %w", err)
-		}
-		log.WithFields(log.Fields{
-			"team_id":  cmd.TeamID,
-			"admin_id": userID,
-		}).Info("added admin via command")
-
-		// Notify the new admin via DM (only if we have a real Slack user ID)
-		if strings.HasPrefix(userID, "U") {
-			botToken := h.getBotToken(ctx, cmd.TeamID)
-			if botToken != "" {
-				api := slackapi.New(botToken)
-				msg := fmt.Sprintf("<@%s> added you as a zoom-notifier admin. Run `/zoom-notifier help` to see available commands.", cmd.UserID)
-				channel, _, _, err := api.OpenConversationContext(ctx, &slackapi.OpenConversationParameters{Users: []string{userID}})
-				if err != nil {
-					log.WithError(err).WithField("user_id", userID).Warn("failed to open DM conversation for admin notification")
-				} else {
-					_, _, err = api.PostMessageContext(ctx, channel.ID, slackapi.MsgOptionText(msg, false))
-					if err != nil {
-						log.WithError(err).WithField("user_id", userID).Warn("failed to send admin notification DM")
-					}
-				}
-			}
-		}
-
-		return ephemeral(fmt.Sprintf("Added <@%s> as admin.", userID)), nil
-
 	case "remove":
 		if userID == cmd.UserID {
 			return ephemeral("You can't remove yourself as admin."), nil
@@ -984,7 +957,7 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 			"• `/zoom-notifier set-link on|off` — Toggle default meeting links\n" +
 			"• `/zoom-notifier set-link \"Filter\" on|off` — Toggle links on a filter\n" +
 			"• `/zoom-notifier admins list` — List admins\n" +
-			"• `/zoom-notifier admins add @user` — Add an admin\n" +
+			"• `/zoom-notifier admins add` — Add an admin\n" +
 			"• `/zoom-notifier admins remove @user` — Remove an admin\n" +
 			"• `/zoom-notifier api-key` — Show tenant API key\n" +
 			"• `/zoom-notifier setup` — Zoom credential setup instructions"

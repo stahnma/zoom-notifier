@@ -362,26 +362,32 @@ func TestCommandFilters(t *testing.T) {
 	}
 }
 
-func TestCommandAdminsAdd(t *testing.T) {
-	h, s := setupCommandHandler(t)
-	ctx := context.Background()
+func TestCommandAdminsAdd_NoModal(t *testing.T) {
+	h, _ := setupCommandHandler(t)
 
-	resp, err := h.Handle(ctx, SlashCommand{
-		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "admins add <@U-NEW|newuser>",
+	// Without modal support, admins add shows error
+	resp, err := h.Handle(context.Background(), SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "admins add",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(resp.Text, "Added") {
-		t.Errorf("expected added message, got: %s", resp.Text)
+	if !strings.Contains(resp.Text, "Unable to open") {
+		t.Errorf("expected unable to open message, got: %s", resp.Text)
 	}
+}
 
-	isAdmin, err := s.IsAdmin(ctx, "T-CMD", "U-NEW")
+func TestCommandAdminsList(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+
+	resp, err := h.Handle(context.Background(), SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "admins list",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isAdmin {
-		t.Error("expected U-NEW to be admin")
+	if !strings.Contains(resp.Text, "U-ADMIN") {
+		t.Errorf("expected admin list to contain U-ADMIN, got: %s", resp.Text)
 	}
 }
 
