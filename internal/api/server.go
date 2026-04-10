@@ -270,7 +270,7 @@ func (s *Server) UpdateSubscription(ctx context.Context, request UpdateSubscript
 	if err != nil {
 		return nil, err
 	}
-	if sub == nil {
+	if sub == nil || sub.TenantID != request.TenantId {
 		return UpdateSubscription404JSONResponse{NotFoundJSONResponse{Error: "subscription not found"}}, nil
 	}
 
@@ -293,7 +293,7 @@ func (s *Server) DeleteSubscription(ctx context.Context, request DeleteSubscript
 	if err != nil {
 		return nil, err
 	}
-	if sub == nil {
+	if sub == nil || sub.TenantID != request.TenantId {
 		return DeleteSubscription404JSONResponse{NotFoundJSONResponse{Error: "subscription not found"}}, nil
 	}
 	if err := s.store.DeleteSubscription(ctx, request.SubscriptionId); err != nil {
@@ -370,6 +370,20 @@ func (s *Server) UpdateFilter(ctx context.Context, request UpdateFilterRequestOb
 
 func (s *Server) DeleteFilter(ctx context.Context, request DeleteFilterRequestObject) (DeleteFilterResponseObject, error) {
 	log.WithField("filter_id", request.FilterId).Info("deleting filter via API")
+	filters, err := s.store.ListFilters(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
+	}
+	var found bool
+	for _, f := range filters {
+		if f.ID == request.FilterId {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return DeleteFilter404JSONResponse{NotFoundJSONResponse{Error: "filter not found"}}, nil
+	}
 	if err := s.store.DeleteFilter(ctx, request.FilterId); err != nil {
 		return nil, err
 	}
@@ -386,11 +400,13 @@ func (s *Server) GetIRCConfig(ctx context.Context, request GetIRCConfigRequestOb
 	result := make(GetIRCConfig200JSONResponse, 0, len(configs))
 	for _, c := range configs {
 		tenantID := c.TenantID
+		insecureTLS := c.InsecureTLS
 		result = append(result, IRCConfig{
-			TenantId: &tenantID,
-			Server:   c.Server,
-			Nick:     c.Nick,
-			UseTls:   c.UseTLS,
+			TenantId:    &tenantID,
+			Server:      c.Server,
+			Nick:        c.Nick,
+			UseTls:      c.UseTLS,
+			InsecureTls: &insecureTLS,
 		})
 	}
 	return result, nil
@@ -401,13 +417,18 @@ func (s *Server) PutIRCConfig(ctx context.Context, request PutIRCConfigRequestOb
 	if request.Body.UseTls != nil {
 		useTLS = *request.Body.UseTls
 	}
+	insecureTLS := false
+	if request.Body.InsecureTls != nil {
+		insecureTLS = *request.Body.InsecureTls
+	}
 
 	c := &store.IRCConfig{
-		TenantID: request.TenantId,
-		Server:   request.Body.Server,
-		Nick:     request.Body.Nick,
-		Password: request.Body.Password,
-		UseTLS:   useTLS,
+		TenantID:    request.TenantId,
+		Server:      request.Body.Server,
+		Nick:        request.Body.Nick,
+		Password:    request.Body.Password,
+		UseTLS:      useTLS,
+		InsecureTLS: insecureTLS,
 	}
 	if err := s.store.UpsertIRCConfig(ctx, c); err != nil {
 		return nil, err
@@ -415,10 +436,11 @@ func (s *Server) PutIRCConfig(ctx context.Context, request PutIRCConfigRequestOb
 
 	tenantID := request.TenantId
 	return PutIRCConfig200JSONResponse{
-		TenantId: &tenantID,
-		Server:   c.Server,
-		Nick:     c.Nick,
-		UseTls:   c.UseTLS,
+		TenantId:    &tenantID,
+		Server:      c.Server,
+		Nick:        c.Nick,
+		UseTls:      c.UseTLS,
+		InsecureTls: &insecureTLS,
 	}, nil
 }
 

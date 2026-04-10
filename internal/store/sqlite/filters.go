@@ -4,9 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/stahnma/zoom-notifier/internal/store"
 )
+
+// escapeLike escapes LIKE metacharacters so the pattern is treated as a literal substring.
+func escapeLike(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `%`, `\%`)
+	s = strings.ReplaceAll(s, `_`, `\_`)
+	return s
+}
 
 func (s *SQLiteStore) CreateFilter(ctx context.Context, f *store.MeetingFilter) error {
 	result, err := s.db.ExecContext(ctx,
@@ -79,8 +88,8 @@ func (s *SQLiteStore) MatchesFilter(ctx context.Context, tenantID string, topic 
 	// Check if topic matches any filter (case-insensitive substring)
 	var matchCount int
 	err = s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM meeting_filters WHERE tenant_id = ? AND LOWER(?) LIKE '%' || LOWER(pattern) || '%'`,
-		tenantID, topic,
+		`SELECT COUNT(*) FROM meeting_filters WHERE tenant_id = ? AND LOWER(?) LIKE '%' || LOWER(pattern) || '%' ESCAPE '\'`,
+		tenantID, escapeLike(topic),
 	).Scan(&matchCount)
 	if err != nil {
 		return false, fmt.Errorf("match filter: %w", err)
@@ -104,9 +113,9 @@ func (s *SQLiteStore) GetMatchingFilter(ctx context.Context, tenantID string, to
 	// Return the first matching filter (case-insensitive substring)
 	row := s.db.QueryRowContext(ctx,
 		`SELECT id, tenant_id, pattern, msg_suffix, include_link
-		 FROM meeting_filters WHERE tenant_id = ? AND LOWER(?) LIKE '%' || LOWER(pattern) || '%'
+		 FROM meeting_filters WHERE tenant_id = ? AND LOWER(?) LIKE '%' || LOWER(pattern) || '%' ESCAPE '\'
 		 ORDER BY id LIMIT 1`,
-		tenantID, topic,
+		tenantID, escapeLike(topic),
 	)
 	f := &store.MeetingFilter{}
 	err = row.Scan(&f.ID, &f.TenantID, &f.Pattern, &f.MsgSuffix, &f.IncludeLink)

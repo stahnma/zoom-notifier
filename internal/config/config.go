@@ -22,8 +22,7 @@ type ServerConfig struct {
 }
 
 type DatabaseConfig struct {
-	Path          string
-	EncryptionKey string
+	Path string
 }
 
 type ZoomConfig struct {
@@ -60,7 +59,6 @@ func Load(configPath string) (*Config, error) {
 	// Environment variable bindings
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	_ = v.BindEnv("zoom.webhook_secret", "ZOOM_SECRET")
-	_ = v.BindEnv("database.encryption_key", "ZOOMNOTIFIER_DB_KEY")
 	_ = v.BindEnv("slack.client_id", "SLACK_CLIENT_ID")
 	_ = v.BindEnv("slack.client_secret", "SLACK_CLIENT_SECRET")
 	_ = v.BindEnv("slack.signing_secret", "SLACK_SIGNING_SECRET")
@@ -88,7 +86,6 @@ func Load(configPath string) (*Config, error) {
 	cfg.Server.Host = v.GetString("server.host")
 	cfg.Server.URL = v.GetString("server.url")
 	cfg.Database.Path = v.GetString("database.path")
-	cfg.Database.EncryptionKey = v.GetString("database.encryption_key")
 	cfg.Zoom.WebhookSecret = v.GetString("zoom.webhook_secret")
 	cfg.Zoom.AccountID = v.GetString("zoom.account_id")
 	cfg.Zoom.ClientID = v.GetString("zoom.client_id")

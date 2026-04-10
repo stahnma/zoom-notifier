@@ -1,0 +1,1 @@
+ALTER TABLE irc_configs ADD COLUMN insecure_tls BOOLEAN DEFAULT 0;
