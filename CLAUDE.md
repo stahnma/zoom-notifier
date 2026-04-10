@@ -113,4 +113,5 @@ All configuration via TOML config file and/or environment variables:
 | `/zoom-notifier set-link "Filter" on/off` | admin | Toggle meeting links on a filter |
 | `/zoom-notifier admins add @user` | admin | Add an admin |
 | `/zoom-notifier api-key` | admin | Show tenant API key |
+| `/zoom-notifier setup` | admin | Open per-tenant Zoom setup page |
 | `/zoom-notifier help` | everyone | List commands |
