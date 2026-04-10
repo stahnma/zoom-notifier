@@ -14,6 +14,7 @@ type SlashCommand struct {
 	UserID    string
 	ChannelID string
 	Text      string
+	TriggerID string
 }
 
 // SlashResponse is the response returned to the user.

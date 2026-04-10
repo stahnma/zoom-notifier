@@ -57,6 +57,7 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		UserID:    values.Get("user_id"),
 		ChannelID: values.Get("channel_id"),
 		Text:      values.Get("text"),
+		TriggerID: values.Get("trigger_id"),
 	}
 
 	resp, err := h.handler.Handle(r.Context(), cmd)
@@ -74,6 +75,12 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // verifySignature checks the Slack request signature using HMAC-SHA256.
 func (h *HTTPCommandHandler) verifySignature(headers http.Header, body []byte) bool {
+	return verifySlackSignature(h.signingSecret, headers, body)
+}
+
+// verifySlackSignature is a package-level function that verifies a Slack request
+// signature using HMAC-SHA256. Both the command handler and interaction handler use this.
+func verifySlackSignature(secret string, headers http.Header, body []byte) bool {
 	timestamp := headers.Get("X-Slack-Request-Timestamp")
 	signature := headers.Get("X-Slack-Signature")
 
@@ -94,7 +101,7 @@ func (h *HTTPCommandHandler) verifySignature(headers http.Header, body []byte) b
 	baseString := fmt.Sprintf("v0:%s:%s", timestamp, string(body))
 
 	// HMAC-SHA256 with signing secret
-	mac := hmac.New(sha256.New, []byte(h.signingSecret))
+	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(baseString))
 	expected := "v0=" + hex.EncodeToString(mac.Sum(nil))
 
