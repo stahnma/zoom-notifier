@@ -7,8 +7,24 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	slackapi "github.com/slack-go/slack"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
 )
+
+// postConfirmation sends an ephemeral message to the user after a modal submission.
+func (h *CommandHandler) postConfirmation(ctx context.Context, teamID, userID, text string) {
+	botToken := h.getBotToken(ctx, teamID)
+	if botToken == "" {
+		return
+	}
+	api := slackapi.New(botToken)
+	// Post to the user's DM via ephemeral in their most recent channel
+	// Using PostEphemeral to the user's ID posts a DM-like message
+	_, err := api.PostEphemeralContext(ctx, userID, userID, slackapi.MsgOptionText(text, false))
+	if err != nil {
+		log.WithError(err).Debug("failed to send modal confirmation")
+	}
+}
 
 // RegisterModalHandlers registers all modal submission handlers on the InteractionHandler.
 func (h *CommandHandler) RegisterModalHandlers(ih *InteractionHandler) {
@@ -46,15 +62,17 @@ func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) e
 	}).Debug("set_suffix modal submission")
 
 	if filterValue == "" || filterValue == "all" {
-		// Tenant-wide default
 		tenant, err := h.store.GetTenant(ctx, teamID)
 		if err != nil || tenant == nil {
 			return fmt.Errorf("get tenant: %w", err)
 		}
-		return h.store.UpdateTenantDefaults(ctx, teamID, suffixValue, tenant.DefaultIncludeLink)
+		if err := h.store.UpdateTenantDefaults(ctx, teamID, suffixValue, tenant.DefaultIncludeLink); err != nil {
+			return err
+		}
+		h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Updated default message suffix to `%s`.", suffixValue))
+		return nil
 	}
 
-	// Filter override: filterValue is "filter_<id>"
 	filter, err := h.getFilterBySelectValue(ctx, teamID, filterValue)
 	if err != nil {
 		return err
@@ -63,7 +81,11 @@ func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) e
 		return fmt.Errorf("filter not found: %s", filterValue)
 	}
 	filter.MsgSuffix = &suffixValue
-	return h.store.UpdateFilter(ctx, filter)
+	if err := h.store.UpdateFilter(ctx, filter); err != nil {
+		return err
+	}
+	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Updated suffix on filter `%s` to `%s`.", filter.Pattern, suffixValue))
+	return nil
 }
 
 func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) error {
@@ -94,16 +116,23 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 		"link":    linkValue,
 	}).Debug("set_link modal submission")
 
+	state := "off"
+	if includeLink {
+		state = "on"
+	}
+
 	if filterValue == "" || filterValue == "all" {
-		// Tenant-wide default
 		tenant, err := h.store.GetTenant(ctx, teamID)
 		if err != nil || tenant == nil {
 			return fmt.Errorf("get tenant: %w", err)
 		}
-		return h.store.UpdateTenantDefaults(ctx, teamID, tenant.DefaultMsgSuffix, includeLink)
+		if err := h.store.UpdateTenantDefaults(ctx, teamID, tenant.DefaultMsgSuffix, includeLink); err != nil {
+			return err
+		}
+		h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Meeting links set to %s (default).", state))
+		return nil
 	}
 
-	// Filter override
 	filter, err := h.getFilterBySelectValue(ctx, teamID, filterValue)
 	if err != nil {
 		return err
@@ -112,7 +141,11 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 		return fmt.Errorf("filter not found: %s", filterValue)
 	}
 	filter.IncludeLink = &includeLink
-	return h.store.UpdateFilter(ctx, filter)
+	if err := h.store.UpdateFilter(ctx, filter); err != nil {
+		return err
+	}
+	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Meeting links set to %s on filter `%s`.", state, filter.Pattern))
+	return nil
 }
 
 func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) error {
@@ -148,7 +181,8 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 	}
 	for _, s := range existing {
 		if s.Target == channelID && s.Type == "slack" {
-			return nil // already subscribed, silently succeed
+			h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("<#%s> is already subscribed.", channelID))
+			return nil
 		}
 	}
 
@@ -158,7 +192,13 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 		Target:   channelID,
 		Enabled:  true,
 	}
-	return h.store.CreateSubscription(ctx, sub)
+	if err := h.store.CreateSubscription(ctx, sub); err != nil {
+		return err
+	}
+
+	// Send confirmation to the user
+	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Subscribed <#%s> to meeting notifications.", channelID))
+	return nil
 }
 
 func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) error {
@@ -209,7 +249,11 @@ func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) e
 		"pattern": pattern,
 	}).Debug("add_filter modal submission")
 
-	return h.store.CreateFilter(ctx, f)
+	if err := h.store.CreateFilter(ctx, f); err != nil {
+		return err
+	}
+	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Added meeting filter `%s`.", pattern))
+	return nil
 }
 
 // getFilterBySelectValue parses a filter select value like "filter_123" and returns the filter.
