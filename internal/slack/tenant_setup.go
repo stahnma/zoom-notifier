@@ -173,7 +173,11 @@ const tenantSetupTemplate = `<!DOCTYPE html>
 <h1>Zoom Setup</h1>
 <p class="subtitle">{{.TeamName}}</p>
 
-{{if .Success}}<div class="success">{{.Success}}</div>{{end}}
+{{if .Success}}
+<div class="success">{{.Success}}</div>
+<button onclick="window.close()" style="margin-bottom:1.5rem;">Done — Close This Tab</button>
+<p class="help">If the button doesn't work, you can safely close this tab.</p>
+{{end}}
 {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
 
 <form method="POST" action="/tenant/setup?key={{.APIKey}}">
