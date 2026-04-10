@@ -44,10 +44,16 @@ type oauthScopes struct {
 	Bot []string `json:"bot"`
 }
 
+type interactivityConfig struct {
+	IsEnabled  bool   `json:"is_enabled"`
+	RequestURL string `json:"request_url"`
+}
+
 type manifestSettings struct {
-	SocketModeEnabled    bool `json:"socket_mode_enabled"`
-	OrgDeployEnabled     bool `json:"org_deploy_enabled"`
-	TokenRotationEnabled bool `json:"token_rotation_enabled"`
+	Interactivity        *interactivityConfig `json:"interactivity,omitempty"`
+	SocketModeEnabled    bool                 `json:"socket_mode_enabled"`
+	OrgDeployEnabled     bool                 `json:"org_deploy_enabled"`
+	TokenRotationEnabled bool                 `json:"token_rotation_enabled"`
 }
 
 // GenerateSlackManifest returns a JSON string containing a Slack app manifest
@@ -79,6 +85,10 @@ func GenerateSlackManifest(serverURL string) string {
 			},
 		},
 		Settings: manifestSettings{
+			Interactivity: &interactivityConfig{
+				IsEnabled:  true,
+				RequestURL: serverURL + "/slack/interactions",
+			},
 			SocketModeEnabled:    false,
 			OrgDeployEnabled:     false,
 			TokenRotationEnabled: false,

@@ -33,6 +33,18 @@ func TestGenerateSlackManifest(t *testing.T) {
 		t.Error("manifest does not contain server URL in slash command url")
 	}
 
+	// Must contain interactivity URL
+	if !strings.Contains(manifest, serverURL+"/slack/interactions") {
+		t.Error("manifest does not contain interactivity URL")
+	}
+
+	// Verify interactivity is enabled
+	settings := parsed["settings"].(map[string]interface{})
+	interactivity := settings["interactivity"].(map[string]interface{})
+	if interactivity["is_enabled"] != true {
+		t.Error("interactivity should be enabled")
+	}
+
 	// Verify display_information values
 	di := parsed["display_information"].(map[string]interface{})
 	if di["name"] != "zoom-notifier" {
