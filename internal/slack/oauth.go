@@ -190,7 +190,7 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}).Info("Slack app installed successfully")
 
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, "<html><body><h1>Success!</h1><p>zoom-notifier has been installed to <strong>%s</strong>.</p></body></html>", teamName)
+	fmt.Fprintf(w, "<html><body><h1>Success!</h1><p>zoom-notifier has been installed to <strong>%s</strong>.</p><p><a href=\"/\">Back to zoom-notifier</a></p></body></html>", teamName)
 }
 
 // oauthV2Response is the response from Slack's oauth.v2.access endpoint.
