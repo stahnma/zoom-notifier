@@ -315,17 +315,12 @@ func TestCommandAPIKey(t *testing.T) {
 	}
 }
 
-func TestCommandSetSuffix(t *testing.T) {
+func TestCommandSetSuffixTenantDefault(t *testing.T) {
 	h, s := setupCommandHandler(t)
 	ctx := context.Background()
 
-	// Create subscription
-	s.CreateSubscription(ctx, &store.Subscription{
-		TenantID: "T-CMD", Type: "slack", Target: "#standup", Enabled: true,
-	})
-
 	resp, err := h.Handle(ctx, SlashCommand{
-		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "set-suffix #standup \"the daily standup\"",
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: `set-suffix "the daily standup"`,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -340,16 +335,69 @@ func TestCommandSetSuffix(t *testing.T) {
 	}
 }
 
-func TestCommandSetLink(t *testing.T) {
+func TestCommandSetSuffixFilterOverride(t *testing.T) {
 	h, s := setupCommandHandler(t)
 	ctx := context.Background()
 
-	s.CreateSubscription(ctx, &store.Subscription{
-		TenantID: "T-CMD", Type: "slack", Target: "#dev", Enabled: true,
-	})
+	// Create a filter first
+	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Standup"})
 
 	resp, err := h.Handle(ctx, SlashCommand{
-		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "set-link #dev on",
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: `set-suffix "Standup" "the standup meeting"`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "Updated suffix override on filter") {
+		t.Errorf("expected filter override message, got: %s", resp.Text)
+	}
+
+	// Verify filter was updated
+	filters, _ := s.ListFilters(ctx, "T-CMD")
+	if len(filters) != 1 {
+		t.Fatalf("expected 1 filter, got %d", len(filters))
+	}
+	if filters[0].MsgSuffix == nil || *filters[0].MsgSuffix != "the standup meeting" {
+		t.Errorf("expected filter suffix 'the standup meeting', got %v", filters[0].MsgSuffix)
+	}
+}
+
+func TestCommandSetSuffixFilterNotFound(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: `set-suffix "NonExistent" "some text"`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "No filter found") {
+		t.Errorf("expected no filter found message, got: %s", resp.Text)
+	}
+}
+
+func TestCommandSetSuffixNoArgs(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "set-suffix",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "Usage") {
+		t.Errorf("expected usage message, got: %s", resp.Text)
+	}
+}
+
+func TestCommandSetLinkTenantDefault(t *testing.T) {
+	h, s := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "set-link on",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -361,5 +409,144 @@ func TestCommandSetLink(t *testing.T) {
 	tenant, _ := s.GetTenant(ctx, "T-CMD")
 	if !tenant.DefaultIncludeLink {
 		t.Error("expected tenant default_include_link to be true")
+	}
+
+	// Test off
+	resp, err = h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "set-link off",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "disabled") {
+		t.Errorf("expected disabled message, got: %s", resp.Text)
+	}
+
+	tenant, _ = s.GetTenant(ctx, "T-CMD")
+	if tenant.DefaultIncludeLink {
+		t.Error("expected tenant default_include_link to be false")
+	}
+}
+
+func TestCommandSetLinkFilterOverride(t *testing.T) {
+	h, s := setupCommandHandler(t)
+	ctx := context.Background()
+
+	// Create a filter
+	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Retro"})
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: `set-link "Retro" on`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "enabled for filter") {
+		t.Errorf("expected filter override message, got: %s", resp.Text)
+	}
+
+	// Verify filter was updated
+	filters, _ := s.ListFilters(ctx, "T-CMD")
+	if len(filters) != 1 {
+		t.Fatalf("expected 1 filter, got %d", len(filters))
+	}
+	if filters[0].IncludeLink == nil || !*filters[0].IncludeLink {
+		t.Error("expected filter include_link to be true")
+	}
+}
+
+func TestCommandSetLinkFilterNotFound(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: `set-link "NonExistent" on`,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "No filter found") {
+		t.Errorf("expected no filter found message, got: %s", resp.Text)
+	}
+}
+
+func TestCommandSetLinkNoArgs(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "set-link",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "Usage") {
+		t.Errorf("expected usage message, got: %s", resp.Text)
+	}
+}
+
+func TestCommandSettings(t *testing.T) {
+	h, s := setupCommandHandler(t)
+	ctx := context.Background()
+
+	// Set some defaults
+	s.UpdateTenantDefaults(ctx, "T-CMD", "the meeting", true)
+
+	// Create a filter with overrides
+	suffix := "standup suffix"
+	includeLink := false
+	s.CreateFilter(ctx, &store.MeetingFilter{
+		TenantID:    "T-CMD",
+		Pattern:     "Standup",
+		MsgSuffix:   &suffix,
+		IncludeLink: &includeLink,
+	})
+
+	// Create a filter without overrides
+	s.CreateFilter(ctx, &store.MeetingFilter{
+		TenantID: "T-CMD",
+		Pattern:  "Retro",
+	})
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ANYONE", Text: "settings",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(resp.Text, "Notification Settings") {
+		t.Errorf("expected settings header, got: %s", resp.Text)
+	}
+	if !strings.Contains(resp.Text, "the meeting") {
+		t.Errorf("expected default suffix in settings, got: %s", resp.Text)
+	}
+	if !strings.Contains(resp.Text, "on") {
+		t.Errorf("expected include link on, got: %s", resp.Text)
+	}
+	if !strings.Contains(resp.Text, "Standup") {
+		t.Errorf("expected Standup filter, got: %s", resp.Text)
+	}
+	if !strings.Contains(resp.Text, "standup suffix") {
+		t.Errorf("expected filter suffix override, got: %s", resp.Text)
+	}
+	if !strings.Contains(resp.Text, "no overrides") {
+		t.Errorf("expected 'no overrides' for Retro filter, got: %s", resp.Text)
+	}
+}
+
+func TestCommandSettingsEmpty(t *testing.T) {
+	h, _ := setupCommandHandler(t)
+	ctx := context.Background()
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ANYONE", Text: "settings",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(resp.Text, "(none)") {
+		t.Errorf("expected (none) for empty suffix, got: %s", resp.Text)
 	}
 }

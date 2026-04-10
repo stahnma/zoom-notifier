@@ -32,6 +32,7 @@ type Store interface {
 
 	// Meeting Filters
 	CreateFilter(ctx context.Context, f *MeetingFilter) error
+	UpdateFilter(ctx context.Context, f *MeetingFilter) error
 	DeleteFilter(ctx context.Context, id int64) error
 	ListFilters(ctx context.Context, tenantID string) ([]*MeetingFilter, error)
 	MatchesFilter(ctx context.Context, tenantID string, topic string) (bool, error)

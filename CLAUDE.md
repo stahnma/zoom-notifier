@@ -106,8 +106,11 @@ All configuration via TOML config file and/or environment variables:
 | `/zoom-notifier unsubscribe #channel` | admin | Unsubscribe channel |
 | `/zoom-notifier filter "Topic"` | admin | Add meeting filter |
 | `/zoom-notifier filters` | everyone | List active filters |
-| `/zoom-notifier set-suffix #channel "text"` | admin | Set message suffix |
-| `/zoom-notifier set-link #channel on/off` | admin | Toggle meeting links |
+| `/zoom-notifier settings` | everyone | Show notification settings and filter overrides |
+| `/zoom-notifier set-suffix "text"` | admin | Set default message suffix |
+| `/zoom-notifier set-suffix "Filter" "text"` | admin | Set suffix override on a filter |
+| `/zoom-notifier set-link on/off` | admin | Toggle default meeting links |
+| `/zoom-notifier set-link "Filter" on/off` | admin | Toggle meeting links on a filter |
 | `/zoom-notifier admins add @user` | admin | Add an admin |
 | `/zoom-notifier api-key` | admin | Show tenant API key |
 | `/zoom-notifier help` | everyone | List commands |

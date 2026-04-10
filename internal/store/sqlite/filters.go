@@ -24,6 +24,17 @@ func (s *SQLiteStore) CreateFilter(ctx context.Context, f *store.MeetingFilter) 
 	return nil
 }
 
+func (s *SQLiteStore) UpdateFilter(ctx context.Context, f *store.MeetingFilter) error {
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE meeting_filters SET pattern = ?, msg_suffix = ?, include_link = ? WHERE id = ?`,
+		f.Pattern, f.MsgSuffix, f.IncludeLink, f.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("update filter: %w", err)
+	}
+	return nil
+}
+
 func (s *SQLiteStore) DeleteFilter(ctx context.Context, id int64) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM meeting_filters WHERE id = ?`, id)
 	if err != nil {

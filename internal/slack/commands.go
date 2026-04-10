@@ -90,6 +90,8 @@ func (h *CommandHandler) Handle(ctx context.Context, cmd SlashCommand) (*SlashRe
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
 			return h.setLink(ctx, cmd, parts[1:])
 		})
+	case "settings":
+		return h.settings(ctx, cmd)
 	case "admins":
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
 			return h.admins(ctx, cmd, parts[1:])
@@ -302,57 +304,223 @@ func (h *CommandHandler) setup(ctx context.Context, cmd SlashCommand) (*SlashRes
 		"You can get your API key with `/zoom-notifier api-key`."), nil
 }
 
+// parseQuotedArgs splits args respecting quoted strings.
+// e.g. ["\"Daily", "Standup\"", "\"the", "standup\""] -> ["Daily Standup", "the standup"]
+func parseQuotedArgs(args []string) []string {
+	raw := strings.Join(args, " ")
+	var result []string
+	var current strings.Builder
+	inQuote := false
+	quoteChar := byte(0)
+
+	for i := 0; i < len(raw); i++ {
+		ch := raw[i]
+		if !inQuote {
+			if ch == '"' || ch == '\'' {
+				inQuote = true
+				quoteChar = ch
+				current.Reset()
+			} else if ch == ' ' {
+				if current.Len() > 0 {
+					result = append(result, current.String())
+					current.Reset()
+				}
+			} else {
+				current.WriteByte(ch)
+			}
+		} else {
+			if ch == quoteChar {
+				result = append(result, current.String())
+				current.Reset()
+				inQuote = false
+			} else {
+				current.WriteByte(ch)
+			}
+		}
+	}
+	if current.Len() > 0 {
+		result = append(result, current.String())
+	}
+	return result
+}
+
 func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
-	if len(args) < 2 {
-		return ephemeral("Usage: `/zoom-notifier set-suffix #channel \"the standup\"`"), nil
+	if len(args) == 0 {
+		return ephemeral("Usage:\n" +
+			"• `/zoom-notifier set-suffix \"text\"` — set tenant-wide default suffix\n" +
+			"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — set suffix override on a filter"), nil
 	}
 
-	target := parseChannelID(args[0])
-	suffix := strings.Join(args[1:], " ")
-	suffix = strings.Trim(suffix, "\"'")
+	parsed := parseQuotedArgs(args)
+	if len(parsed) == 0 {
+		return ephemeral("Usage:\n" +
+			"• `/zoom-notifier set-suffix \"text\"` — set tenant-wide default suffix\n" +
+			"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — set suffix override on a filter"), nil
+	}
 
-	// TODO: refactor to use per-filter overrides; for now update tenant defaults
-	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
-	if err != nil || tenant == nil {
-		return nil, fmt.Errorf("get tenant: %w", err)
+	if len(parsed) == 1 {
+		// Tenant-wide default
+		suffix := parsed[0]
+		tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+		if err != nil || tenant == nil {
+			return nil, fmt.Errorf("get tenant: %w", err)
+		}
+		if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, suffix, tenant.DefaultIncludeLink); err != nil {
+			return nil, fmt.Errorf("update tenant defaults: %w", err)
+		}
+		return ephemeral(fmt.Sprintf("Updated default message suffix to `%s`.", suffix)), nil
 	}
-	_ = target // will be used for per-filter overrides later
-	if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, suffix, tenant.DefaultIncludeLink); err != nil {
-		return nil, fmt.Errorf("update tenant defaults: %w", err)
+
+	// Filter override: first arg is pattern, rest is suffix
+	pattern := parsed[0]
+	suffix := strings.Join(parsed[1:], " ")
+	filter, err := h.findFilterByPattern(ctx, cmd.TeamID, pattern)
+	if err != nil {
+		return nil, err
 	}
-	return ephemeral(fmt.Sprintf("Updated default message suffix to `%s`.", suffix)), nil
+	if filter == nil {
+		return ephemeral(fmt.Sprintf("No filter found matching `%s`. Use `/zoom-notifier filters` to see available filters.", pattern)), nil
+	}
+	filter.MsgSuffix = &suffix
+	if err := h.store.UpdateFilter(ctx, filter); err != nil {
+		return nil, fmt.Errorf("update filter: %w", err)
+	}
+	return ephemeral(fmt.Sprintf("Updated suffix override on filter `%s` to `%s`.", pattern, suffix)), nil
 }
 
 func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
-	if len(args) < 2 {
-		return ephemeral("Usage: `/zoom-notifier set-link #channel on|off`"), nil
+	if len(args) == 0 {
+		return ephemeral("Usage:\n" +
+			"• `/zoom-notifier set-link on|off` — set tenant-wide default\n" +
+			"• `/zoom-notifier set-link \"Filter\" on|off` — set override on a filter"), nil
 	}
 
-	target := parseChannelID(args[0])
-	var includeLink bool
-	switch strings.ToLower(args[1]) {
-	case "on", "true", "yes":
-		includeLink = true
-	case "off", "false", "no":
-		includeLink = false
-	default:
-		return ephemeral("Usage: `/zoom-notifier set-link #channel on|off`"), nil
+	parseBool := func(s string) (bool, bool) {
+		switch strings.ToLower(s) {
+		case "on", "true", "yes":
+			return true, true
+		case "off", "false", "no":
+			return false, true
+		default:
+			return false, false
+		}
 	}
 
-	// TODO: refactor to use per-filter overrides; for now update tenant defaults
-	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
-	if err != nil || tenant == nil {
-		return nil, fmt.Errorf("get tenant: %w", err)
+	if len(args) == 1 {
+		// Tenant-wide default
+		includeLink, ok := parseBool(args[0])
+		if !ok {
+			return ephemeral("Usage: `/zoom-notifier set-link on|off`"), nil
+		}
+		tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+		if err != nil || tenant == nil {
+			return nil, fmt.Errorf("get tenant: %w", err)
+		}
+		if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, tenant.DefaultMsgSuffix, includeLink); err != nil {
+			return nil, fmt.Errorf("update tenant defaults: %w", err)
+		}
+		state := "disabled"
+		if includeLink {
+			state = "enabled"
+		}
+		return ephemeral(fmt.Sprintf("Meeting links %s (tenant-wide default).", state)), nil
 	}
-	_ = target // will be used for per-filter overrides later
-	if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, tenant.DefaultMsgSuffix, includeLink); err != nil {
-		return nil, fmt.Errorf("update tenant defaults: %w", err)
+
+	// Filter override: last arg is on/off, everything before is the filter pattern
+	lastArg := args[len(args)-1]
+	includeLink, ok := parseBool(lastArg)
+	if !ok {
+		return ephemeral("Usage: `/zoom-notifier set-link \"Filter\" on|off`"), nil
+	}
+	parsed := parseQuotedArgs(args[:len(args)-1])
+	if len(parsed) == 0 {
+		return ephemeral("Usage: `/zoom-notifier set-link \"Filter\" on|off`"), nil
+	}
+	pattern := parsed[0]
+	filter, err := h.findFilterByPattern(ctx, cmd.TeamID, pattern)
+	if err != nil {
+		return nil, err
+	}
+	if filter == nil {
+		return ephemeral(fmt.Sprintf("No filter found matching `%s`. Use `/zoom-notifier filters` to see available filters.", pattern)), nil
+	}
+	filter.IncludeLink = &includeLink
+	if err := h.store.UpdateFilter(ctx, filter); err != nil {
+		return nil, fmt.Errorf("update filter: %w", err)
 	}
 	state := "disabled"
 	if includeLink {
 		state = "enabled"
 	}
-	return ephemeral(fmt.Sprintf("Meeting links %s (tenant-wide default).", state)), nil
+	return ephemeral(fmt.Sprintf("Meeting links %s for filter `%s`.", state, pattern)), nil
+}
+
+func (h *CommandHandler) findFilterByPattern(ctx context.Context, tenantID, pattern string) (*store.MeetingFilter, error) {
+	filters, err := h.store.ListFilters(ctx, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list filters: %w", err)
+	}
+	for _, f := range filters {
+		if strings.EqualFold(f.Pattern, pattern) {
+			return f, nil
+		}
+	}
+	return nil, nil
+}
+
+func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
+	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+	if err != nil || tenant == nil {
+		return nil, fmt.Errorf("get tenant: %w", err)
+	}
+
+	var sb strings.Builder
+	sb.WriteString("*Notification Settings:*\n\n")
+
+	// Tenant defaults
+	sb.WriteString("*Tenant Defaults:*\n")
+	suffix := tenant.DefaultMsgSuffix
+	if suffix == "" {
+		suffix = "(none)"
+	}
+	linkState := "off"
+	if tenant.DefaultIncludeLink {
+		linkState = "on"
+	}
+	sb.WriteString(fmt.Sprintf("• Message suffix: `%s`\n", suffix))
+	sb.WriteString(fmt.Sprintf("• Include meeting link: %s\n", linkState))
+
+	// Filter overrides
+	filters, err := h.store.ListFilters(ctx, cmd.TeamID)
+	if err != nil {
+		return nil, fmt.Errorf("list filters: %w", err)
+	}
+
+	if len(filters) > 0 {
+		sb.WriteString("\n*Filter Overrides:*\n")
+		for _, f := range filters {
+			sb.WriteString(fmt.Sprintf("• `%s`", f.Pattern))
+			var overrides []string
+			if f.MsgSuffix != nil {
+				overrides = append(overrides, fmt.Sprintf("suffix: `%s`", *f.MsgSuffix))
+			}
+			if f.IncludeLink != nil {
+				link := "off"
+				if *f.IncludeLink {
+					link = "on"
+				}
+				overrides = append(overrides, fmt.Sprintf("link: %s", link))
+			}
+			if len(overrides) > 0 {
+				sb.WriteString(fmt.Sprintf(" — %s", strings.Join(overrides, ", ")))
+			} else {
+				sb.WriteString(" — no overrides")
+			}
+			sb.WriteString("\n")
+		}
+	}
+
+	return ephemeral(sb.String()), nil
 }
 
 func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
@@ -397,8 +565,11 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 		"• `/zoom-notifier filter \"Topic\"` — Add a meeting topic filter _(admin)_\n" +
 		"• `/zoom-notifier filters` — List active filters\n" +
 		"• `/zoom-notifier subscriptions` — List channel subscriptions\n" +
-		"• `/zoom-notifier set-suffix #channel \"text\"` — Set message suffix _(admin)_\n" +
-		"• `/zoom-notifier set-link #channel on|off` — Toggle meeting links _(admin)_\n" +
+		"• `/zoom-notifier settings` — Show notification settings and filter overrides\n" +
+		"• `/zoom-notifier set-suffix \"text\"` — Set default message suffix _(admin)_\n" +
+		"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — Set suffix on a filter _(admin)_\n" +
+		"• `/zoom-notifier set-link on|off` — Toggle default meeting links _(admin)_\n" +
+		"• `/zoom-notifier set-link \"Filter\" on|off` — Toggle links on a filter _(admin)_\n" +
 		"• `/zoom-notifier admins add @user` — Add an admin _(admin)_\n" +
 		"• `/zoom-notifier api-key` — Show tenant API key _(admin)_\n" +
 		"• `/zoom-notifier setup` — Zoom credential setup instructions _(admin)_\n" +
