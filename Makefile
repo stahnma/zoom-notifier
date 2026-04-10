@@ -26,6 +26,9 @@ build: tidy ## Build binary (runs fmt + tidy first)
 lint: ## Run golangci-lint
 	golangci-lint run ./...
 
+vet: ## Run go vet
+	go vet ./...
+
 test: ## Run all tests
 	go test ./internal/...
 
