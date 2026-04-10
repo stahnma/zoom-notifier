@@ -280,52 +280,38 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 		return ephemeral("Usage: `/zoom-notifier unsubscribe #channel`"), nil
 	}
 
-	// Extract channel ID and name from Slack mention format
 	target := parseChannelID(args[0])
 	targetName := parseChannelName(args[0])
-	targetID := ""
-
-	botToken := h.getBotToken(ctx, cmd.TeamID)
-	if botToken != "" {
-		api := slackapi.New(botToken)
-		if strings.HasPrefix(target, "C") {
-			// Target is a channel ID — resolve to name
-			targetID = target
-			if targetName == "" {
-				info, err := api.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{ChannelID: target})
-				if err == nil && info != nil {
-					targetName = info.Name
-				}
-			}
-		} else {
-			// Target is a channel name — resolve to ID
-			targetName = target
-			channels, _, err := api.GetConversationsContext(ctx, &slackapi.GetConversationsParameters{
-				Types:           []string{"public_channel", "private_channel"},
-				ExcludeArchived: true,
-				Limit:           200,
-			})
-			if err == nil {
-				for _, ch := range channels {
-					if ch.Name == target {
-						targetID = ch.ID
-						break
-					}
-				}
-			}
-		}
-	}
 
 	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
 	if err != nil {
 		return nil, fmt.Errorf("list subscriptions: %w", err)
 	}
 
+	// Build a map of channel ID → name for matching
+	botToken := h.getBotToken(ctx, cmd.TeamID)
+	var api *slackapi.Client
+	if botToken != "" {
+		api = slackapi.New(botToken)
+	}
+
 	for _, sub := range subs {
 		if sub.Type != "slack" {
 			continue
 		}
-		if sub.Target == target || (targetName != "" && sub.Target == targetName) || (targetID != "" && sub.Target == targetID) {
+
+		// Direct match
+		match := sub.Target == target || (targetName != "" && sub.Target == targetName)
+
+		// If no direct match and sub is stored as a channel ID, resolve to name and compare
+		if !match && api != nil && strings.HasPrefix(sub.Target, "C") {
+			info, err := api.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{ChannelID: sub.Target})
+			if err == nil && info != nil {
+				match = info.Name == target || (targetName != "" && info.Name == targetName)
+			}
+		}
+
+		if match {
 			if err := h.store.DeleteSubscription(ctx, sub.ID); err != nil {
 				return nil, fmt.Errorf("delete subscription: %w", err)
 			}
