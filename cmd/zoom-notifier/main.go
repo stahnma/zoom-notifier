@@ -174,6 +174,11 @@ code{background:#f0f0f0;padding:0.15rem 0.4rem;border-radius:3px;font-size:0.9re
 		log.Info("Slack interaction endpoint enabled")
 	}
 
+	// Per-tenant Zoom setup page
+	tenantSetup := appslack.NewTenantSetupHandler(store)
+	r.Get("/tenant/setup", tenantSetup.ServeHTTP)
+	r.Post("/tenant/setup", tenantSetup.ServeHTTP)
+
 	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
 	r.Mount("/", apiRouter)
 
