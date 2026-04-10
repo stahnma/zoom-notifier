@@ -358,45 +358,42 @@ func parseQuotedArgs(args []string) []string {
 func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	if len(args) == 0 {
 		return ephemeral("Usage:\n" +
-			"• `/zoom-notifier set-suffix \"text\"` — set tenant-wide default suffix\n" +
+			"• `/zoom-notifier set-suffix the zoom meeting.` — set tenant-wide default suffix\n" +
 			"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — set suffix override on a filter"), nil
 	}
 
+	raw := strings.Join(args, " ")
 	parsed := parseQuotedArgs(args)
-	if len(parsed) == 0 {
-		return ephemeral("Usage:\n" +
-			"• `/zoom-notifier set-suffix \"text\"` — set tenant-wide default suffix\n" +
-			"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — set suffix override on a filter"), nil
+
+	// Filter override: requires 2+ quoted args (e.g. "Standup" "the standup.")
+	hasQuotes := strings.ContainsAny(raw, "\"'")
+	if hasQuotes && len(parsed) >= 2 {
+		pattern := parsed[0]
+		suffix := strings.Join(parsed[1:], " ")
+		filter, err := h.findFilterByPattern(ctx, cmd.TeamID, pattern)
+		if err != nil {
+			return nil, err
+		}
+		if filter == nil {
+			return ephemeral(fmt.Sprintf("No filter found matching `%s`. Use `/zoom-notifier filters` to see available filters.", pattern)), nil
+		}
+		filter.MsgSuffix = &suffix
+		if err := h.store.UpdateFilter(ctx, filter); err != nil {
+			return nil, fmt.Errorf("update filter: %w", err)
+		}
+		return ephemeral(fmt.Sprintf("Updated suffix override on filter `%s` to `%s`.", pattern, suffix)), nil
 	}
 
-	if len(parsed) == 1 {
-		// Tenant-wide default
-		suffix := parsed[0]
-		tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
-		if err != nil || tenant == nil {
-			return nil, fmt.Errorf("get tenant: %w", err)
-		}
-		if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, suffix, tenant.DefaultIncludeLink); err != nil {
-			return nil, fmt.Errorf("update tenant defaults: %w", err)
-		}
-		return ephemeral(fmt.Sprintf("Updated default message suffix to `%s`.", suffix)), nil
+	// Tenant-wide default: unquoted text or single quoted arg
+	suffix := strings.Trim(raw, "\"' ")
+	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+	if err != nil || tenant == nil {
+		return nil, fmt.Errorf("get tenant: %w", err)
 	}
-
-	// Filter override: first arg is pattern, rest is suffix
-	pattern := parsed[0]
-	suffix := strings.Join(parsed[1:], " ")
-	filter, err := h.findFilterByPattern(ctx, cmd.TeamID, pattern)
-	if err != nil {
-		return nil, err
+	if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, suffix, tenant.DefaultIncludeLink); err != nil {
+		return nil, fmt.Errorf("update tenant defaults: %w", err)
 	}
-	if filter == nil {
-		return ephemeral(fmt.Sprintf("No filter found matching `%s`. Use `/zoom-notifier filters` to see available filters.", pattern)), nil
-	}
-	filter.MsgSuffix = &suffix
-	if err := h.store.UpdateFilter(ctx, filter); err != nil {
-		return nil, fmt.Errorf("update filter: %w", err)
-	}
-	return ephemeral(fmt.Sprintf("Updated suffix override on filter `%s` to `%s`.", pattern, suffix)), nil
+	return ephemeral(fmt.Sprintf("Updated default message suffix to `%s`.", suffix)), nil
 }
 
 func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
