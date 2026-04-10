@@ -43,6 +43,7 @@ func (h *CommandHandler) RegisterModalHandlers(ih *InteractionHandler) {
 	ih.RegisterHandler("set_suffix", h.handleSetSuffixSubmission)
 	ih.RegisterHandler("set_link", h.handleSetLinkSubmission)
 	ih.RegisterHandler("subscribe", h.handleSubscribeSubmission)
+	ih.RegisterHandler("unsubscribe", h.handleUnsubscribeSubmission)
 	ih.RegisterHandler("add_filter", h.handleAddFilterSubmission)
 }
 
@@ -210,6 +211,43 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 
 	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Subscribed <#%s> to meeting notifications.", selectedChannel))
 	return nil
+}
+
+func (h *CommandHandler) handleUnsubscribeSubmission(payload InteractionPayload) error {
+	ctx := context.Background()
+	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
+	if teamID == "" {
+		teamID = payload.Team.ID
+	}
+
+	if payload.View.State == nil {
+		return fmt.Errorf("no view state in payload")
+	}
+
+	selectedChannel := ""
+	if cv, ok := payload.View.State.Values["channel_block"]["channel_select"]; ok && cv.Selected != nil {
+		selectedChannel = cv.Selected.Value
+	}
+	if selectedChannel == "" {
+		return fmt.Errorf("no channel selected")
+	}
+
+	subs, err := h.store.ListSubscriptions(ctx, teamID)
+	if err != nil {
+		return fmt.Errorf("list subscriptions: %w", err)
+	}
+
+	for _, sub := range subs {
+		if sub.Target == selectedChannel && sub.Type == "slack" {
+			if err := h.store.DeleteSubscription(ctx, sub.ID); err != nil {
+				return fmt.Errorf("delete subscription: %w", err)
+			}
+			h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Unsubscribed <#%s> from meeting notifications.", selectedChannel))
+			return nil
+		}
+	}
+
+	return fmt.Errorf("subscription not found for channel %s", selectedChannel)
 }
 
 func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) error {

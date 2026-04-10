@@ -178,6 +178,46 @@ func BuildSubscribeModal() slacklib.ModalViewRequest {
 	}
 }
 
+// BuildUnsubscribeModal creates a modal with a dropdown of current subscriptions.
+func BuildUnsubscribeModal(subs []*store.Subscription) slacklib.ModalViewRequest {
+	var options []*slacklib.OptionBlockObject
+	for _, s := range subs {
+		if s.Type == "slack" {
+			label := fmt.Sprintf("<#%s>", s.Target)
+			options = append(options, slacklib.NewOptionBlockObject(
+				s.Target,
+				slacklib.NewTextBlockObject("plain_text", label, false, false),
+				nil,
+			))
+		}
+	}
+
+	subSelect := slacklib.NewOptionsSelectBlockElement(
+		slacklib.OptTypeStatic,
+		slacklib.NewTextBlockObject("plain_text", "Select a channel", false, false),
+		"channel_select",
+		options...,
+	)
+
+	channelBlock := slacklib.NewInputBlock(
+		"channel_block",
+		slacklib.NewTextBlockObject("plain_text", "Channel to unsubscribe", false, false),
+		nil,
+		subSelect,
+	)
+
+	return slacklib.ModalViewRequest{
+		Type:       slacklib.VTModal,
+		CallbackID: "unsubscribe",
+		Title:      slacklib.NewTextBlockObject("plain_text", "Unsubscribe Channel", false, false),
+		Submit:     slacklib.NewTextBlockObject("plain_text", "Unsubscribe", false, false),
+		Close:      slacklib.NewTextBlockObject("plain_text", "Cancel", false, false),
+		Blocks: slacklib.Blocks{
+			BlockSet: []slacklib.Block{channelBlock},
+		},
+	}
+}
+
 // BuildFilterModal creates a modal for adding a meeting filter.
 func BuildFilterModal() slacklib.ModalViewRequest {
 	patternInput := slacklib.NewPlainTextInputBlockElement(

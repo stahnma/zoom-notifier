@@ -276,6 +276,23 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 }
 
 func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
+	if len(args) == 0 && h.canOpenModal(cmd) {
+		botToken := h.getBotToken(ctx, cmd.TeamID)
+		if botToken != "" {
+			subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
+			if err == nil && len(subs) > 0 {
+				modal := BuildUnsubscribeModal(subs)
+				modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
+				opener := NewSlackModalOpener(botToken)
+				if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
+					log.WithError(err).Error("failed to open unsubscribe modal")
+				} else {
+					return ephemeral(""), nil
+				}
+			}
+		}
+	}
+
 	if len(args) == 0 {
 		return ephemeral("Usage: `/zoom-notifier unsubscribe #channel`"), nil
 	}
