@@ -9,7 +9,7 @@ import (
 func fullConfig() *config.Config {
 	return &config.Config{
 		Admin: config.AdminConfig{APIKey: "admin-key"},
-		Zoom:  config.ZoomConfig{WebhookSecret: "zoom-secret"},
+		Zoom:  config.ZoomConfig{WebhookSecret: "zoom-secret", AccountID: "zoom-account-id"},
 		Slack: config.SlackConfig{
 			ClientID:      "client-id",
 			ClientSecret:  "client-secret",
@@ -48,6 +48,15 @@ func TestNeedsSetup(t *testing.T) {
 			cfg: func() *config.Config {
 				c := fullConfig()
 				c.Zoom.WebhookSecret = ""
+				return c
+			}(),
+			want: true,
+		},
+		{
+			name: "missing zoom account id",
+			cfg: func() *config.Config {
+				c := fullConfig()
+				c.Zoom.AccountID = ""
 				return c
 			}(),
 			want: true,

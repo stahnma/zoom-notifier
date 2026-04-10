@@ -105,7 +105,8 @@ func TestSetupFullFlow(t *testing.T) {
 
 	// Step 3: POST /setup/zoom
 	resp, err = client.PostForm(srv.URL+"/setup/zoom", url.Values{
-		"zoom_secret": {"zoom-secret-token"},
+		"zoom_secret":     {"zoom-secret-token"},
+		"zoom_account_id": {"zoom-account-123"},
 	})
 	if err != nil {
 		t.Fatalf("POST /setup/zoom failed: %v", err)

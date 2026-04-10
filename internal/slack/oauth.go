@@ -121,11 +121,12 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	teamName := resp.Team.Name
 
 	tenant := &store.Tenant{
-		ID:          teamID,
-		TeamName:    teamName,
-		BotToken:    &botToken,
-		APIKey:      apiKey,
-		InstalledAt: time.Now(),
+		ID:            teamID,
+		TeamName:      teamName,
+		BotToken:      &botToken,
+		APIKey:        apiKey,
+		InstalledAt:   time.Now(),
+		ZoomAccountID: h.zoomAccountID,
 	}
 
 	// Check if tenant already exists (re-install)
@@ -137,9 +138,12 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if existing != nil {
-		// Re-install: update the bot token
+		// Re-install: update the bot token and zoom account
 		existing.BotToken = &botToken
 		existing.TeamName = teamName
+		if h.zoomAccountID != "" {
+			existing.ZoomAccountID = h.zoomAccountID
+		}
 		if err := h.store.UpdateTenant(r.Context(), existing); err != nil {
 			log.WithError(err).Error("failed to update tenant on re-install")
 			http.Error(w, "failed to update tenant", http.StatusInternalServerError)

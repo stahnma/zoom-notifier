@@ -35,11 +35,7 @@
 
     <details>
         <summary><strong>Zoom API Credentials</strong> (optional &mdash; enables meeting links with passcodes)</summary>
-        <p class="help-text">These credentials come from a separate <strong>Server-to-Server OAuth</strong> app in the Zoom Marketplace. If you skip this, notifications will still work but won't include clickable meeting links.</p>
-        <div class="form-group">
-            <label for="zoom_account_id">Zoom Account ID</label>
-            <input type="text" id="zoom_account_id" name="zoom_account_id" value="{{.Data.ZoomAccountID}}" placeholder="Enter Zoom Account ID" autocomplete="off">
-        </div>
+        <p class="help-text">These credentials come from a separate <strong>Server-to-Server OAuth</strong> app in the Zoom Marketplace. If you skip this, notifications will still work but won't include clickable meeting links. The Account ID from the Zoom step is reused automatically.</p>
         <div class="form-group">
             <label for="zoom_client_id">Zoom Client ID</label>
             <input type="text" id="zoom_client_id" name="zoom_client_id" value="{{.Data.ZoomClientID}}" placeholder="Enter Zoom Client ID" autocomplete="off">
@@ -54,7 +50,7 @@
                 <li>Go to the <a href="https://marketplace.zoom.us/user/build" target="_blank" rel="noopener">Zoom App Marketplace &mdash; Build App</a> page.</li>
                 <li>Choose <strong>Server-to-Server OAuth</strong> as the app type.</li>
                 <li>Give it a name (e.g. "zoom-notifier API access").</li>
-                <li>On the app info page, copy the <strong>Account ID</strong>, <strong>Client ID</strong>, and <strong>Client Secret</strong>.</li>
+                <li>On the app info page, copy the <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
                 <li>Fill out the required basic information and continue to <strong>Scopes</strong>.</li>
                 <li>Add these scopes: <code>meeting:read:meeting:admin</code> and <code>meeting:read:invitation:admin</code>.</li>
                 <li><strong>Activate</strong> the app.</li>

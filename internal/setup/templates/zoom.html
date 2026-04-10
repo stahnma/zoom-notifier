@@ -55,6 +55,14 @@
         </details>
     </div>
     <div class="form-group">
+        <label for="zoom_account_id">Zoom Account ID</label>
+        <input type="text" id="zoom_account_id" name="zoom_account_id" value="{{.Data.ZoomAccountID}}" placeholder="Enter your Zoom Account ID" autocomplete="off" required>
+        <details>
+            <summary>Where is the Account ID?</summary>
+            <p>In your Zoom Webhook Only app, the <strong>Account ID</strong> is displayed at the top of the app's <strong>Basic Information</strong> page. This is used to link incoming Zoom events to your workspace.</p>
+        </details>
+    </div>
+    <div class="form-group">
         <button type="button" id="save-secret-btn" class="btn btn-secondary" onclick="saveZoomSecret()">Save Secret</button>
         <span id="save-secret-status" class="help-text"></span>
         <p class="help-text">Save the secret first so Zoom's <strong>Validate</strong> button will work. Then click <strong>Next</strong> to continue.</p>

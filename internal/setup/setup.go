@@ -16,6 +16,9 @@ func NeedsSetup(cfg *config.Config) bool {
 	if cfg.Zoom.WebhookSecret == "" {
 		return true
 	}
+	if cfg.Zoom.AccountID == "" {
+		return true
+	}
 	if cfg.Slack.ClientID == "" {
 		return true
 	}

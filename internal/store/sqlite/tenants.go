@@ -80,8 +80,8 @@ func (s *SQLiteStore) ListTenants(ctx context.Context) ([]*store.Tenant, error) 
 
 func (s *SQLiteStore) UpdateTenant(ctx context.Context, t *store.Tenant) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE tenants SET team_name = ?, bot_token = ? WHERE id = ?`,
-		t.TeamName, t.BotToken, t.ID,
+		`UPDATE tenants SET team_name = ?, bot_token = ?, zoom_account_id = ? WHERE id = ?`,
+		t.TeamName, t.BotToken, t.ZoomAccountID, t.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update tenant: %w", err)

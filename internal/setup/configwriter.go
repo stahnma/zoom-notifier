@@ -44,8 +44,8 @@ path = "{{.DatabasePath | toml}}"
 
 [zoom]
 webhook_secret = "{{.ZoomSecret | toml}}"
-{{- if .ZoomAccountID}}
 account_id = "{{.ZoomAccountID | toml}}"
+{{- if .ZoomClientID}}
 client_id = "{{.ZoomClientID | toml}}"
 client_secret = "{{.ZoomClientSecret | toml}}"
 {{- end}}
