@@ -1,0 +1,5 @@
+{
+  "type": "slack",
+  "target": "#general",
+  "meeting_id": null
+}

@@ -1,0 +1,116 @@
+{{template "layout" .}}
+{{define "content"}}
+<h2>Zoom Configuration</h2>
+<p>Connect zoom-notifier to your Zoom account so it can receive meeting events (started, ended, participant joined/left).</p>
+
+<div class="info-box">
+    <strong>Which Zoom app type do I need?</strong>
+    <p>Create a <strong>Server-to-Server OAuth</strong> app. This single app handles both webhook event notifications <em>and</em> API access for meeting links. You only need one Zoom app.</p>
+</div>
+
+<details>
+    <summary>Step-by-step: Create a Server-to-Server OAuth app in Zoom</summary>
+    <ol>
+        <li>Go to the <a href="https://marketplace.zoom.us/user/build" target="_blank" rel="noopener">Zoom App Marketplace &mdash; Build App</a> page and sign in.</li>
+        <li>Choose <strong>Server-to-Server OAuth</strong> as the app type and click <strong>Create</strong>.</li>
+        <li>Give it a name (e.g. "zoom-notifier") and click <strong>Create</strong>.</li>
+        <li>On the <strong>App Credentials</strong> tab, copy the <strong>Account ID</strong>, <strong>Client ID</strong>, and <strong>Client Secret</strong> and enter them in the form below.</li>
+        <li>Go to the <strong>Information</strong> tab. Fill in the required fields (company name, developer name and email) and click <strong>Continue</strong>.</li>
+        <li>Go to the <strong>Feature</strong> tab. Toggle <strong>Event Subscriptions</strong> to on.</li>
+        <li>Click <strong>+ Add New Event Subscription</strong>:
+            <ul>
+                <li>Enter a <strong>Subscription Name</strong> (e.g. "Meeting Events").</li>
+                <li>Set the <strong>Event Notification Endpoint URL</strong> to the webhook URL shown below.</li>
+                <li>Click <strong>+ Add Events</strong> and select these under <strong>Meeting</strong>:
+                    <ul>
+                        <li>Start Meeting</li>
+                        <li>End Meeting</li>
+                        <li>Participant/Host Joined the Meeting</li>
+                        <li>Participant/Host Left the Meeting</li>
+                    </ul>
+                </li>
+            </ul>
+        </li>
+        <li>Copy the <strong>Secret Token</strong> from the Feature tab (above the Event Subscriptions section) and paste it below.</li>
+        <li>Click <strong>Save Secret</strong> below so the wizard can respond to Zoom's validation challenge.</li>
+        <li>Back in Zoom, click <strong>Validate</strong> to verify the endpoint. It should succeed now.</li>
+        <li>Click <strong>Save</strong> in Zoom.</li>
+        <li>Go to the <strong>Scopes</strong> tab. Click <strong>+ Add Scopes</strong>, search for "meeting", and add <strong>meeting:read:admin</strong>. This enables fetching meeting join links.</li>
+        <li>Go to the <strong>Activation</strong> tab and click <strong>Activate your app</strong>.</li>
+        <li>Come back here and click <strong>Next</strong>.</li>
+    </ol>
+</details>
+
+<div class="info-box">
+    <strong>Your webhook endpoint:</strong>
+    <div class="copyable">
+        <code id="webhook-url">{{.Data.ServerURL}}/webhook/zoom</code>
+        <button type="button" class="btn btn-small" onclick="copyToClipboard(document.getElementById('webhook-url').textContent)">Copy</button>
+    </div>
+    <p class="help-text">Paste this URL into the Event Notification Endpoint field in your Zoom app.</p>
+</div>
+
+<form method="POST" action="/setup/zoom">
+    <h3>App Credentials</h3>
+    <p class="help-text">From the <strong>App Credentials</strong> tab of your Zoom S2S OAuth app.</p>
+
+    <div class="form-group">
+        <label for="zoom_account_id">Account ID</label>
+        <input type="text" id="zoom_account_id" name="zoom_account_id" value="{{.Data.ZoomAccountID}}" placeholder="Enter your Zoom Account ID" autocomplete="off" required>
+        <p class="help-text">Links incoming Zoom webhook events to your workspace.</p>
+    </div>
+    <div class="form-group">
+        <label for="zoom_client_id">Client ID</label>
+        <input type="text" id="zoom_client_id" name="zoom_client_id" value="{{.Data.ZoomClientID}}" placeholder="Enter Zoom Client ID" autocomplete="off">
+        <p class="help-text">Optional. Enables meeting join links with passcodes in notifications.</p>
+    </div>
+    <div class="form-group">
+        <label for="zoom_client_secret">Client Secret</label>
+        <input type="password" id="zoom_client_secret" name="zoom_client_secret" value="{{.Data.ZoomClientSecret}}" placeholder="Enter Zoom Client Secret" autocomplete="off">
+        <p class="help-text">Optional. Required alongside Client ID for meeting links.</p>
+    </div>
+
+    <h3>Webhook Secret</h3>
+    <p class="help-text">From the <strong>Feature</strong> tab, after adding an Event Subscription.</p>
+
+    <div class="form-group">
+        <label for="zoom_secret">Secret Token</label>
+        <input type="text" id="zoom_secret" name="zoom_secret" value="{{.Data.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" autocomplete="off" required>
+        <details>
+            <summary>Where is the Secret Token?</summary>
+            <p>In the <strong>Feature</strong> tab, the <strong>Secret Token</strong> is displayed near the top, above the Event Subscriptions section. This is <em>not</em> the same as the Client Secret &mdash; it&rsquo;s used specifically for webhook CRC validation.</p>
+        </details>
+    </div>
+    <div class="form-group">
+        <button type="button" id="save-secret-btn" class="btn btn-secondary" onclick="saveZoomSecret()">Save Secret</button>
+        <span id="save-secret-status" class="help-text"></span>
+        <p class="help-text">Save the secret first so Zoom's <strong>Validate</strong> button will work. Then click <strong>Next</strong> to continue.</p>
+    </div>
+    <div class="form-actions">
+        <a href="/setup" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next</button>
+    </div>
+</form>
+<script>
+function saveZoomSecret() {
+    var secret = document.getElementById('zoom_secret').value.trim();
+    if (!secret) {
+        document.getElementById('save-secret-status').textContent = 'Please enter the secret token first.';
+        return;
+    }
+    fetch('/setup/api/save-zoom-secret', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({secret: secret})
+    }).then(function(resp) {
+        if (resp.ok) {
+            document.getElementById('save-secret-status').textContent = 'Saved! You can now validate in Zoom.';
+        } else {
+            document.getElementById('save-secret-status').textContent = 'Failed to save. Please try again.';
+        }
+    }).catch(function() {
+        document.getElementById('save-secret-status').textContent = 'Network error. Please try again.';
+    });
+}
+</script>
+{{end}}

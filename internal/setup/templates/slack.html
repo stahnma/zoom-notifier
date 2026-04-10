@@ -1,0 +1,54 @@
+{{template "layout" .}}
+{{define "content"}}
+<h2>Slack Configuration</h2>
+<p>Set up the Slack app for notifications and slash commands.</p>
+
+{{if .ManifestURL}}
+<div class="info-box">
+    <strong>Quick setup:</strong> Create your Slack app using the pre-built manifest.
+    <div class="form-actions" style="margin-top: 0.5rem;">
+        <a href="{{.ManifestURL}}" target="_blank" rel="noopener" class="btn btn-secondary">Create Slack App from Manifest</a>
+    </div>
+    <p class="help-text">This opens Slack's app creation page with all the required settings pre-filled. After creating the app, copy the credentials below.</p>
+</div>
+{{end}}
+
+<div class="info-box">
+    <strong>Don't forget to install the app to your workspace.</strong>
+    <p>After creating the Slack app and entering the credentials below, you still need to install it to your workspace. Once the setup wizard is complete and zoom-notifier is restarted, visit <code>{{.Data.ServerURL}}/slack/install</code> to start the OAuth install flow.</p>
+</div>
+
+<form method="POST" action="/setup/slack">
+    <div class="form-group">
+        <label for="slack_client_id">Client ID</label>
+        <input type="text" id="slack_client_id" name="slack_client_id" value="{{.Data.SlackClientID}}" placeholder="Enter Slack app Client ID" autocomplete="off" required>
+        <details>
+            <summary>Where do I find this?</summary>
+            <p>In your Slack app settings, go to <strong>Basic Information</strong> &rarr; <strong>App Credentials</strong>. The Client ID is listed there.</p>
+        </details>
+    </div>
+
+    <div class="form-group">
+        <label for="slack_client_secret">Client Secret</label>
+        <input type="password" id="slack_client_secret" name="slack_client_secret" value="{{.Data.SlackClientSecret}}" placeholder="Enter Slack app Client Secret" autocomplete="off" required>
+        <details>
+            <summary>Where do I find this?</summary>
+            <p>In your Slack app settings, go to <strong>Basic Information</strong> &rarr; <strong>App Credentials</strong>. Click <strong>Show</strong> next to Client Secret.</p>
+        </details>
+    </div>
+
+    <div class="form-group">
+        <label for="slack_signing_secret">Signing Secret</label>
+        <input type="password" id="slack_signing_secret" name="slack_signing_secret" value="{{.Data.SlackSigningSecret}}" placeholder="Enter Slack app Signing Secret" autocomplete="off" required>
+        <details>
+            <summary>Where do I find this?</summary>
+            <p>In your Slack app settings, go to <strong>Basic Information</strong> &rarr; <strong>App Credentials</strong>. The Signing Secret is listed below the Client Secret.</p>
+        </details>
+    </div>
+
+    <div class="form-actions">
+        <a href="/setup" class="btn btn-secondary">Back</a>
+        <button type="submit" class="btn btn-primary">Next</button>
+    </div>
+</form>
+{{end}}

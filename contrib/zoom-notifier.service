@@ -1,0 +1,13 @@
+[Unit]
+Description=Zoom Notifier - Multi-tenant Zoom webhook to Slack/IRC relay
+After=network.target
+
+[Service]
+EnvironmentFile=-/etc/sysconfig/zoom-notifier
+ExecStart=/usr/local/bin/zoom-notifier --config /etc/zoom-notifier/config.toml
+User=zoom-notifier
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

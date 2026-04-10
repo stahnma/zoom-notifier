@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Background circle -->
+  <circle cx="256" cy="256" r="256" fill="#2D8CFF"/>
+
+  <!-- Video camera body -->
+  <rect x="80" y="170" width="240" height="180" rx="20" ry="20" fill="white"/>
+
+  <!-- Video camera lens/play triangle -->
+  <polygon points="350,200 430,160 430,360 350,320" fill="white"/>
+
+  <!-- Notification dot -->
+  <circle cx="410" cy="130" r="45" fill="#FF4444"/>
+</svg>

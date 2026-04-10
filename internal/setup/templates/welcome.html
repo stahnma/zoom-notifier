@@ -1,0 +1,25 @@
+{{template "layout" .}}
+{{define "content"}}
+<h2>Welcome to zoom-notifier Setup</h2>
+<p>This wizard will help you configure zoom-notifier. You'll need:</p>
+<ul class="checklist">
+    <li>A <strong>Zoom developer account</strong> (the wizard will guide you through creating a Server-to-Server OAuth app)</li>
+    <li><strong>Slack workspace admin access</strong> to install the Slack app</li>
+    <li>The <strong>public URL</strong> where this server will be accessible</li>
+</ul>
+
+<form method="POST" action="/setup/server-url">
+    <div class="form-group">
+        <label for="server_url">Server URL</label>
+        <p class="help-text">Enter the public URL where this server is accessible (e.g. <code>https://zoom.example.com</code>).</p>
+        <input type="url" id="server_url" name="server_url" placeholder="https://zoom.example.com" value="{{.Data.ServerURL}}" required>
+        <details>
+            <summary>How do I know my server URL?</summary>
+            <p>This is the URL that Zoom and Slack will use to reach your server. It must be publicly accessible from the internet. If you're running behind a reverse proxy or load balancer, use the external URL (not <code>localhost</code>). For example: <code>https://zoom.example.com</code>.</p>
+        </details>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Get Started</button>
+    </div>
+</form>
+{{end}}

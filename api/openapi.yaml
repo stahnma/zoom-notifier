@@ -1,0 +1,821 @@
+openapi: "3.0.3"
+info:
+  title: Zoom Notifier API
+  description: Multi-tenant webhook relay and notification service for Zoom meetings.
+  version: "2.0.0"
+
+servers:
+  - url: http://localhost:8888
+    description: Local development
+
+security: []
+
+paths:
+  /healthz:
+    get:
+      operationId: getHealthz
+      summary: Health check
+      tags: [system]
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /webhook/zoom:
+    post:
+      operationId: postWebhookZoom
+      summary: Receive Zoom webhook events
+      tags: [zoom]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Webhook processed
+
+  /api/v1/tenants:
+    get:
+      operationId: listTenants
+      summary: List all tenants
+      tags: [tenants]
+      security:
+        - AdminKey: []
+      responses:
+        "200":
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createTenant
+      summary: Create a new tenant
+      tags: [tenants]
+      security:
+        - AdminKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTenantRequest"
+      responses:
+        "201":
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateTenantResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants/{tenantId}:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      operationId: getTenant
+      summary: Get tenant details
+      tags: [tenants]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteTenant
+      summary: Delete a tenant
+      tags: [tenants]
+      security:
+        - TenantKey: []
+      responses:
+        "204":
+          description: Tenant deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tenants/{tenantId}/defaults:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    put:
+      operationId: putTenantDefaults
+      summary: Update tenant notification defaults
+      tags: [tenants]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantDefaultsRequest"
+      responses:
+        "200":
+          description: Defaults updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tenants/{tenantId}/subscriptions:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      operationId: listSubscriptions
+      summary: List subscriptions for a tenant
+      tags: [subscriptions]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: List of subscriptions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Subscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createSubscription
+      summary: Create a subscription
+      tags: [subscriptions]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubscriptionRequest"
+      responses:
+        "201":
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants/{tenantId}/subscriptions/{subscriptionId}:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+      - $ref: "#/components/parameters/SubscriptionId"
+    patch:
+      operationId: updateSubscription
+      summary: Update a subscription
+      tags: [subscriptions]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSubscriptionRequest"
+      responses:
+        "200":
+          description: Subscription updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subscription"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteSubscription
+      summary: Delete a subscription
+      tags: [subscriptions]
+      security:
+        - TenantKey: []
+      responses:
+        "204":
+          description: Subscription deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tenants/{tenantId}/irc:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      operationId: getIRCConfig
+      summary: Get IRC configuration
+      tags: [irc]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: IRC configuration
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/IRCConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: putIRCConfig
+      summary: Create or update IRC configuration
+      tags: [irc]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IRCConfigRequest"
+      responses:
+        "200":
+          description: IRC configuration saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IRCConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants/{tenantId}/filters:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      operationId: listFilters
+      summary: List meeting filters
+      tags: [filters]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: List of filters
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MeetingFilter"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createFilter
+      summary: Create a meeting filter
+      tags: [filters]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFilterRequest"
+      responses:
+        "201":
+          description: Filter created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingFilter"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants/{tenantId}/filters/{filterId}:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+      - $ref: "#/components/parameters/FilterId"
+    patch:
+      operationId: updateFilter
+      summary: Update a meeting filter
+      tags: [filters]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFilterRequest"
+      responses:
+        "200":
+          description: Filter updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MeetingFilter"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteFilter
+      summary: Delete a meeting filter
+      tags: [filters]
+      security:
+        - TenantKey: []
+      responses:
+        "204":
+          description: Filter deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tenants/{tenantId}/meetings:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      operationId: listMeetings
+      summary: List active meetings
+      tags: [meetings]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: List of active meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActiveMeeting"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants/{tenantId}/meetings/{meetingId}/participants:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+      - $ref: "#/components/parameters/MeetingId"
+    get:
+      operationId: listParticipants
+      summary: List active participants in a meeting
+      tags: [meetings]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: List of participants
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Participant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tenants/{tenantId}/admins:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    get:
+      operationId: listAdmins
+      summary: List tenant admins
+      tags: [admins]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: List of admins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TenantAdmin"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: addAdmin
+      summary: Add a tenant admin
+      tags: [admins]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddAdminRequest"
+      responses:
+        "201":
+          description: Admin added
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants/{tenantId}/admins/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+      - $ref: "#/components/parameters/UserId"
+    delete:
+      operationId: removeAdmin
+      summary: Remove a tenant admin
+      tags: [admins]
+      security:
+        - TenantKey: []
+      responses:
+        "204":
+          description: Admin removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/tenants/{tenantId}/rotate-key:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    post:
+      operationId: rotateAPIKey
+      summary: Rotate the tenant API key
+      tags: [tenants]
+      security:
+        - TenantKey: []
+      responses:
+        "200":
+          description: New API key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RotateKeyResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/tenants/{tenantId}/zoom:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    put:
+      operationId: putZoomCredentials
+      summary: Set Zoom API credentials for a tenant
+      tags: [zoom]
+      security:
+        - TenantKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZoomCredentialsRequest"
+      responses:
+        "200":
+          description: Zoom credentials saved
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    AdminKey:
+      type: http
+      scheme: bearer
+      description: Deployment-level admin API key for tenant management
+    TenantKey:
+      type: http
+      scheme: bearer
+      description: Per-tenant API key for tenant-scoped operations
+
+  parameters:
+    TenantId:
+      name: tenantId
+      in: path
+      required: true
+      schema:
+        type: string
+    SubscriptionId:
+      name: subscriptionId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    FilterId:
+      name: filterId
+      in: path
+      required: true
+      schema:
+        type: integer
+        format: int64
+    MeetingId:
+      name: meetingId
+      in: path
+      required: true
+      schema:
+        type: string
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+
+  responses:
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    HealthResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+        version:
+          type: string
+        commit:
+          type: string
+        build_date:
+          type: string
+        uptime:
+          type: string
+        database:
+          type: string
+        tenants:
+          type: integer
+
+    Tenant:
+      type: object
+      required: [id, api_key]
+      properties:
+        id:
+          type: string
+        team_name:
+          type: string
+        api_key:
+          type: string
+        installed_at:
+          type: string
+          format: date-time
+        zoom_account_id:
+          type: string
+        default_msg_suffix:
+          type: string
+        default_include_link:
+          type: boolean
+
+    CreateTenantRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Optional tenant ID. Generated if not provided.
+        team_name:
+          type: string
+        zoom_account_id:
+          type: string
+
+    CreateTenantResponse:
+      type: object
+      required: [id, api_key]
+      properties:
+        id:
+          type: string
+        api_key:
+          type: string
+
+    Subscription:
+      type: object
+      required: [id, tenant_id, type, target, enabled]
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: string
+        type:
+          type: string
+          enum: [slack, irc]
+        meeting_id:
+          type: string
+          nullable: true
+        target:
+          type: string
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    CreateSubscriptionRequest:
+      type: object
+      required: [type, target]
+      properties:
+        type:
+          type: string
+          enum: [slack, irc]
+        meeting_id:
+          type: string
+          nullable: true
+        target:
+          type: string
+
+    UpdateSubscriptionRequest:
+      type: object
+      properties:
+        target:
+          type: string
+        enabled:
+          type: boolean
+
+    MeetingFilter:
+      type: object
+      required: [id, tenant_id, pattern]
+      properties:
+        id:
+          type: integer
+          format: int64
+        tenant_id:
+          type: string
+        pattern:
+          type: string
+        msg_suffix:
+          type: string
+          nullable: true
+        include_link:
+          type: boolean
+          nullable: true
+
+    CreateFilterRequest:
+      type: object
+      required: [pattern]
+      properties:
+        pattern:
+          type: string
+        msg_suffix:
+          type: string
+          nullable: true
+        include_link:
+          type: boolean
+          nullable: true
+
+    TenantDefaultsRequest:
+      type: object
+      properties:
+        default_msg_suffix:
+          type: string
+        default_include_link:
+          type: boolean
+
+    UpdateFilterRequest:
+      type: object
+      properties:
+        pattern:
+          type: string
+        msg_suffix:
+          type: string
+          nullable: true
+        include_link:
+          type: boolean
+          nullable: true
+
+    ActiveMeeting:
+      type: object
+      required: [meeting_id, tenant_id]
+      properties:
+        meeting_id:
+          type: string
+        tenant_id:
+          type: string
+        topic:
+          type: string
+        host_id:
+          type: string
+        start_time:
+          type: string
+          format: date-time
+        join_url:
+          type: string
+
+    Participant:
+      type: object
+      required: [id, meeting_id, user_name]
+      properties:
+        id:
+          type: integer
+          format: int64
+        meeting_id:
+          type: string
+        user_name:
+          type: string
+        email:
+          type: string
+        join_time:
+          type: string
+          format: date-time
+        leave_time:
+          type: string
+          format: date-time
+          nullable: true
+
+    TenantAdmin:
+      type: object
+      required: [tenant_id, slack_user_id]
+      properties:
+        tenant_id:
+          type: string
+        slack_user_id:
+          type: string
+
+    AddAdminRequest:
+      type: object
+      required: [slack_user_id]
+      properties:
+        slack_user_id:
+          type: string
+
+    RotateKeyResponse:
+      type: object
+      required: [api_key]
+      properties:
+        api_key:
+          type: string
+
+    IRCConfig:
+      type: object
+      required: [server, nick, use_tls]
+      properties:
+        tenant_id:
+          type: string
+        server:
+          type: string
+        nick:
+          type: string
+        password:
+          type: string
+          writeOnly: true
+        use_tls:
+          type: boolean
+        insecure_tls:
+          type: boolean
+          description: Skip TLS certificate verification (opt-in for self-signed certs)
+
+    IRCConfigRequest:
+      type: object
+      required: [server, nick, password]
+      properties:
+        server:
+          type: string
+        nick:
+          type: string
+        password:
+          type: string
+        use_tls:
+          type: boolean
+          default: true
+        insecure_tls:
+          type: boolean
+          default: false
+          description: Skip TLS certificate verification (opt-in for self-signed certs)
+
+    ZoomCredentialsRequest:
+      type: object
+      required: [client_id, client_secret, account_id]
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        account_id:
+          type: string
