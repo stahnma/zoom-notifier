@@ -43,6 +43,14 @@ func (r *Relay) Send(ctx context.Context, config *store.IRCConfig, channel strin
 	}
 	irccon.Password = config.Password
 
+	joined := make(chan struct{}, 1)
+	irccon.AddCallback("JOIN", func(e *ircevent.Event) {
+		select {
+		case joined <- struct{}{}:
+		default:
+		}
+	})
+
 	irccon.AddCallback("001", func(e *ircevent.Event) {
 		irccon.Join(channel)
 	})
@@ -52,19 +60,27 @@ func (r *Relay) Send(ctx context.Context, config *store.IRCConfig, channel strin
 		log.WithError(err).WithField("server", config.Server).Error("failed to connect to IRC server")
 		return fmt.Errorf("connect to IRC server %s: %w", config.Server, err)
 	}
-	defer irccon.Quit()
 
-	irccon.Privmsg(channel, msg)
-
-	log.WithFields(log.Fields{
-		"server":  config.Server,
-		"channel": channel,
-		"nick":    config.Nick,
-	}).Info("sent IRC message")
-
-	time.AfterFunc(1*time.Second, func() {
-		irccon.Quit()
-	})
+	go func() {
+		select {
+		case <-joined:
+			irccon.Privmsg(channel, msg)
+			log.WithFields(log.Fields{
+				"server":  config.Server,
+				"channel": channel,
+				"nick":    config.Nick,
+			}).Info("sent IRC message")
+			time.AfterFunc(1*time.Second, func() {
+				irccon.Quit()
+			})
+		case <-time.After(10 * time.Second):
+			log.WithFields(log.Fields{
+				"server":  config.Server,
+				"channel": channel,
+			}).Error("timed out waiting to join IRC channel")
+			irccon.Quit()
+		}
+	}()
 	irccon.Loop()
 
 	return nil
