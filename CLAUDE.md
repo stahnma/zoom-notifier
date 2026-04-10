@@ -137,6 +137,14 @@ All configuration via TOML config file and/or environment variables:
 
 Aliases: `sub`/`subscribe`, `unsub`/`unsubscribe`, `subs`/`subscriptions`, `admin`/`admins`
 
+
+## Go Code Style Rules
+- NEVER use `_` to discard errors. Always handle errors explicitly with a return, log, or wrap.
+- Prefer `fmt.Errorf("context: %w", err)` for error wrapping.
+- Follow effective Go: https://go.dev/doc/effective_go
+- golangci-lint fixes must address the root cause, not suppress the symptom.
+- When fixing lint errors, explain *why* the original code was problematic.
+
 ## Web Pages
 
 | Path | Description |
