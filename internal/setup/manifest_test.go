@@ -55,7 +55,7 @@ func TestGenerateSlackManifest(t *testing.T) {
 	oauth := parsed["oauth_config"].(map[string]interface{})
 	scopes := oauth["scopes"].(map[string]interface{})
 	botScopes := scopes["bot"].([]interface{})
-	expectedScopes := map[string]bool{"commands": true, "chat:write": true, "chat:write.public": true, "channels:read": true, "groups:read": true}
+	expectedScopes := map[string]bool{"commands": true, "chat:write": true, "chat:write.public": true, "channels:read": true, "groups:read": true, "im:write": true}
 	for _, s := range botScopes {
 		delete(expectedScopes, s.(string))
 	}

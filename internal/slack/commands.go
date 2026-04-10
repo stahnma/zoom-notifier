@@ -896,9 +896,14 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 		if botToken != "" {
 			api := slackapi.New(botToken)
 			msg := fmt.Sprintf("<@%s> added you as a zoom-notifier admin. Run `/zoom-notifier help` to see available commands.", cmd.UserID)
-			_, _, _, err := api.OpenConversationContext(ctx, &slackapi.OpenConversationParameters{Users: []string{userID}})
-			if err == nil {
-				api.PostMessageContext(ctx, userID, slackapi.MsgOptionText(msg, false))
+			channel, _, _, err := api.OpenConversationContext(ctx, &slackapi.OpenConversationParameters{Users: []string{userID}})
+			if err != nil {
+				log.WithError(err).WithField("user_id", userID).Warn("failed to open DM conversation for admin notification")
+			} else {
+				_, _, err = api.PostMessageContext(ctx, channel.ID, slackapi.MsgOptionText(msg, false))
+				if err != nil {
+					log.WithError(err).WithField("user_id", userID).Warn("failed to send admin notification DM")
+				}
 			}
 		}
 

@@ -52,7 +52,7 @@ func NewOAuthHandler(cfg OAuthConfig) *OAuthHandler {
 		clientID:     cfg.ClientID,
 		clientSecret: cfg.ClientSecret,
 		redirectURI:  cfg.RedirectURI,
-		scopes:       "commands,chat:write,chat:write.public,channels:read,groups:read",
+		scopes:       "commands,chat:write,chat:write.public,channels:read,groups:read,im:write",
 		store:        cfg.Store,
 		oauthURL:     oauthURL,
 		apiURL:       apiURL,
