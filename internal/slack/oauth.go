@@ -160,7 +160,6 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 		"team_name": teamName,
 	}).Info("Slack app installed successfully")
 
-	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html lang="en">
