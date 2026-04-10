@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
 )
 
@@ -55,11 +56,18 @@ func formatChannel(target string) string {
 
 // CommandHandler routes slash commands to their implementations.
 type CommandHandler struct {
-	store store.Store
+	store  store.Store
+	modals ModalOpener
 }
 
 func NewCommandHandler(s store.Store) *CommandHandler {
 	return &CommandHandler{store: s}
+}
+
+// SetModalOpener sets the ModalOpener used to open Slack modals.
+// If nil, commands fall back to text-based parsing.
+func (h *CommandHandler) SetModalOpener(m ModalOpener) {
+	h.modals = m
 }
 
 // Handle routes a slash command to the appropriate handler.
@@ -204,6 +212,21 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 }
 
 func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
+	// Open modal if no args and modal support is available
+	if len(args) == 0 && h.canOpenModal(cmd) {
+		botToken := h.getBotToken(ctx, cmd.TeamID)
+		if botToken != "" {
+			modal := BuildSubscribeModal()
+			modal.PrivateMetadata = cmd.TeamID
+			opener := NewSlackModalOpener(botToken)
+			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
+				log.WithError(err).Error("failed to open subscribe modal")
+			} else {
+				return ephemeral(""), nil
+			}
+		}
+	}
+
 	if len(args) == 0 {
 		return ephemeral("Usage: `/zoom-notifier subscribe #channel`"), nil
 	}
@@ -246,6 +269,21 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 }
 
 func (h *CommandHandler) addFilter(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
+	// Open modal if no args and modal support is available
+	if len(args) == 0 && h.canOpenModal(cmd) {
+		botToken := h.getBotToken(ctx, cmd.TeamID)
+		if botToken != "" {
+			modal := BuildFilterModal()
+			modal.PrivateMetadata = cmd.TeamID
+			opener := NewSlackModalOpener(botToken)
+			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
+				log.WithError(err).Error("failed to open filter modal")
+			} else {
+				return ephemeral(""), nil
+			}
+		}
+	}
+
 	if len(args) == 0 {
 		return ephemeral("Usage: `/zoom-notifier filter \"Topic Name\"`"), nil
 	}
@@ -356,7 +394,44 @@ func parseQuotedArgs(args []string) []string {
 	return result
 }
 
+// canOpenModal returns true if the command has a trigger_id and the handler has a modal opener.
+func (h *CommandHandler) canOpenModal(cmd SlashCommand) bool {
+	return h.modals != nil && cmd.TriggerID != ""
+}
+
+// getBotToken fetches the bot token for a tenant. Returns empty string if unavailable.
+func (h *CommandHandler) getBotToken(ctx context.Context, teamID string) string {
+	tenant, err := h.store.GetTenant(ctx, teamID)
+	if err != nil || tenant == nil || tenant.BotToken == nil || *tenant.BotToken == "" {
+		return ""
+	}
+	return *tenant.BotToken
+}
+
 func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
+	// Open modal if no args and modal support is available
+	if len(args) == 0 && h.canOpenModal(cmd) {
+		botToken := h.getBotToken(ctx, cmd.TeamID)
+		if botToken != "" {
+			tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+			if err != nil {
+				return nil, fmt.Errorf("get tenant: %w", err)
+			}
+			filters, err := h.store.ListFilters(ctx, cmd.TeamID)
+			if err != nil {
+				return nil, fmt.Errorf("list filters: %w", err)
+			}
+			modal := BuildSetSuffixModal(tenant.DefaultMsgSuffix, filters)
+			modal.PrivateMetadata = cmd.TeamID
+			opener := NewSlackModalOpener(botToken)
+			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
+				log.WithError(err).Error("failed to open set-suffix modal")
+			} else {
+				return ephemeral(""), nil
+			}
+		}
+	}
+
 	if len(args) == 0 {
 		return ephemeral("Usage:\n" +
 			"• `/zoom-notifier set-suffix the zoom meeting.` — set tenant-wide default suffix\n" +
@@ -398,6 +473,29 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 }
 
 func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
+	// Open modal if no args and modal support is available
+	if len(args) == 0 && h.canOpenModal(cmd) {
+		botToken := h.getBotToken(ctx, cmd.TeamID)
+		if botToken != "" {
+			tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+			if err != nil {
+				return nil, fmt.Errorf("get tenant: %w", err)
+			}
+			filters, err := h.store.ListFilters(ctx, cmd.TeamID)
+			if err != nil {
+				return nil, fmt.Errorf("list filters: %w", err)
+			}
+			modal := BuildSetLinkModal(tenant.DefaultIncludeLink, filters)
+			modal.PrivateMetadata = cmd.TeamID
+			opener := NewSlackModalOpener(botToken)
+			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
+				log.WithError(err).Error("failed to open set-link modal")
+			} else {
+				return ephemeral(""), nil
+			}
+		}
+	}
+
 	if len(args) == 0 {
 		return ephemeral("Usage:\n" +
 			"• `/zoom-notifier set-link on|off` — set tenant-wide default\n" +

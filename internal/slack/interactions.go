@@ -44,9 +44,10 @@ type ViewState struct {
 
 // ViewStateValue represents the value of a single input element in a modal.
 type ViewStateValue struct {
-	Type     string          `json:"type"`
-	Value    *string         `json:"value"`
-	Selected *SelectedOption `json:"selected_option"`
+	Type                 string          `json:"type"`
+	Value                *string         `json:"value"`
+	Selected             *SelectedOption `json:"selected_option"`
+	SelectedConversation *string         `json:"selected_conversation"`
 }
 
 // SelectedOption represents a selected option in a static select or radio button.

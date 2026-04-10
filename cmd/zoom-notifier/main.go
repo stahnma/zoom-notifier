@@ -166,11 +166,13 @@ code{background:#f0f0f0;padding:0.15rem 0.4rem;border-radius:3px;font-size:0.9re
 	// Slack slash commands via HTTP
 	if cfg.Slack.SigningSecret != "" {
 		cmdHandler := appslack.NewCommandHandler(store)
+		cmdHandler.SetModalOpener(appslack.NewSlackModalOpener("")) // enables modal support; per-tenant tokens used at runtime
 		httpCmdHandler := appslack.NewHTTPCommandHandler(cmdHandler, cfg.Slack.SigningSecret)
 		r.Post("/slack/commands", httpCmdHandler.ServeHTTP)
 		log.Info("Slack slash command HTTP endpoint enabled")
 
 		interactionHandler := appslack.NewInteractionHandler(store, cfg.Slack.SigningSecret)
+		cmdHandler.RegisterModalHandlers(interactionHandler)
 		r.Post("/slack/interactions", interactionHandler.ServeHTTP)
 		log.Info("Slack interaction endpoint enabled")
 	}
