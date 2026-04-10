@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	slackapi "github.com/slack-go/slack"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
 )
 
@@ -97,7 +98,9 @@ func (h *CommandHandler) Handle(ctx context.Context, cmd SlashCommand) (*SlashRe
 	case "filters":
 		return h.listFilters(ctx, cmd)
 	case "subscriptions", "subs":
-		return h.listSubscriptions(ctx, cmd)
+		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
+			return h.listSubscriptions(ctx, cmd)
+		})
 	case "setup":
 		return h.requireAdmin(ctx, cmd, func() (*SlashResponse, error) {
 			return h.setup(ctx, cmd)
@@ -343,6 +346,23 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 		return ephemeral("No subscriptions configured. Use `/zoom-notifier subscribe #channel` to add one."), nil
 	}
 
+	// Resolve channel names via Slack API
+	channelNames := make(map[string]string)
+	botToken := h.getBotToken(ctx, cmd.TeamID)
+	if botToken != "" {
+		api := slackapi.New(botToken)
+		for _, s := range subs {
+			if s.Type == "slack" && strings.HasPrefix(s.Target, "C") {
+				info, err := api.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{
+					ChannelID: s.Target,
+				})
+				if err == nil && info != nil {
+					channelNames[s.Target] = info.Name
+				}
+			}
+		}
+	}
+
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("*Subscriptions (%d):*\n", len(subs)))
 	for _, s := range subs {
@@ -350,7 +370,13 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 		if !s.Enabled {
 			status = "disabled"
 		}
-		details := fmt.Sprintf("• %s → %s (%s)", s.Type, s.Target, status)
+		target := s.Target
+		if name, ok := channelNames[s.Target]; ok {
+			target = "#" + name
+		} else {
+			target = formatChannel(s.Target)
+		}
+		details := fmt.Sprintf("• %s → %s (%s)", s.Type, target, status)
 		sb.WriteString(details + "\n")
 	}
 	return ephemeral(sb.String()), nil
@@ -684,13 +710,13 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 		"• `/zoom-notifier status` — Show active meetings\n" +
 		"• `/zoom-notifier whois <meeting>` — List participants in a meeting\n" +
 		"• `/zoom-notifier filters` — List active filters\n" +
-		"• `/zoom-notifier subscriptions` — List channel subscriptions\n" +
 		"• `/zoom-notifier settings` — Show notification settings and filter overrides\n" +
 		"• `/zoom-notifier help` — Show this help"
 
 	isAdmin, err := h.store.IsAdmin(ctx, cmd.TeamID, cmd.UserID)
 	if err == nil && isAdmin {
 		text += "\n\n*Admin commands:*\n" +
+			"• `/zoom-notifier subscriptions` — List channel subscriptions\n" +
 			"• `/zoom-notifier subscribe #channel` — Subscribe channel to notifications\n" +
 			"• `/zoom-notifier unsubscribe #channel` — Unsubscribe channel\n" +
 			"• `/zoom-notifier filter \"Topic\"` — Add a meeting topic filter\n" +
