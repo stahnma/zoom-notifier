@@ -103,10 +103,17 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	if matchedFilter != nil && matchedFilter.IncludeLink != nil {
 		includeLink = *matchedFilter.IncludeLink
 	}
-	_ = includeLink // TODO: use in message formatting
+	// Fetch meeting link if enabled
+	var meetingLink string
+	if includeLink {
+		meetingLink = d.getMeetingLink(ctx, tenantID, meetingID)
+	}
 
 	for _, sub := range subs {
 		subMsg := formatMessageWithSuffix(payload, suffix)
+		if meetingLink != "" {
+			subMsg += "\n" + meetingLink
+		}
 
 		log.WithFields(log.Fields{
 			"type":    sub.Type,
@@ -144,6 +151,33 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 			}
 		}
 	}
+}
+
+// getMeetingLink fetches the join URL for a meeting using the tenant's Zoom API credentials.
+func (d *Dispatcher) getMeetingLink(ctx context.Context, tenantID string, meetingID string) string {
+	creds, err := d.store.GetZoomCredentials(ctx, tenantID)
+	if err != nil || creds == nil {
+		log.WithFields(log.Fields{
+			"tenant_id": tenantID,
+		}).Debug("no zoom API credentials configured, skipping meeting link")
+		return ""
+	}
+
+	client := zoom.NewAPIClient("https://zoom.us", "https://api.zoom.us", creds.ClientID, creds.ClientSecret, creds.AccountID)
+	link, err := client.GetMeetingJoinLink(meetingID)
+	if err != nil {
+		log.WithError(err).WithFields(log.Fields{
+			"tenant_id":  tenantID,
+			"meeting_id": meetingID,
+		}).Warn("failed to fetch meeting join link")
+		return ""
+	}
+
+	log.WithFields(log.Fields{
+		"tenant_id":  tenantID,
+		"meeting_id": meetingID,
+	}).Debug("fetched meeting join link")
+	return link
 }
 
 func formatMessage(payload zoom.WebhookPayload) string {
