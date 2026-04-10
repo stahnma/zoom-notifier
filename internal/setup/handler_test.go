@@ -70,6 +70,136 @@ func TestSetupGenerateKeyEndpoint(t *testing.T) {
 	}
 }
 
+func TestSaveZoomSecret(t *testing.T) {
+	h := NewHandler(filepath.Join(t.TempDir(), "config.toml"))
+	srv := httptest.NewServer(h.Router())
+	defer srv.Close()
+
+	// POST with valid secret
+	resp, err := http.Post(
+		srv.URL+"/setup/api/save-zoom-secret",
+		"application/json",
+		strings.NewReader(`{"secret":"test-secret-123"}`),
+	)
+	if err != nil {
+		t.Fatalf("POST /setup/api/save-zoom-secret failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if result["status"] != "ok" {
+		t.Errorf("expected status 'ok', got '%s'", result["status"])
+	}
+
+	// Verify the secret was stored in handler data
+	if h.data.ZoomSecret != "test-secret-123" {
+		t.Errorf("expected zoom secret 'test-secret-123', got '%s'", h.data.ZoomSecret)
+	}
+}
+
+func TestSaveZoomSecret_MissingSecret(t *testing.T) {
+	h := NewHandler(filepath.Join(t.TempDir(), "config.toml"))
+	srv := httptest.NewServer(h.Router())
+	defer srv.Close()
+
+	resp, err := http.Post(
+		srv.URL+"/setup/api/save-zoom-secret",
+		"application/json",
+		strings.NewReader(`{"secret":""}`),
+	)
+	if err != nil {
+		t.Fatalf("POST failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("expected status 400 for empty secret, got %d", resp.StatusCode)
+	}
+}
+
+func TestWebhookZoomCRC_NoSecret(t *testing.T) {
+	h := NewHandler(filepath.Join(t.TempDir(), "config.toml"))
+	// Clear the zoom secret to simulate unconfigured state
+	h.data.ZoomSecret = ""
+	srv := httptest.NewServer(h.Router())
+	defer srv.Close()
+
+	resp, err := http.Post(
+		srv.URL+"/webhook/zoom",
+		"application/json",
+		strings.NewReader(`{"event":"endpoint.url_validation","payload":{"plainToken":"abc123"}}`),
+	)
+	if err != nil {
+		t.Fatalf("POST /webhook/zoom failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("expected status 503 when no secret configured, got %d", resp.StatusCode)
+	}
+}
+
+func TestWebhookZoomCRC_WithSecret(t *testing.T) {
+	h := NewHandler(filepath.Join(t.TempDir(), "config.toml"))
+	h.data.ZoomSecret = "my-test-secret"
+	srv := httptest.NewServer(h.Router())
+	defer srv.Close()
+
+	resp, err := http.Post(
+		srv.URL+"/webhook/zoom",
+		"application/json",
+		strings.NewReader(`{"event":"endpoint.url_validation","payload":{"plainToken":"abc123"}}`),
+	)
+	if err != nil {
+		t.Fatalf("POST /webhook/zoom failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200, got %d", resp.StatusCode)
+	}
+
+	var result map[string]string
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		t.Fatalf("failed to decode CRC response: %v", err)
+	}
+	if result["plainToken"] != "abc123" {
+		t.Errorf("expected plainToken 'abc123', got '%s'", result["plainToken"])
+	}
+	if result["encryptedToken"] == "" {
+		t.Error("expected non-empty encryptedToken")
+	}
+}
+
+func TestWebhookZoomCRC_NonCRCEvent(t *testing.T) {
+	h := NewHandler(filepath.Join(t.TempDir(), "config.toml"))
+	h.data.ZoomSecret = "my-test-secret"
+	srv := httptest.NewServer(h.Router())
+	defer srv.Close()
+
+	resp, err := http.Post(
+		srv.URL+"/webhook/zoom",
+		"application/json",
+		strings.NewReader(`{"event":"meeting.started","payload":{"account_id":"abc"}}`),
+	)
+	if err != nil {
+		t.Fatalf("POST /webhook/zoom failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Non-CRC events during setup should return 200 and be ignored
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("expected status 200 for non-CRC event, got %d", resp.StatusCode)
+	}
+}
+
 func TestSetupFullFlow(t *testing.T) {
 	configPath := filepath.Join(t.TempDir(), "config.toml")
 	h := NewHandler(configPath)

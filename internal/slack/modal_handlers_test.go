@@ -479,14 +479,72 @@ func TestHandleAddFilterSubmission_DefaultLink(t *testing.T) {
 	}
 }
 
+func TestHandleUnsubscribeSubmission(t *testing.T) {
+	h, s, _ := setupModalCommandHandler(t)
+	ctx := context.Background()
+
+	// Create a subscription
+	s.CreateSubscription(ctx, &store.Subscription{
+		TenantID: "T-MODAL", Type: "slack", Target: "C99999", Enabled: true,
+	})
+
+	subs, _ := s.ListSubscriptions(ctx, "T-MODAL")
+	if len(subs) != 1 {
+		t.Fatalf("expected 1 subscription before unsubscribe, got %d", len(subs))
+	}
+
+	payload := InteractionPayload{Type: "view_submission"}
+	payload.Team.ID = "T-MODAL"
+	payload.View.CallbackID = "unsubscribe"
+	payload.View.PrivateMetadata = "T-MODAL"
+	payload.View.State = &ViewState{
+		Values: map[string]map[string]ViewStateValue{
+			"channel_block": {
+				"channel_select": {Selected: &SelectedOption{Value: "C99999"}},
+			},
+		},
+	}
+
+	err := h.handleUnsubscribeSubmission(payload)
+	if err != nil {
+		t.Fatalf("handleUnsubscribeSubmission: %v", err)
+	}
+
+	subs, _ = s.ListSubscriptions(ctx, "T-MODAL")
+	if len(subs) != 0 {
+		t.Errorf("expected 0 subscriptions after unsubscribe, got %d", len(subs))
+	}
+}
+
+func TestHandleUnsubscribeSubmission_NotFound(t *testing.T) {
+	h, _, _ := setupModalCommandHandler(t)
+
+	payload := InteractionPayload{Type: "view_submission"}
+	payload.Team.ID = "T-MODAL"
+	payload.View.CallbackID = "unsubscribe"
+	payload.View.PrivateMetadata = "T-MODAL"
+	payload.View.State = &ViewState{
+		Values: map[string]map[string]ViewStateValue{
+			"channel_block": {
+				"channel_select": {Selected: &SelectedOption{Value: "C-NONEXISTENT"}},
+			},
+		},
+	}
+
+	err := h.handleUnsubscribeSubmission(payload)
+	if err == nil {
+		t.Error("expected error when subscription not found")
+	}
+}
+
 func TestRegisterModalHandlers(t *testing.T) {
 	h, _, _ := setupModalCommandHandler(t)
 	ih := NewInteractionHandler(nil, "secret")
 
 	h.RegisterModalHandlers(ih)
 
-	// Verify all 4 handlers are registered
-	expectedCallbacks := []string{"set_suffix", "set_link", "subscribe", "add_filter"}
+	// Verify all 5 handlers are registered
+	expectedCallbacks := []string{"set_suffix", "set_link", "subscribe", "unsubscribe", "add_filter"}
 	for _, cb := range expectedCallbacks {
 		if _, ok := ih.handlers[cb]; !ok {
 			t.Errorf("expected handler for callback_id %q to be registered", cb)

@@ -340,3 +340,29 @@ func TestDispatchSuffixAppliedToAllSubscriptions(t *testing.T) {
 	}
 	slackSender.mu.Unlock()
 }
+
+func TestGetMeetingLink_NoCredentials(t *testing.T) {
+	s, _, _, dispatcher := setupDispatcherTest(t)
+	ctx := context.Background()
+
+	// Create a tenant with no zoom credentials stored
+	s.CreateTenant(ctx, &store.Tenant{
+		ID:     "T-NOCREDS",
+		APIKey: "key-nocreds",
+	})
+
+	link := dispatcher.getMeetingLink(ctx, "T-NOCREDS", "m-999")
+	if link != "" {
+		t.Errorf("expected empty string when no zoom credentials, got '%s'", link)
+	}
+}
+
+func TestGetMeetingLink_NonexistentTenant(t *testing.T) {
+	_, _, _, dispatcher := setupDispatcherTest(t)
+	ctx := context.Background()
+
+	link := dispatcher.getMeetingLink(ctx, "T-DOESNOTEXIST", "m-999")
+	if link != "" {
+		t.Errorf("expected empty string for nonexistent tenant, got '%s'", link)
+	}
+}

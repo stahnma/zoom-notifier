@@ -167,3 +167,55 @@ func TestUpdateTenantAPIKey(t *testing.T) {
 		t.Errorf("expected new-key, got %s", got.APIKey)
 	}
 }
+
+func TestUpdateTenant(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	botToken := "xoxb-original"
+	s.CreateTenant(ctx, &store.Tenant{
+		ID:            "T_UPD",
+		TeamName:      "Original Team",
+		BotToken:      &botToken,
+		APIKey:        "key-1",
+		ZoomAccountID: "zoom-orig",
+	})
+
+	// Update team_name, bot_token, zoom_account_id, and defaults
+	newToken := "xoxb-updated"
+	tenant := &store.Tenant{
+		ID:                 "T_UPD",
+		TeamName:           "Updated Team",
+		BotToken:           &newToken,
+		ZoomAccountID:      "zoom-new",
+		DefaultMsgSuffix:   "the updated meeting.",
+		DefaultIncludeLink: true,
+	}
+	if err := s.UpdateTenant(ctx, tenant); err != nil {
+		t.Fatalf("update tenant: %v", err)
+	}
+
+	got, err := s.GetTenant(ctx, "T_UPD")
+	if err != nil {
+		t.Fatalf("get tenant: %v", err)
+	}
+	if got.TeamName != "Updated Team" {
+		t.Errorf("expected team name 'Updated Team', got '%s'", got.TeamName)
+	}
+	if got.BotToken == nil || *got.BotToken != "xoxb-updated" {
+		t.Errorf("expected bot token 'xoxb-updated', got %v", got.BotToken)
+	}
+	if got.ZoomAccountID != "zoom-new" {
+		t.Errorf("expected zoom account 'zoom-new', got '%s'", got.ZoomAccountID)
+	}
+	if got.DefaultMsgSuffix != "the updated meeting." {
+		t.Errorf("expected default suffix 'the updated meeting.', got '%s'", got.DefaultMsgSuffix)
+	}
+	if !got.DefaultIncludeLink {
+		t.Error("expected default_include_link=true")
+	}
+	// API key should not have been changed by UpdateTenant
+	if got.APIKey != "key-1" {
+		t.Errorf("expected api key unchanged 'key-1', got '%s'", got.APIKey)
+	}
+}

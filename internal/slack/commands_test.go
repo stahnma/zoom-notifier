@@ -32,6 +32,26 @@ func setupCommandHandler(t *testing.T) (*CommandHandler, store.Store) {
 	return NewCommandHandler(s), s
 }
 
+func TestParseChannelName(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"<#C123|bottery-new>", "bottery-new"},
+		{"<#C123>", ""},
+		{"#bottery-new", ""},
+		{"bottery-new", ""},
+		{"", ""},
+		{"<#C05MXNTTHM4|general>", "general"},
+	}
+	for _, tc := range tests {
+		got := parseChannelName(tc.input)
+		if got != tc.want {
+			t.Errorf("parseChannelName(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
 func TestCommandHelp(t *testing.T) {
 	h, _ := setupCommandHandler(t)
 
@@ -237,6 +257,56 @@ func TestCommandUnsubscribe(t *testing.T) {
 	}
 	if !strings.Contains(resp.Text, "Unsubscribed") {
 		t.Errorf("expected unsubscribed message, got: %s", resp.Text)
+	}
+}
+
+func TestCommandUnsubscribeExactTargetMatch(t *testing.T) {
+	h, s := setupCommandHandler(t)
+	ctx := context.Background()
+
+	// Subscription stored with plain name "general"
+	s.CreateSubscription(ctx, &store.Subscription{
+		TenantID: "T-CMD", Type: "slack", Target: "general", Enabled: true,
+	})
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "unsubscribe general",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "Unsubscribed") {
+		t.Errorf("expected unsubscribed message, got: %s", resp.Text)
+	}
+
+	subs, _ := s.ListSubscriptions(ctx, "T-CMD")
+	if len(subs) != 0 {
+		t.Errorf("expected 0 subscriptions after unsubscribe, got %d", len(subs))
+	}
+}
+
+func TestCommandUnsubscribeNoMatch(t *testing.T) {
+	h, s := setupCommandHandler(t)
+	ctx := context.Background()
+
+	s.CreateSubscription(ctx, &store.Subscription{
+		TenantID: "T-CMD", Type: "slack", Target: "general", Enabled: true,
+	})
+
+	resp, err := h.Handle(ctx, SlashCommand{
+		TeamID: "T-CMD", UserID: "U-ADMIN", Text: "unsubscribe #random",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Text, "No Slack subscription found") {
+		t.Errorf("expected no subscription found message, got: %s", resp.Text)
+	}
+
+	// Subscription should still exist
+	subs, _ := s.ListSubscriptions(ctx, "T-CMD")
+	if len(subs) != 1 {
+		t.Errorf("expected 1 subscription still present, got %d", len(subs))
 	}
 }
 

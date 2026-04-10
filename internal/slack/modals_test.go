@@ -166,6 +166,59 @@ func TestBuildSubscribeModal(t *testing.T) {
 	}
 }
 
+func TestBuildUnsubscribeModal(t *testing.T) {
+	subs := []*store.Subscription{
+		{ID: 1, TenantID: "T1", Type: "slack", Target: "C111", Enabled: true},
+		{ID: 2, TenantID: "T1", Type: "slack", Target: "C222", Enabled: true},
+		{ID: 3, TenantID: "T1", Type: "irc", Target: "#irc-chan", Enabled: true}, // should be excluded
+	}
+
+	view := BuildUnsubscribeModal(subs)
+
+	if view.CallbackID != "unsubscribe" {
+		t.Errorf("expected callback_id unsubscribe, got %s", view.CallbackID)
+	}
+	if view.Type != slacklib.VTModal {
+		t.Errorf("expected type modal, got %s", view.Type)
+	}
+	if len(view.Blocks.BlockSet) != 1 {
+		t.Fatalf("expected 1 block, got %d", len(view.Blocks.BlockSet))
+	}
+
+	channelBlock, ok := view.Blocks.BlockSet[0].(*slacklib.InputBlock)
+	if !ok {
+		t.Fatal("first block is not an InputBlock")
+	}
+	if channelBlock.BlockID != "channel_block" {
+		t.Errorf("expected block_id channel_block, got %s", channelBlock.BlockID)
+	}
+	selectElem, ok := channelBlock.Element.(*slacklib.SelectBlockElement)
+	if !ok {
+		t.Fatal("channel element is not a SelectBlockElement")
+	}
+	if selectElem.ActionID != "channel_select" {
+		t.Errorf("expected action_id channel_select, got %s", selectElem.ActionID)
+	}
+	// Only 2 slack subscriptions (IRC excluded)
+	if len(selectElem.Options) != 2 {
+		t.Errorf("expected 2 options (slack subs only), got %d", len(selectElem.Options))
+	}
+}
+
+func TestBuildUnsubscribeModal_Empty(t *testing.T) {
+	view := BuildUnsubscribeModal(nil)
+
+	if view.CallbackID != "unsubscribe" {
+		t.Errorf("expected callback_id unsubscribe, got %s", view.CallbackID)
+	}
+
+	channelBlock := view.Blocks.BlockSet[0].(*slacklib.InputBlock)
+	selectElem := channelBlock.Element.(*slacklib.SelectBlockElement)
+	if len(selectElem.Options) != 0 {
+		t.Errorf("expected 0 options for empty subs, got %d", len(selectElem.Options))
+	}
+}
+
 func TestBuildFilterModal(t *testing.T) {
 	view := BuildFilterModal()
 

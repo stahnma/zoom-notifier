@@ -183,3 +183,59 @@ func TestGetMatchingFilter_NonMatchingTopic(t *testing.T) {
 		t.Error("expected nil for non-matching topic")
 	}
 }
+
+func TestUpdateFilter(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	createTestTenant(t, s, "T1")
+
+	// Create a filter with no overrides
+	f := &store.MeetingFilter{TenantID: "T1", Pattern: "Standup"}
+	if err := s.CreateFilter(ctx, f); err != nil {
+		t.Fatalf("create filter: %v", err)
+	}
+
+	// Update the pattern
+	f.Pattern = "Daily Standup"
+	suffix := "the standup."
+	f.MsgSuffix = &suffix
+	includeLink := true
+	f.IncludeLink = &includeLink
+
+	if err := s.UpdateFilter(ctx, f); err != nil {
+		t.Fatalf("update filter: %v", err)
+	}
+
+	// Verify changes persisted
+	filters, err := s.ListFilters(ctx, "T1")
+	if err != nil {
+		t.Fatalf("list filters: %v", err)
+	}
+	if len(filters) != 1 {
+		t.Fatalf("expected 1 filter, got %d", len(filters))
+	}
+	if filters[0].Pattern != "Daily Standup" {
+		t.Errorf("expected pattern 'Daily Standup', got '%s'", filters[0].Pattern)
+	}
+	if filters[0].MsgSuffix == nil || *filters[0].MsgSuffix != "the standup." {
+		t.Errorf("expected msg_suffix 'the standup.', got %v", filters[0].MsgSuffix)
+	}
+	if filters[0].IncludeLink == nil || !*filters[0].IncludeLink {
+		t.Errorf("expected include_link true, got %v", filters[0].IncludeLink)
+	}
+
+	// Update again: clear overrides by setting to nil
+	f.MsgSuffix = nil
+	f.IncludeLink = nil
+	if err := s.UpdateFilter(ctx, f); err != nil {
+		t.Fatalf("update filter again: %v", err)
+	}
+
+	filters, _ = s.ListFilters(ctx, "T1")
+	if filters[0].MsgSuffix != nil {
+		t.Errorf("expected nil msg_suffix after clearing, got '%s'", *filters[0].MsgSuffix)
+	}
+	if filters[0].IncludeLink != nil {
+		t.Errorf("expected nil include_link after clearing, got %v", *filters[0].IncludeLink)
+	}
+}
