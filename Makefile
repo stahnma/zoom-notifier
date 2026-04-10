@@ -23,6 +23,9 @@ generate: ## Regenerate API code from OpenAPI spec
 build: tidy ## Build binary (runs fmt + tidy first)
 	go build $(LDFLAGS) -o $(NAME) $(BUILDDIR)
 
+lint: ## Run golangci-lint
+	golangci-lint run ./...
+
 test: ## Run all tests
 	go test ./internal/...
 
