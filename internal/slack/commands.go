@@ -232,6 +232,18 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 	}
 
 	target := parseChannelID(args[0])
+
+	// Check for duplicate subscription
+	existing, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
+	if err != nil {
+		return nil, fmt.Errorf("list subscriptions: %w", err)
+	}
+	for _, s := range existing {
+		if s.Target == target && s.Type == "slack" {
+			return ephemeral(fmt.Sprintf("%s is already subscribed to meeting notifications.", formatChannel(target))), nil
+		}
+	}
+
 	sub := &store.Subscription{
 		TenantID: cmd.TeamID,
 		Type:     "slack",

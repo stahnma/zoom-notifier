@@ -141,6 +141,17 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 		"channel": channelID,
 	}).Debug("subscribe modal submission")
 
+	// Check for duplicate
+	existing, err := h.store.ListSubscriptions(ctx, teamID)
+	if err != nil {
+		return fmt.Errorf("list subscriptions: %w", err)
+	}
+	for _, s := range existing {
+		if s.Target == channelID && s.Type == "slack" {
+			return nil // already subscribed, silently succeed
+		}
+	}
+
 	sub := &store.Subscription{
 		TenantID: teamID,
 		Type:     "slack",
