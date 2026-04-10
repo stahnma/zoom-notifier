@@ -95,3 +95,91 @@ func TestMatchesFilter_WithFilters_NonMatchingTopic(t *testing.T) {
 		t.Error("expected false for non-matching topic")
 	}
 }
+
+func TestGetMatchingFilter_NoFilters(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	createTestTenant(t, s, "T1")
+
+	f, err := s.GetMatchingFilter(ctx, "T1", "Any Meeting")
+	if err != nil {
+		t.Fatalf("get matching filter: %v", err)
+	}
+	if f != nil {
+		t.Error("expected nil when no filters exist")
+	}
+}
+
+func TestGetMatchingFilter_WithOverrides(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	createTestTenant(t, s, "T1")
+
+	suffix := "the standup."
+	includeLink := true
+	s.CreateFilter(ctx, &store.MeetingFilter{
+		TenantID:    "T1",
+		Pattern:     "Daily Standup",
+		MsgSuffix:   &suffix,
+		IncludeLink: &includeLink,
+	})
+
+	f, err := s.GetMatchingFilter(ctx, "T1", "Daily Standup")
+	if err != nil {
+		t.Fatalf("get matching filter: %v", err)
+	}
+	if f == nil {
+		t.Fatal("expected non-nil filter for matching topic")
+	}
+	if f.Pattern != "Daily Standup" {
+		t.Errorf("expected pattern 'Daily Standup', got '%s'", f.Pattern)
+	}
+	if f.MsgSuffix == nil || *f.MsgSuffix != "the standup." {
+		t.Errorf("expected msg_suffix 'the standup.', got %v", f.MsgSuffix)
+	}
+	if f.IncludeLink == nil || !*f.IncludeLink {
+		t.Errorf("expected include_link true, got %v", f.IncludeLink)
+	}
+}
+
+func TestGetMatchingFilter_NilOverrides(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	createTestTenant(t, s, "T1")
+
+	// Filter without overrides (nil msg_suffix and include_link)
+	s.CreateFilter(ctx, &store.MeetingFilter{
+		TenantID: "T1",
+		Pattern:  "Daily Standup",
+	})
+
+	f, err := s.GetMatchingFilter(ctx, "T1", "Daily Standup")
+	if err != nil {
+		t.Fatalf("get matching filter: %v", err)
+	}
+	if f == nil {
+		t.Fatal("expected non-nil filter for matching topic")
+	}
+	if f.MsgSuffix != nil {
+		t.Errorf("expected nil msg_suffix, got '%s'", *f.MsgSuffix)
+	}
+	if f.IncludeLink != nil {
+		t.Errorf("expected nil include_link, got %v", *f.IncludeLink)
+	}
+}
+
+func TestGetMatchingFilter_NonMatchingTopic(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+	createTestTenant(t, s, "T1")
+
+	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
+
+	f, err := s.GetMatchingFilter(ctx, "T1", "Random Meeting")
+	if err != nil {
+		t.Fatalf("get matching filter: %v", err)
+	}
+	if f != nil {
+		t.Error("expected nil for non-matching topic")
+	}
+}

@@ -96,6 +96,64 @@ func TestListTenants(t *testing.T) {
 	}
 }
 
+func TestTenantDefaultFields(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Create tenant with default suffix and include_link
+	tenant := &store.Tenant{
+		ID:                 "T_DEFAULTS",
+		APIKey:             "key-defaults",
+		DefaultMsgSuffix:   "the meeting.",
+		DefaultIncludeLink: true,
+	}
+	if err := s.CreateTenant(ctx, tenant); err != nil {
+		t.Fatalf("create tenant: %v", err)
+	}
+
+	got, err := s.GetTenant(ctx, "T_DEFAULTS")
+	if err != nil {
+		t.Fatalf("get tenant: %v", err)
+	}
+	if got.DefaultMsgSuffix != "the meeting." {
+		t.Errorf("expected default_msg_suffix 'the meeting.', got '%s'", got.DefaultMsgSuffix)
+	}
+	if !got.DefaultIncludeLink {
+		t.Error("expected default_include_link=true")
+	}
+}
+
+func TestUpdateTenantDefaults(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1", DefaultMsgSuffix: "", DefaultIncludeLink: false})
+
+	if err := s.UpdateTenantDefaults(ctx, "T1", "the standup.", true); err != nil {
+		t.Fatalf("update tenant defaults: %v", err)
+	}
+
+	got, _ := s.GetTenant(ctx, "T1")
+	if got.DefaultMsgSuffix != "the standup." {
+		t.Errorf("expected 'the standup.', got '%s'", got.DefaultMsgSuffix)
+	}
+	if !got.DefaultIncludeLink {
+		t.Error("expected default_include_link=true")
+	}
+
+	// Update again to verify overwrite
+	if err := s.UpdateTenantDefaults(ctx, "T1", "a zoom call.", false); err != nil {
+		t.Fatalf("update tenant defaults again: %v", err)
+	}
+	got, _ = s.GetTenant(ctx, "T1")
+	if got.DefaultMsgSuffix != "a zoom call." {
+		t.Errorf("expected 'a zoom call.', got '%s'", got.DefaultMsgSuffix)
+	}
+	if got.DefaultIncludeLink {
+		t.Error("expected default_include_link=false after second update")
+	}
+}
+
 func TestUpdateTenantAPIKey(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()

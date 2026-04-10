@@ -23,13 +23,11 @@ func TestCreateAndGetSubscription(t *testing.T) {
 
 	meetingID := "meeting-123"
 	sub := &store.Subscription{
-		TenantID:    "T1",
-		Type:        "slack",
-		MeetingID:   &meetingID,
-		Target:      "#general",
-		MsgSuffix:   "the standup.",
-		IncludeLink: true,
-		Enabled:     true,
+		TenantID:  "T1",
+		Type:      "slack",
+		MeetingID: &meetingID,
+		Target:    "#general",
+		Enabled:   true,
 	}
 	if err := s.CreateSubscription(ctx, sub); err != nil {
 		t.Fatalf("create subscription: %v", err)
@@ -44,9 +42,6 @@ func TestCreateAndGetSubscription(t *testing.T) {
 	}
 	if got.Target != "#general" {
 		t.Errorf("expected target '#general', got '%s'", got.Target)
-	}
-	if got.MsgSuffix != "the standup." {
-		t.Errorf("expected msg_suffix 'the standup.', got '%s'", got.MsgSuffix)
 	}
 	if *got.MeetingID != "meeting-123" {
 		t.Errorf("expected meeting_id 'meeting-123', got '%s'", *got.MeetingID)
@@ -141,12 +136,11 @@ func TestUpdateSubscription(t *testing.T) {
 
 	sub := &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#old",
-		MsgSuffix: "old suffix", IncludeLink: true, Enabled: true,
+		Enabled: true,
 	}
 	s.CreateSubscription(ctx, sub)
 
 	sub.Target = "#new"
-	sub.MsgSuffix = "new suffix"
 	sub.Enabled = false
 	if err := s.UpdateSubscription(ctx, sub); err != nil {
 		t.Fatalf("update subscription: %v", err)
@@ -155,9 +149,6 @@ func TestUpdateSubscription(t *testing.T) {
 	got, _ := s.GetSubscription(ctx, sub.ID)
 	if got.Target != "#new" {
 		t.Errorf("expected target '#new', got '%s'", got.Target)
-	}
-	if got.MsgSuffix != "new suffix" {
-		t.Errorf("expected msg_suffix 'new suffix', got '%s'", got.MsgSuffix)
 	}
 	if got.Enabled {
 		t.Error("expected enabled=false")
