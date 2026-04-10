@@ -218,6 +218,33 @@ func BuildUnsubscribeModal(subs []*store.Subscription) slacklib.ModalViewRequest
 	}
 }
 
+// BuildAdminAddModal creates a modal with a user picker for adding an admin.
+func BuildAdminAddModal() slacklib.ModalViewRequest {
+	userSelect := slacklib.NewOptionsSelectBlockElement(
+		slacklib.OptTypeUser,
+		slacklib.NewTextBlockObject("plain_text", "Select a user", false, false),
+		"user_select",
+	)
+
+	userBlock := slacklib.NewInputBlock(
+		"user_block",
+		slacklib.NewTextBlockObject("plain_text", "User", false, false),
+		nil,
+		userSelect,
+	)
+
+	return slacklib.ModalViewRequest{
+		Type:       slacklib.VTModal,
+		CallbackID: "admin_add",
+		Title:      slacklib.NewTextBlockObject("plain_text", "Add Admin", false, false),
+		Submit:     slacklib.NewTextBlockObject("plain_text", "Add", false, false),
+		Close:      slacklib.NewTextBlockObject("plain_text", "Cancel", false, false),
+		Blocks: slacklib.Blocks{
+			BlockSet: []slacklib.Block{userBlock},
+		},
+	}
+}
+
 // BuildFilterModal creates a modal for adding a meeting filter.
 func BuildFilterModal() slacklib.ModalViewRequest {
 	patternInput := slacklib.NewPlainTextInputBlockElement(

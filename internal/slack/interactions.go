@@ -48,6 +48,7 @@ type ViewStateValue struct {
 	Value                *string         `json:"value"`
 	Selected             *SelectedOption `json:"selected_option"`
 	SelectedConversation *string         `json:"selected_conversation"`
+	SelectedUser         *string         `json:"selected_user"`
 }
 
 // SelectedOption represents a selected option in a static select or radio button.

@@ -50,6 +50,7 @@ func (h *CommandHandler) RegisterModalHandlers(ih *InteractionHandler) {
 	ih.RegisterHandler("set_link", h.handleSetLinkSubmission)
 	ih.RegisterHandler("subscribe", h.handleSubscribeSubmission)
 	ih.RegisterHandler("unsubscribe", h.handleUnsubscribeSubmission)
+	ih.RegisterHandler("admin_add", h.handleAdminAddSubmission)
 	ih.RegisterHandler("add_filter", h.handleAddFilterSubmission)
 }
 
@@ -281,6 +282,54 @@ func (h *CommandHandler) handleUnsubscribeSubmission(payload InteractionPayload)
 	}
 
 	return fmt.Errorf("subscription not found for channel %s", selectedChannel)
+}
+
+func (h *CommandHandler) handleAdminAddSubmission(payload InteractionPayload) error {
+	ctx := context.Background()
+	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
+	if teamID == "" {
+		teamID = payload.Team.ID
+	}
+
+	if payload.View.State == nil {
+		return fmt.Errorf("no view state in payload")
+	}
+
+	userID := ""
+	if uv, ok := payload.View.State.Values["user_block"]["user_select"]; ok && uv.SelectedUser != nil {
+		userID = *uv.SelectedUser
+	}
+	if userID == "" {
+		return fmt.Errorf("no user selected")
+	}
+
+	if err := h.store.AddAdmin(ctx, teamID, userID); err != nil {
+		return fmt.Errorf("add admin: %w", err)
+	}
+
+	log.WithFields(log.Fields{
+		"team_id":  teamID,
+		"admin_id": userID,
+	}).Info("added admin via modal")
+
+	// Notify the new admin via DM
+	botToken := h.getBotToken(ctx, teamID)
+	if botToken != "" {
+		api := slackapi.New(botToken)
+		msg := fmt.Sprintf("<@%s> added you as a zoom-notifier admin. Run `/zoom-notifier help` to see available commands.", payload.User.ID)
+		channel, _, _, err := api.OpenConversationContext(ctx, &slackapi.OpenConversationParameters{Users: []string{userID}})
+		if err != nil {
+			log.WithError(err).WithField("user_id", userID).Warn("failed to open DM for admin notification")
+		} else {
+			_, _, err = api.PostMessageContext(ctx, channel.ID, slackapi.MsgOptionText(msg, false))
+			if err != nil {
+				log.WithError(err).WithField("user_id", userID).Warn("failed to send admin notification DM")
+			}
+		}
+	}
+
+	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Added <@%s> as admin.", userID))
+	return nil
 }
 
 func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) error {

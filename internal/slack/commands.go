@@ -876,6 +876,20 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 	}
 
 	if len(args) < 2 {
+		// Open modal for add if no user specified
+		if args[0] == "add" && h.canOpenModal(cmd) {
+			botToken := h.getBotToken(ctx, cmd.TeamID)
+			if botToken != "" {
+				modal := BuildAdminAddModal()
+				modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
+				opener := NewSlackModalOpener(botToken)
+				if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
+					log.WithError(err).Error("failed to open admin add modal")
+				} else {
+					return ephemeral(""), nil
+				}
+			}
+		}
 		return ephemeral("Usage: `/zoom-notifier admins add|remove @user`"), nil
 	}
 
