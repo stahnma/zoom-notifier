@@ -1,12 +1,4 @@
-## Flox Environment Manifest -----------------------------------------
-##
-##   _Everything_ you need to know about the _manifest_ is here:
-##
-##   https://flox.dev/docs/reference/command-reference/manifest.toml/
-##
-## -------------------------------------------------------------------
-# Flox manifest version managed by Flox CLI
-version = 1
+schema-version = "1.11.0"
 
 
 ## Install Packages --------------------------------------------------
@@ -16,10 +8,15 @@ version = 1
 ## -------------------------------------------------------------------
 [install]
 gnumake.pkg-path = "gnumake"
+gnumake.outputs = "all"
 go.pkg-path = "go"
 golangci-lint.pkg-path = "golangci-lint"
 jq.pkg-path = "jq"
+jq.outputs = "all"
 sqlite-interactive.pkg-path = "sqlite-interactive"
+sqlite-interactive.outputs = "all"
+cloudflared.pkg-path = "cloudflared"
+imagemagick.pkg-path = "imagemagick"
 # gum.pkg-path = "gum"
 # gum.version = "^0.14.5"
 
@@ -69,6 +66,7 @@ sqlite-interactive.pkg-path = "sqlite-interactive"
 ## ------------------------------------------------------------------
 [services]
 # myservice.command = "python3 -m http.server"
+tunnel.command = "cloudflared tunnel --hostname zoom.stahnma.us --url http://localhost:8888 zoom"
 
 
 ## Include ----------------------------------------------------------

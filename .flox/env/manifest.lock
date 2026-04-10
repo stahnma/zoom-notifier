@@ -1,10 +1,14 @@
 {
   "lockfile-version": 1,
   "manifest": {
-    "version": 1,
+    "schema-version": "1.11.0",
     "install": {
+      "cloudflared": {
+        "pkg-path": "cloudflared"
+      },
       "gnumake": {
-        "pkg-path": "gnumake"
+        "pkg-path": "gnumake",
+        "outputs": "all"
       },
       "go": {
         "pkg-path": "go"
@@ -12,18 +16,144 @@
       "golangci-lint": {
         "pkg-path": "golangci-lint"
       },
+      "imagemagick": {
+        "pkg-path": "imagemagick"
+      },
       "jq": {
-        "pkg-path": "jq"
+        "pkg-path": "jq",
+        "outputs": "all"
       },
       "sqlite-interactive": {
-        "pkg-path": "sqlite-interactive"
+        "pkg-path": "sqlite-interactive",
+        "outputs": "all"
       }
     },
     "hook": {},
     "profile": {},
-    "options": {}
+    "options": {},
+    "services": {
+      "tunnel": {
+        "command": "cloudflared tunnel --hostname zoom.stahnma.us --url http://localhost:8888 zoom"
+      }
+    }
   },
   "packages": [
+    {
+      "attr_path": "cloudflared",
+      "broken": false,
+      "derivation": "/nix/store/67n4xbl9bcg3lrxgcky6d9vgvml09sr7-cloudflared-2026.2.0.drv",
+      "description": "Client for various Cloudflare services, including Tunnel, Access, and DNS over HTTPS",
+      "install_id": "cloudflared",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "cloudflared-2026.2.0",
+      "pname": "cloudflared",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T04:39:02.509415Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2026.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/5h3wgpm2h0ngqfl5nwnzwchsq06qr97k-cloudflared-2026.2.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cloudflared",
+      "broken": false,
+      "derivation": "/nix/store/hs018sq0i2aji4gs1j4zjvgnhlx3kfs6-cloudflared-2026.2.0.drv",
+      "description": "Client for various Cloudflare services, including Tunnel, Access, and DNS over HTTPS",
+      "install_id": "cloudflared",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "cloudflared-2026.2.0",
+      "pname": "cloudflared",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T05:11:38.527486Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2026.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/9r1yxiqg9qhh0b2w6w2ppkrjrlgxd0l0-cloudflared-2026.2.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cloudflared",
+      "broken": false,
+      "derivation": "/nix/store/77cvfj0rqhz4vixzqc8wwdilm5y7ngb6-cloudflared-2026.2.0.drv",
+      "description": "Client for various Cloudflare services, including Tunnel, Access, and DNS over HTTPS",
+      "install_id": "cloudflared",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "cloudflared-2026.2.0",
+      "pname": "cloudflared",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T05:45:46.030680Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2026.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/aj8jlx8m3x5fkc4k8d44kw372k3b4iqf-cloudflared-2026.2.0"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "cloudflared",
+      "broken": false,
+      "derivation": "/nix/store/5ld4ii0dds5amjcy9p1fn4wqv6qzs2c4-cloudflared-2026.2.0.drv",
+      "description": "Client for various Cloudflare services, including Tunnel, Access, and DNS over HTTPS",
+      "install_id": "cloudflared",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "cloudflared-2026.2.0",
+      "pname": "cloudflared",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T06:21:08.780737Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2026.2.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/xlcz6w7plhk8wxawxc5yq9c8nbnh3gp4-cloudflared-2026.2.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
     {
       "attr_path": "gnumake",
       "broken": false,
@@ -398,6 +528,132 @@
       ],
       "outputs": {
         "out": "/nix/store/z4hziw97m0z1zlrn27pyk53s13czn1gi-golangci-lint-2.9.0"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "imagemagick",
+      "broken": false,
+      "derivation": "/nix/store/mfgx0wfqqq4flrvbw3c23wy9b22kap3m-imagemagick-7.1.2-12.drv",
+      "description": "Software suite to create, edit, compose, or convert bitmap images",
+      "install_id": "imagemagick",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "imagemagick-7.1.2-12",
+      "pname": "imagemagick",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T04:39:17.965605Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.1.2-12",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/mxks47yhp0ax42p27mdidzyx6970w0kh-imagemagick-7.1.2-12-dev",
+        "doc": "/nix/store/iqiqy0rhcl992qb149675737ga0w0v7d-imagemagick-7.1.2-12-doc",
+        "out": "/nix/store/qm3i85s0dfha5r320c5gyygaqnqxap0k-imagemagick-7.1.2-12"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "imagemagick",
+      "broken": false,
+      "derivation": "/nix/store/rldsmm6kga9flmmmm3yyzib8xq95yipx-imagemagick-7.1.2-12.drv",
+      "description": "Software suite to create, edit, compose, or convert bitmap images",
+      "install_id": "imagemagick",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "imagemagick-7.1.2-12",
+      "pname": "imagemagick",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T05:11:57.891735Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.1.2-12",
+      "outputs_to_install": [
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/mk9cs25z5ngs8ip2z9m8kg2pp3sf4sr5-imagemagick-7.1.2-12-dev",
+        "doc": "/nix/store/qaa257fbjzw8v9x2cy650cnlw954yib1-imagemagick-7.1.2-12-doc",
+        "out": "/nix/store/ynkqmcr4kqx6jjp8mn0q7sqiax129yg5-imagemagick-7.1.2-12"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "imagemagick",
+      "broken": false,
+      "derivation": "/nix/store/vicp9x1mj10gn3q048cn9pjy6y1fpfmv-imagemagick-7.1.2-12.drv",
+      "description": "Software suite to create, edit, compose, or convert bitmap images",
+      "install_id": "imagemagick",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "imagemagick-7.1.2-12",
+      "pname": "imagemagick",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T05:46:01.337669Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.1.2-12",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/bg195ahm482lwhn2zyambfywvkis9gvq-imagemagick-7.1.2-12-dev",
+        "doc": "/nix/store/nmmii01cniapjkz0cdrzz8lfj92gkaym-imagemagick-7.1.2-12-doc",
+        "out": "/nix/store/f3ngpyhmhpiw0z52gmajfhc3yirn364h-imagemagick-7.1.2-12"
+      },
+      "system": "x86_64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "imagemagick",
+      "broken": false,
+      "derivation": "/nix/store/bj3mm7nly2pq0wjwpwvb2pj1iaq3g9sl-imagemagick-7.1.2-12.drv",
+      "description": "Software suite to create, edit, compose, or convert bitmap images",
+      "install_id": "imagemagick",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=a82ccc39b39b621151d6732718e3e250109076fa",
+      "name": "imagemagick-7.1.2-12",
+      "pname": "imagemagick",
+      "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+      "rev_count": 945868,
+      "rev_date": "2026-02-13T18:55:12Z",
+      "scrape_date": "2026-02-15T06:21:28.910116Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "7.1.2-12",
+      "outputs_to_install": [
+        "out",
+        "out"
+      ],
+      "outputs": {
+        "dev": "/nix/store/pj6ixbvy24gfsb68p7i0214dgwnwm3lf-imagemagick-7.1.2-12-dev",
+        "doc": "/nix/store/s3ds4smhj3s2kwwbazz4qz6lrhv7zqvn-imagemagick-7.1.2-12-doc",
+        "out": "/nix/store/x60ccfr9gd8dqm91aqz8x5s8dhsdvr69-imagemagick-7.1.2-12"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
