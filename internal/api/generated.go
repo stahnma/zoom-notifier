@@ -109,8 +109,13 @@ type ErrorResponse struct {
 
 // HealthResponse defines model for HealthResponse.
 type HealthResponse struct {
-	Status  string `json:"status"`
-	Version string `json:"version"`
+	BuildDate *string `json:"build_date,omitempty"`
+	Commit    *string `json:"commit,omitempty"`
+	Database  *string `json:"database,omitempty"`
+	Status    string  `json:"status"`
+	Tenants   *int    `json:"tenants,omitempty"`
+	Uptime    *string `json:"uptime,omitempty"`
+	Version   string  `json:"version"`
 }
 
 // IRCConfig defines model for IRCConfig.

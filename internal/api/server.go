@@ -19,16 +19,22 @@ import (
 type Server struct {
 	store         store.Store
 	version       string
+	commit        string
+	buildDate     string
+	startTime     time.Time
 	zoomHandler   *zoom.Handler
 	webhookSecret string
 }
 
 var _ StrictServerInterface = (*Server)(nil)
 
-func NewServer(s store.Store, version string, zoomHandler *zoom.Handler, webhookSecret string) *Server {
+func NewServer(s store.Store, version, commit, buildDate string, zoomHandler *zoom.Handler, webhookSecret string) *Server {
 	return &Server{
 		store:         s,
 		version:       version,
+		commit:        commit,
+		buildDate:     buildDate,
+		startTime:     time.Now(),
 		zoomHandler:   zoomHandler,
 		webhookSecret: webhookSecret,
 	}
@@ -55,9 +61,28 @@ func generateAPIKey() (string, error) {
 // --- Health ---
 
 func (s *Server) GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error) {
+	uptime := time.Since(s.startTime).Round(time.Second).String()
+	commit := &s.commit
+	buildDate := &s.buildDate
+
+	// Check database
+	dbStatus := "ok"
+	tenants, err := s.store.ListTenants(ctx)
+	tenantCount := 0
+	if err != nil {
+		dbStatus = "error: " + err.Error()
+	} else {
+		tenantCount = len(tenants)
+	}
+
 	return GetHealthz200JSONResponse{
-		Status:  "ok",
-		Version: s.version,
+		Status:    "ok",
+		Version:   s.version,
+		Commit:    commit,
+		BuildDate: buildDate,
+		Uptime:    &uptime,
+		Database:  &dbStatus,
+		Tenants:   &tenantCount,
 	}, nil
 }
 

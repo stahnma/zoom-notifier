@@ -564,6 +564,16 @@ components:
           type: string
         version:
           type: string
+        commit:
+          type: string
+        build_date:
+          type: string
+        uptime:
+          type: string
+        database:
+          type: string
+        tenants:
+          type: integer
 
     Tenant:
       type: object

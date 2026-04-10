@@ -110,7 +110,7 @@ func main() {
 	})
 
 	// Create API server
-	apiServer := api.NewServer(store, version, zoomHandler, cfg.Zoom.WebhookSecret)
+	apiServer := api.NewServer(store, version, commit, buildDate, zoomHandler, cfg.Zoom.WebhookSecret)
 	apiRouter := api.SetupRouter(apiServer, store, cfg.Admin.APIKey)
 
 	// Build main router

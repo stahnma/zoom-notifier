@@ -27,7 +27,7 @@ func setupTestRouter(t *testing.T) (http.Handler, *sqlite.SQLiteStore) {
 	}
 	t.Cleanup(func() { s.Close() })
 
-	server := NewServer(s, "test-version", nil, "test-webhook-secret")
+	server := NewServer(s, "test-version", "abc123", "2026-01-01", nil, "test-webhook-secret")
 	router := SetupRouter(server, s, testAdminKey)
 	return router, s
 }
