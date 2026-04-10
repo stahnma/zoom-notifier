@@ -20,16 +20,13 @@ const (
 
 // OAuthHandler handles the Slack OAuth install flow.
 type OAuthHandler struct {
-	clientID         string
-	clientSecret     string
-	redirectURI      string
-	scopes           string
-	store            store.Store
-	oauthURL         string // authorize URL (overridable for testing)
-	apiURL           string // API base URL (overridable for testing)
-	zoomAccountID    string
-	zoomClientID     string
-	zoomClientSecret string
+	clientID     string
+	clientSecret string
+	redirectURI  string
+	scopes       string
+	store        store.Store
+	oauthURL     string // authorize URL (overridable for testing)
+	apiURL       string // API base URL (overridable for testing)
 }
 
 // OAuthConfig configures the Slack OAuth handler.
@@ -40,10 +37,6 @@ type OAuthConfig struct {
 	Store        store.Store
 	OAuthURL     string // optional, defaults to Slack's URL
 	APIURL       string // optional, defaults to Slack's URL
-	// ZoomCredentials, if set, are applied to the tenant after install.
-	ZoomAccountID    string
-	ZoomClientID     string
-	ZoomClientSecret string
 }
 
 func NewOAuthHandler(cfg OAuthConfig) *OAuthHandler {
@@ -56,16 +49,13 @@ func NewOAuthHandler(cfg OAuthConfig) *OAuthHandler {
 		apiURL = defaultSlackAPIURL
 	}
 	return &OAuthHandler{
-		clientID:         cfg.ClientID,
-		clientSecret:     cfg.ClientSecret,
-		redirectURI:      cfg.RedirectURI,
-		scopes:           "commands,chat:write,chat:write.public,channels:read,groups:read",
-		store:            cfg.Store,
-		oauthURL:         oauthURL,
-		apiURL:           apiURL,
-		zoomAccountID:    cfg.ZoomAccountID,
-		zoomClientID:     cfg.ZoomClientID,
-		zoomClientSecret: cfg.ZoomClientSecret,
+		clientID:     cfg.ClientID,
+		clientSecret: cfg.ClientSecret,
+		redirectURI:  cfg.RedirectURI,
+		scopes:       "commands,chat:write,chat:write.public,channels:read,groups:read",
+		store:        cfg.Store,
+		oauthURL:     oauthURL,
+		apiURL:       apiURL,
 	}
 }
 
@@ -121,12 +111,11 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	teamName := resp.Team.Name
 
 	tenant := &store.Tenant{
-		ID:            teamID,
-		TeamName:      teamName,
-		BotToken:      &botToken,
-		APIKey:        apiKey,
-		InstalledAt:   time.Now(),
-		ZoomAccountID: h.zoomAccountID,
+		ID:          teamID,
+		TeamName:    teamName,
+		BotToken:    &botToken,
+		APIKey:      apiKey,
+		InstalledAt: time.Now(),
 	}
 
 	// Check if tenant already exists (re-install)
@@ -138,12 +127,9 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if existing != nil {
-		// Re-install: update the bot token and zoom account
+		// Re-install: update the bot token
 		existing.BotToken = &botToken
 		existing.TeamName = teamName
-		if h.zoomAccountID != "" {
-			existing.ZoomAccountID = h.zoomAccountID
-		}
 		if err := h.store.UpdateTenant(r.Context(), existing); err != nil {
 			log.WithError(err).Error("failed to update tenant on re-install")
 			http.Error(w, "failed to update tenant", http.StatusInternalServerError)
@@ -154,21 +140,6 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 			log.WithError(err).Error("failed to create tenant from OAuth")
 			http.Error(w, "failed to create tenant", http.StatusInternalServerError)
 			return
-		}
-	}
-
-	// Apply Zoom API credentials from config if available
-	if h.zoomAccountID != "" {
-		zoomCreds := &store.ZoomCredentials{
-			TenantID:     teamID,
-			AccountID:    h.zoomAccountID,
-			ClientID:     h.zoomClientID,
-			ClientSecret: h.zoomClientSecret,
-		}
-		if err := h.store.UpsertZoomCredentials(r.Context(), zoomCreds); err != nil {
-			log.WithError(err).Error("failed to apply Zoom API credentials to tenant")
-		} else {
-			log.WithField("team_id", teamID).Info("applied Zoom API credentials from config")
 		}
 	}
 

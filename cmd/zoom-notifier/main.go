@@ -150,13 +150,10 @@ code{background:#f0f0f0;padding:0.15rem 0.4rem;border-radius:3px;font-size:0.9re
 			redirectURI = cfg.Server.URL + "/slack/callback"
 		}
 		oauthHandler := appslack.NewOAuthHandler(appslack.OAuthConfig{
-			ClientID:         cfg.Slack.ClientID,
-			ClientSecret:     cfg.Slack.ClientSecret,
-			RedirectURI:      redirectURI,
-			Store:            store,
-			ZoomAccountID:    cfg.Zoom.AccountID,
-			ZoomClientID:     cfg.Zoom.ClientID,
-			ZoomClientSecret: cfg.Zoom.ClientSecret,
+			ClientID:     cfg.Slack.ClientID,
+			ClientSecret: cfg.Slack.ClientSecret,
+			RedirectURI:  redirectURI,
+			Store:        store,
 		})
 		r.Get("/slack/install", oauthHandler.HandleInstall)
 		r.Get("/slack/callback", oauthHandler.HandleCallback)
