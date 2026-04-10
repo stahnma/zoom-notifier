@@ -430,7 +430,7 @@ func (h *CommandHandler) listFilters(ctx context.Context, cmd SlashCommand) (*Sl
 	var sb strings.Builder
 	sb.WriteString("*Meeting Filters:*\n")
 	for _, f := range filters {
-		sb.WriteString(fmt.Sprintf("• `%s` (id: %d)\n", f.Pattern, f.ID))
+		fmt.Fprintf(&sb, "• `%s` (id: %d)\n", f.Pattern, f.ID)
 	}
 	return ephemeral(sb.String()), nil
 }
@@ -482,7 +482,7 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("*Subscriptions (%d):*\n", len(subs)))
+	fmt.Fprintf(&sb, "*Subscriptions (%d):*\n", len(subs))
 	for _, s := range subs {
 		status := "enabled"
 		if !s.Enabled {
@@ -778,8 +778,8 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 	if tenant.DefaultIncludeLink {
 		linkState = "on"
 	}
-	sb.WriteString(fmt.Sprintf("• Message suffix: `%s`\n", suffix))
-	sb.WriteString(fmt.Sprintf("• Include meeting link: %s\n", linkState))
+	fmt.Fprintf(&sb, "• Message suffix: `%s`\n", suffix)
+	fmt.Fprintf(&sb, "• Include meeting link: %s\n", linkState)
 
 	// Filter overrides
 	filters, err := h.store.ListFilters(ctx, cmd.TeamID)
@@ -790,7 +790,7 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 	if len(filters) > 0 {
 		sb.WriteString("\n*Filter Overrides:*\n")
 		for _, f := range filters {
-			sb.WriteString(fmt.Sprintf("• `%s`", f.Pattern))
+			fmt.Fprintf(&sb, "• `%s`", f.Pattern)
 			var overrides []string
 			if f.MsgSuffix != nil {
 				overrides = append(overrides, fmt.Sprintf("suffix: `%s`", *f.MsgSuffix))
@@ -803,7 +803,7 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 				overrides = append(overrides, fmt.Sprintf("link: %s", link))
 			}
 			if len(overrides) > 0 {
-				sb.WriteString(fmt.Sprintf(" — %s", strings.Join(overrides, ", ")))
+				fmt.Fprintf(&sb, " — %s", strings.Join(overrides, ", "))
 			} else {
 				sb.WriteString(" — no overrides")
 			}
@@ -816,7 +816,7 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 	if err == nil && isAdmin {
 		subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
 		if err == nil && len(subs) > 0 {
-			sb.WriteString(fmt.Sprintf("\n*Subscriptions (%d):*\n", len(subs)))
+			fmt.Fprintf(&sb, "\n*Subscriptions (%d):*\n", len(subs))
 
 			botToken := h.getBotToken(ctx, cmd.TeamID)
 			var api *slackapi.Client
@@ -826,14 +826,14 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 
 			for _, s := range subs {
 				if s.Type != "slack" {
-					sb.WriteString(fmt.Sprintf("• %s → %s\n", s.Type, s.Target))
+					fmt.Fprintf(&sb, "• %s → %s\n", s.Type, s.Target)
 					continue
 				}
 				target := formatChannel(s.Target)
 				if api != nil && strings.HasPrefix(s.Target, "C") {
 					target = "<#" + s.Target + ">"
 				}
-				sb.WriteString(fmt.Sprintf("• %s\n", target))
+				fmt.Fprintf(&sb, "• %s\n", target)
 			}
 		}
 	}
@@ -869,9 +869,9 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 			return ephemeral("No admins configured."), nil
 		}
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("*Admins (%d):*\n", len(admins)))
+		fmt.Fprintf(&sb, "*Admins (%d):*\n", len(admins))
 		for _, a := range admins {
-			sb.WriteString(fmt.Sprintf("• <@%s>\n", a.SlackUserID))
+			fmt.Fprintf(&sb, "• <@%s>\n", a.SlackUserID)
 		}
 		return ephemeral(sb.String()), nil
 
