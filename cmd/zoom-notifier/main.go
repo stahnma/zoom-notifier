@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 
+	apispec "github.com/stahnma/mandatoryFun/zoom-notifier/api"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/api"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/config"
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/irc"
@@ -206,7 +207,7 @@ func main() {
 	// API documentation
 	r.Get("/api/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
-		http.ServeFile(w, r, "api/openapi.yaml")
+		w.Write(apispec.OpenAPISpec)
 	})
 	r.Get("/api/docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
