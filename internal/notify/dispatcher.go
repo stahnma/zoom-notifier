@@ -68,8 +68,11 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 		return
 	}
 
+	// Use tenant default suffix; per-filter overrides will be added later
+	suffix := tenant.DefaultMsgSuffix
+
 	for _, sub := range subs {
-		subMsg := formatMessageWithSuffix(payload, sub.MsgSuffix)
+		subMsg := formatMessageWithSuffix(payload, suffix)
 
 		switch sub.Type {
 		case "slack":

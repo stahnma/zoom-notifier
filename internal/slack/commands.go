@@ -287,12 +287,6 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 			status = "disabled"
 		}
 		details := fmt.Sprintf("• %s → %s (%s)", s.Type, s.Target, status)
-		if s.IncludeLink {
-			details += " [links on]"
-		}
-		if s.MsgSuffix != "" {
-			details += fmt.Sprintf(" suffix: `%s`", s.MsgSuffix)
-		}
 		sb.WriteString(details + "\n")
 	}
 	return ephemeral(sb.String()), nil
@@ -317,22 +311,16 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 	suffix := strings.Join(args[1:], " ")
 	suffix = strings.Trim(suffix, "\"'")
 
-	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
-	if err != nil {
-		return nil, fmt.Errorf("list subscriptions: %w", err)
+	// TODO: refactor to use per-filter overrides; for now update tenant defaults
+	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+	if err != nil || tenant == nil {
+		return nil, fmt.Errorf("get tenant: %w", err)
 	}
-
-	for _, sub := range subs {
-		if sub.Target == target && sub.Type == "slack" {
-			sub.MsgSuffix = suffix
-			if err := h.store.UpdateSubscription(ctx, sub); err != nil {
-				return nil, fmt.Errorf("update subscription: %w", err)
-			}
-			return ephemeral(fmt.Sprintf("Updated message suffix for %s to `%s`.", target, suffix)), nil
-		}
+	_ = target // will be used for per-filter overrides later
+	if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, suffix, tenant.DefaultIncludeLink); err != nil {
+		return nil, fmt.Errorf("update tenant defaults: %w", err)
 	}
-
-	return ephemeral(fmt.Sprintf("No Slack subscription found for %s.", target)), nil
+	return ephemeral(fmt.Sprintf("Updated default message suffix to `%s`.", suffix)), nil
 }
 
 func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
@@ -351,26 +339,20 @@ func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []s
 		return ephemeral("Usage: `/zoom-notifier set-link #channel on|off`"), nil
 	}
 
-	subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
-	if err != nil {
-		return nil, fmt.Errorf("list subscriptions: %w", err)
+	// TODO: refactor to use per-filter overrides; for now update tenant defaults
+	tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+	if err != nil || tenant == nil {
+		return nil, fmt.Errorf("get tenant: %w", err)
 	}
-
-	for _, sub := range subs {
-		if sub.Target == target && sub.Type == "slack" {
-			sub.IncludeLink = includeLink
-			if err := h.store.UpdateSubscription(ctx, sub); err != nil {
-				return nil, fmt.Errorf("update subscription: %w", err)
-			}
-			state := "disabled"
-			if includeLink {
-				state = "enabled"
-			}
-			return ephemeral(fmt.Sprintf("Meeting links %s for %s.", state, target)), nil
-		}
+	_ = target // will be used for per-filter overrides later
+	if err := h.store.UpdateTenantDefaults(ctx, cmd.TeamID, tenant.DefaultMsgSuffix, includeLink); err != nil {
+		return nil, fmt.Errorf("update tenant defaults: %w", err)
 	}
-
-	return ephemeral(fmt.Sprintf("No Slack subscription found for %s.", target)), nil
+	state := "disabled"
+	if includeLink {
+		state = "enabled"
+	}
+	return ephemeral(fmt.Sprintf("Meeting links %s (tenant-wide default).", state)), nil
 }
 
 func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {

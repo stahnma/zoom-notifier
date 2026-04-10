@@ -187,12 +187,8 @@ func (s *Server) CreateSubscription(ctx context.Context, request CreateSubscript
 	if request.Body.MeetingId != nil {
 		sub.MeetingID = request.Body.MeetingId
 	}
-	if request.Body.MsgSuffix != nil {
-		sub.MsgSuffix = *request.Body.MsgSuffix
-	}
-	if request.Body.IncludeLink != nil {
-		sub.IncludeLink = *request.Body.IncludeLink
-	}
+	// MsgSuffix and IncludeLink are now tenant-wide defaults; ignoring per-sub values from API
+	// TODO: wire these to tenant defaults or filter overrides
 
 	if err := s.store.CreateSubscription(ctx, sub); err != nil {
 		return nil, err
@@ -216,12 +212,8 @@ func (s *Server) UpdateSubscription(ctx context.Context, request UpdateSubscript
 	if request.Body.Target != nil {
 		sub.Target = *request.Body.Target
 	}
-	if request.Body.MsgSuffix != nil {
-		sub.MsgSuffix = *request.Body.MsgSuffix
-	}
-	if request.Body.IncludeLink != nil {
-		sub.IncludeLink = *request.Body.IncludeLink
-	}
+	// MsgSuffix and IncludeLink are now tenant-wide defaults; ignoring per-sub values from API
+	// TODO: wire these to tenant defaults or filter overrides
 
 	if err := s.store.UpdateSubscription(ctx, sub); err != nil {
 		return nil, err
@@ -463,12 +455,8 @@ func toAPISubscription(sub *store.Subscription) Subscription {
 		MeetingId: sub.MeetingID,
 		CreatedAt: &sub.CreatedAt,
 	}
-	if sub.MsgSuffix != "" {
-		s.MsgSuffix = &sub.MsgSuffix
-	}
-	if sub.IncludeLink {
-		s.IncludeLink = &sub.IncludeLink
-	}
+	// MsgSuffix and IncludeLink are now on Tenant/Filter, not Subscription
+	// TODO: populate from tenant defaults or matching filter
 	return s
 }
 

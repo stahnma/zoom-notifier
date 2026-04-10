@@ -10,9 +10,9 @@ import (
 
 func (s *SQLiteStore) CreateSubscription(ctx context.Context, sub *store.Subscription) error {
 	result, err := s.db.ExecContext(ctx,
-		`INSERT INTO subscriptions (tenant_id, type, meeting_id, target, msg_suffix, include_link, enabled)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		sub.TenantID, sub.Type, sub.MeetingID, sub.Target, sub.MsgSuffix, sub.IncludeLink, sub.Enabled,
+		`INSERT INTO subscriptions (tenant_id, type, meeting_id, target, enabled)
+		 VALUES (?, ?, ?, ?, ?)`,
+		sub.TenantID, sub.Type, sub.MeetingID, sub.Target, sub.Enabled,
 	)
 	if err != nil {
 		return fmt.Errorf("create subscription: %w", err)
@@ -27,12 +27,12 @@ func (s *SQLiteStore) CreateSubscription(ctx context.Context, sub *store.Subscri
 
 func (s *SQLiteStore) GetSubscription(ctx context.Context, id int64) (*store.Subscription, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, tenant_id, type, meeting_id, target, msg_suffix, include_link, enabled, created_at
+		`SELECT id, tenant_id, type, meeting_id, target, enabled, created_at
 		 FROM subscriptions WHERE id = ?`, id,
 	)
 	sub := &store.Subscription{}
 	err := row.Scan(&sub.ID, &sub.TenantID, &sub.Type, &sub.MeetingID, &sub.Target,
-		&sub.MsgSuffix, &sub.IncludeLink, &sub.Enabled, &sub.CreatedAt)
+		&sub.Enabled, &sub.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -44,7 +44,7 @@ func (s *SQLiteStore) GetSubscription(ctx context.Context, id int64) (*store.Sub
 
 func (s *SQLiteStore) ListSubscriptions(ctx context.Context, tenantID string) ([]*store.Subscription, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, tenant_id, type, meeting_id, target, msg_suffix, include_link, enabled, created_at
+		`SELECT id, tenant_id, type, meeting_id, target, enabled, created_at
 		 FROM subscriptions WHERE tenant_id = ?`, tenantID,
 	)
 	if err != nil {
@@ -56,7 +56,7 @@ func (s *SQLiteStore) ListSubscriptions(ctx context.Context, tenantID string) ([
 	for rows.Next() {
 		sub := &store.Subscription{}
 		if err := rows.Scan(&sub.ID, &sub.TenantID, &sub.Type, &sub.MeetingID, &sub.Target,
-			&sub.MsgSuffix, &sub.IncludeLink, &sub.Enabled, &sub.CreatedAt); err != nil {
+			&sub.Enabled, &sub.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan subscription: %w", err)
 		}
 		subs = append(subs, sub)
@@ -66,7 +66,7 @@ func (s *SQLiteStore) ListSubscriptions(ctx context.Context, tenantID string) ([
 
 func (s *SQLiteStore) GetSubscriptionsForMeeting(ctx context.Context, tenantID string, meetingID string) ([]*store.Subscription, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, tenant_id, type, meeting_id, target, msg_suffix, include_link, enabled, created_at
+		`SELECT id, tenant_id, type, meeting_id, target, enabled, created_at
 		 FROM subscriptions
 		 WHERE tenant_id = ? AND enabled = 1
 		 AND (meeting_id = ? OR meeting_id IS NULL)`, tenantID, meetingID,
@@ -80,7 +80,7 @@ func (s *SQLiteStore) GetSubscriptionsForMeeting(ctx context.Context, tenantID s
 	for rows.Next() {
 		sub := &store.Subscription{}
 		if err := rows.Scan(&sub.ID, &sub.TenantID, &sub.Type, &sub.MeetingID, &sub.Target,
-			&sub.MsgSuffix, &sub.IncludeLink, &sub.Enabled, &sub.CreatedAt); err != nil {
+			&sub.Enabled, &sub.CreatedAt); err != nil {
 			return nil, fmt.Errorf("scan subscription: %w", err)
 		}
 		subs = append(subs, sub)
@@ -90,10 +90,9 @@ func (s *SQLiteStore) GetSubscriptionsForMeeting(ctx context.Context, tenantID s
 
 func (s *SQLiteStore) UpdateSubscription(ctx context.Context, sub *store.Subscription) error {
 	_, err := s.db.ExecContext(ctx,
-		`UPDATE subscriptions SET type = ?, meeting_id = ?, target = ?,
-		 msg_suffix = ?, include_link = ?, enabled = ?
+		`UPDATE subscriptions SET type = ?, meeting_id = ?, target = ?, enabled = ?
 		 WHERE id = ?`,
-		sub.Type, sub.MeetingID, sub.Target, sub.MsgSuffix, sub.IncludeLink, sub.Enabled, sub.ID,
+		sub.Type, sub.MeetingID, sub.Target, sub.Enabled, sub.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update subscription: %w", err)
