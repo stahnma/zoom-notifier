@@ -138,8 +138,11 @@ func (h *CommandHandler) status(ctx context.Context, cmd SlashCommand) (*SlashRe
 			topic = "(no topic)"
 		}
 		sb.WriteString(fmt.Sprintf("• *%s* — %d participant(s)\n", topic, len(participants)))
+		for _, p := range participants {
+			sb.WriteString(fmt.Sprintf("    ◦ %s\n", p.UserName))
+		}
 	}
-	return ephemeral(sb.String()), nil
+	return inChannel(sb.String()), nil
 }
 
 func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
