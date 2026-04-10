@@ -851,10 +851,32 @@ func parseUserID(s string) string {
 }
 
 func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
-	if len(args) < 2 || (args[0] != "add" && args[0] != "remove") {
+	if len(args) == 0 || (args[0] != "add" && args[0] != "remove" && args[0] != "list") {
 		return ephemeral("Usage:\n" +
+			"• `/zoom-notifier admins list`\n" +
 			"• `/zoom-notifier admins add @user`\n" +
 			"• `/zoom-notifier admins remove @user`"), nil
+	}
+
+	switch args[0] {
+	case "list":
+		admins, err := h.store.ListAdmins(ctx, cmd.TeamID)
+		if err != nil {
+			return nil, fmt.Errorf("list admins: %w", err)
+		}
+		if len(admins) == 0 {
+			return ephemeral("No admins configured."), nil
+		}
+		var sb strings.Builder
+		sb.WriteString(fmt.Sprintf("*Admins (%d):*\n", len(admins)))
+		for _, a := range admins {
+			sb.WriteString(fmt.Sprintf("• <@%s>\n", a.SlackUserID))
+		}
+		return ephemeral(sb.String()), nil
+	}
+
+	if len(args) < 2 {
+		return ephemeral("Usage: `/zoom-notifier admins add|remove @user`"), nil
 	}
 
 	userID := parseUserID(args[1])
@@ -928,6 +950,7 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 			"• `/zoom-notifier set-suffix \"Filter\" \"text\"` — Set suffix on a filter\n" +
 			"• `/zoom-notifier set-link on|off` — Toggle default meeting links\n" +
 			"• `/zoom-notifier set-link \"Filter\" on|off` — Toggle links on a filter\n" +
+			"• `/zoom-notifier admins list` — List admins\n" +
 			"• `/zoom-notifier admins add @user` — Add an admin\n" +
 			"• `/zoom-notifier admins remove @user` — Remove an admin\n" +
 			"• `/zoom-notifier api-key` — Show tenant API key\n" +
