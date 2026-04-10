@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store/sqlite"
+	"github.com/stahnma/zoom-notifier/internal/store/sqlite"
 )
 
 const testAdminKey = "test-admin-key-12345"

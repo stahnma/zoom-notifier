@@ -11,7 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/zoom"
+	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
 
 //go:embed templates/*.html

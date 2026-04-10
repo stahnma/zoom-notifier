@@ -11,8 +11,8 @@ import (
 
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/zoom"
+	"github.com/stahnma/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
 
 // Server implements the generated StrictServerInterface.

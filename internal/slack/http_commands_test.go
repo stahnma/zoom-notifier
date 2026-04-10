@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 const testSigningSecret = "test-signing-secret"

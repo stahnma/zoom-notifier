@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 func TestUpsertAndGetMeeting(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 type contextKey string

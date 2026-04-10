@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store/sqlite"
+	"github.com/stahnma/zoom-notifier/internal/store/sqlite"
 )
 
 func setupOAuthTestStore(t *testing.T) *sqlite.SQLiteStore {

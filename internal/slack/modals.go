@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	slacklib "github.com/slack-go/slack"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 // ModalOpener opens a Slack modal view using a trigger ID.

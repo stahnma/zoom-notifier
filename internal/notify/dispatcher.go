@@ -4,8 +4,8 @@ import (
 	"context"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/zoom"
+	"github.com/stahnma/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
 
 // SlackSender sends a notification to a Slack channel.

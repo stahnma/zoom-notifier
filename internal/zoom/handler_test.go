@@ -10,8 +10,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store/sqlite"
+	"github.com/stahnma/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store/sqlite"
 )
 
 func setupHandlerTest(t *testing.T) (*sqlite.SQLiteStore, *Handler) {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 // TenantSetupHandler serves a web form for configuring per-tenant Zoom credentials.

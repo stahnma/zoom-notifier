@@ -7,7 +7,7 @@ import (
 	"net/url"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 // InteractionHandler handles Slack interactive component payloads (e.g. modal submissions).

@@ -5,9 +5,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store/sqlite"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/zoom"
+	"github.com/stahnma/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store/sqlite"
+	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
 
 type mockSlackSender struct {

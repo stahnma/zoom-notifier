@@ -1,7 +1,7 @@
 package setup
 
 import (
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/config"
+	"github.com/stahnma/zoom-notifier/internal/config"
 )
 
 // NeedsSetup returns true if the configuration is missing any required fields

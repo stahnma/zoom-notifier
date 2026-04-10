@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 func (s *SQLiteStore) AddAdmin(ctx context.Context, tenantID string, slackUserID string) error {

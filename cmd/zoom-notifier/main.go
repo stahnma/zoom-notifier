@@ -13,15 +13,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
 
-	apispec "github.com/stahnma/mandatoryFun/zoom-notifier/api"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/api"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/config"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/irc"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/notify"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/setup"
-	appslack "github.com/stahnma/mandatoryFun/zoom-notifier/internal/slack"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store/sqlite"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/zoom"
+	apispec "github.com/stahnma/zoom-notifier/api"
+	"github.com/stahnma/zoom-notifier/internal/api"
+	"github.com/stahnma/zoom-notifier/internal/config"
+	"github.com/stahnma/zoom-notifier/internal/irc"
+	"github.com/stahnma/zoom-notifier/internal/notify"
+	"github.com/stahnma/zoom-notifier/internal/setup"
+	appslack "github.com/stahnma/zoom-notifier/internal/slack"
+	"github.com/stahnma/zoom-notifier/internal/store/sqlite"
+	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
 
 var (

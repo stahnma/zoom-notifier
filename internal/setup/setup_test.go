@@ -3,7 +3,7 @@ package setup
 import (
 	"testing"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/config"
+	"github.com/stahnma/zoom-notifier/internal/config"
 )
 
 func fullConfig() *config.Config {

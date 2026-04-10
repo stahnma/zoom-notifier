@@ -8,7 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	slackapi "github.com/slack-go/slack"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 // parseMetadata extracts teamID and channelID from the modal's PrivateMetadata field.

@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 func (s *SQLiteStore) UpsertZoomCredentials(ctx context.Context, z *store.ZoomCredentials) error {

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 func (s *SQLiteStore) UpsertMeeting(ctx context.Context, m *store.ActiveMeeting) error {

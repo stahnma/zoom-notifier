@@ -7,7 +7,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	slackapi "github.com/slack-go/slack"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 // SlashCommand represents a parsed Slack slash command.

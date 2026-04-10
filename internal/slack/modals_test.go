@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	slacklib "github.com/slack-go/slack"
-	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
+	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
 func TestBuildSetSuffixModal(t *testing.T) {
