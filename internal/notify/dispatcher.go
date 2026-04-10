@@ -110,10 +110,12 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	}
 
 	for _, sub := range subs {
-		subMsg := formatMessageWithSuffix(payload, suffix)
+		displaySuffix := suffix
 		if meetingLink != "" {
-			subMsg += "\n" + meetingLink
+			// Slack format: <url|text> makes the suffix a clickable link
+			displaySuffix = "<" + meetingLink + "|" + suffix + ">"
 		}
+		subMsg := formatMessageWithSuffix(payload, displaySuffix)
 
 		log.WithFields(log.Fields{
 			"type":    sub.Type,
