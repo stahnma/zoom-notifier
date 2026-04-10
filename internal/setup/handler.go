@@ -139,6 +139,8 @@ func (h *Handler) handleServerURL(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) handleZoom(w http.ResponseWriter, r *http.Request) {
 	h.data.ZoomSecret = r.FormValue("zoom_secret")
 	h.data.ZoomAccountID = r.FormValue("zoom_account_id")
+	h.data.ZoomClientID = r.FormValue("zoom_client_id")
+	h.data.ZoomClientSecret = r.FormValue("zoom_client_secret")
 	h.render(w, "slack.html", pageData{
 		Step:        2,
 		Data:        h.data,
@@ -160,12 +162,6 @@ func (h *Handler) handleAdvanced(w http.ResponseWriter, r *http.Request) {
 	}
 	h.data.DatabasePath = r.FormValue("database_path")
 	h.data.LogLevel = r.FormValue("log_level")
-	if clientID := r.FormValue("zoom_client_id"); clientID != "" {
-		h.data.ZoomClientID = clientID
-	}
-	if clientSecret := r.FormValue("zoom_client_secret"); clientSecret != "" {
-		h.data.ZoomClientSecret = clientSecret
-	}
 	// Pick up optional admin API key override from advanced settings
 	if key := r.FormValue("admin_api_key"); key != "" {
 		h.data.AdminAPIKey = key

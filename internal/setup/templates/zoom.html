@@ -14,7 +14,7 @@
         <li>Go to the <a href="https://marketplace.zoom.us/user/build" target="_blank" rel="noopener">Zoom App Marketplace &mdash; Build App</a> page and sign in.</li>
         <li>Choose <strong>Server-to-Server OAuth</strong> as the app type and click <strong>Create</strong>.</li>
         <li>Give it a name (e.g. "zoom-notifier") and click <strong>Create</strong>.</li>
-        <li>On the <strong>App Credentials</strong> tab, note your <strong>Account ID</strong>, <strong>Client ID</strong>, and <strong>Client Secret</strong>. You&rsquo;ll need the Account ID below; the Client ID and Secret can be configured later for meeting links.</li>
+        <li>On the <strong>App Credentials</strong> tab, copy the <strong>Account ID</strong>, <strong>Client ID</strong>, and <strong>Client Secret</strong> and enter them in the form below.</li>
         <li>Go to the <strong>Information</strong> tab. Fill in the required fields (company name, developer name and email) and click <strong>Continue</strong>.</li>
         <li>Go to the <strong>Feature</strong> tab. Toggle <strong>Event Subscriptions</strong> to on.</li>
         <li>Click <strong>+ Add New Event Subscription</strong>:
@@ -51,20 +51,34 @@
 </div>
 
 <form method="POST" action="/setup/zoom">
+    <h3>App Credentials</h3>
+    <p class="help-text">From the <strong>App Credentials</strong> tab of your Zoom S2S OAuth app.</p>
+
     <div class="form-group">
-        <label for="zoom_secret">Webhook Secret Token</label>
+        <label for="zoom_account_id">Account ID</label>
+        <input type="text" id="zoom_account_id" name="zoom_account_id" value="{{.Data.ZoomAccountID}}" placeholder="Enter your Zoom Account ID" autocomplete="off" required>
+        <p class="help-text">Links incoming Zoom webhook events to your workspace.</p>
+    </div>
+    <div class="form-group">
+        <label for="zoom_client_id">Client ID</label>
+        <input type="text" id="zoom_client_id" name="zoom_client_id" value="{{.Data.ZoomClientID}}" placeholder="Enter Zoom Client ID" autocomplete="off">
+        <p class="help-text">Optional. Enables meeting join links with passcodes in notifications.</p>
+    </div>
+    <div class="form-group">
+        <label for="zoom_client_secret">Client Secret</label>
+        <input type="password" id="zoom_client_secret" name="zoom_client_secret" value="{{.Data.ZoomClientSecret}}" placeholder="Enter Zoom Client Secret" autocomplete="off">
+        <p class="help-text">Optional. Required alongside Client ID for meeting links.</p>
+    </div>
+
+    <h3>Webhook Secret</h3>
+    <p class="help-text">From the <strong>Feature</strong> tab, after adding an Event Subscription.</p>
+
+    <div class="form-group">
+        <label for="zoom_secret">Secret Token</label>
         <input type="text" id="zoom_secret" name="zoom_secret" value="{{.Data.ZoomSecret}}" placeholder="Enter your Zoom webhook secret token" autocomplete="off" required>
         <details>
             <summary>Where is the Secret Token?</summary>
-            <p>In your Zoom Server-to-Server OAuth app, go to the <strong>Feature</strong> tab. The <strong>Secret Token</strong> is displayed near the top, above the Event Subscriptions section. This is <em>not</em> the same as the Client Secret &mdash; it&rsquo;s used specifically for webhook CRC validation.</p>
-        </details>
-    </div>
-    <div class="form-group">
-        <label for="zoom_account_id">Zoom Account ID</label>
-        <input type="text" id="zoom_account_id" name="zoom_account_id" value="{{.Data.ZoomAccountID}}" placeholder="Enter your Zoom Account ID" autocomplete="off" required>
-        <details>
-            <summary>Where is the Account ID?</summary>
-            <p>In your Zoom Server-to-Server OAuth app, go to the <strong>App Credentials</strong> tab. The <strong>Account ID</strong> is shown at the top, alongside the Client ID and Client Secret. This is used to link incoming Zoom events to your workspace.</p>
+            <p>In the <strong>Feature</strong> tab, the <strong>Secret Token</strong> is displayed near the top, above the Event Subscriptions section. This is <em>not</em> the same as the Client Secret &mdash; it&rsquo;s used specifically for webhook CRC validation.</p>
         </details>
     </div>
     <div class="form-group">
