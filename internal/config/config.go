@@ -59,12 +59,12 @@ func Load(configPath string) (*Config, error) {
 
 	// Environment variable bindings
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.BindEnv("zoom.webhook_secret", "ZOOM_SECRET")
-	v.BindEnv("database.encryption_key", "ZOOMNOTIFIER_DB_KEY")
-	v.BindEnv("slack.client_id", "SLACK_CLIENT_ID")
-	v.BindEnv("slack.client_secret", "SLACK_CLIENT_SECRET")
-	v.BindEnv("slack.signing_secret", "SLACK_SIGNING_SECRET")
-	v.BindEnv("admin.api_key", "ZOOMNOTIFIER_ADMIN_KEY")
+	_ = v.BindEnv("zoom.webhook_secret", "ZOOM_SECRET")
+	_ = v.BindEnv("database.encryption_key", "ZOOMNOTIFIER_DB_KEY")
+	_ = v.BindEnv("slack.client_id", "SLACK_CLIENT_ID")
+	_ = v.BindEnv("slack.client_secret", "SLACK_CLIENT_SECRET")
+	_ = v.BindEnv("slack.signing_secret", "SLACK_SIGNING_SECRET")
+	_ = v.BindEnv("admin.api_key", "ZOOMNOTIFIER_ADMIN_KEY")
 
 	// Load config file
 	if configPath != "" {

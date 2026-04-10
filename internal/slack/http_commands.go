@@ -39,7 +39,7 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to read body", http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	defer func() { _ = r.Body.Close() }()
 
 	// Verify the Slack signing secret
 	if !h.verifySignature(r.Header, body) {
@@ -74,7 +74,7 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.WithError(err).Error("slash command handler failed")
 		// Slack requires 200 — return ephemeral error message
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"response_type": "ephemeral",
 			"text":          "Something went wrong. Please try again.",
 		})
@@ -93,7 +93,7 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}).Debug("sending slash command response")
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"response_type": resp.ResponseType,
 		"text":          resp.Text,
 	})

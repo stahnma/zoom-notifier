@@ -50,7 +50,7 @@ func TestUpsertIRCConfig_UpdateExisting(t *testing.T) {
 		Password: "oldpass",
 		UseTLS:   true,
 	}
-	s.UpsertIRCConfig(ctx, cfg)
+	_ = s.UpsertIRCConfig(ctx, cfg)
 
 	cfg.Nick = "newnick"
 	cfg.Password = "newpass"
@@ -72,8 +72,8 @@ func TestGetIRCConfig_MultipleServers(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.libera.chat:6697", Nick: "bot1", Password: "p1", UseTLS: true})
-	s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.oftc.net:6697", Nick: "bot2", Password: "p2", UseTLS: true})
+	_ = s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.libera.chat:6697", Nick: "bot1", Password: "p1", UseTLS: true})
+	_ = s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.oftc.net:6697", Nick: "bot2", Password: "p2", UseTLS: true})
 
 	configs, err := s.GetIRCConfig(ctx, "T1")
 	if err != nil {

@@ -50,7 +50,7 @@ func (s *SQLiteStore) ListSubscriptions(ctx context.Context, tenantID string) ([
 	if err != nil {
 		return nil, fmt.Errorf("list subscriptions: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var subs []*store.Subscription
 	for rows.Next() {
@@ -74,7 +74,7 @@ func (s *SQLiteStore) GetSubscriptionsForMeeting(ctx context.Context, tenantID s
 	if err != nil {
 		return nil, fmt.Errorf("get subscriptions for meeting: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var subs []*store.Subscription
 	for rows.Next() {

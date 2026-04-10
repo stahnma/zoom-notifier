@@ -112,7 +112,7 @@ func (h *InteractionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				// Slack requires 200 for view_submission — return validation error
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"response_action": "errors",
 					"errors": map[string]string{
 						"pattern_block": err.Error(),

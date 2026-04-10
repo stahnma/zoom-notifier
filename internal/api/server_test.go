@@ -25,7 +25,7 @@ func setupTestRouter(t *testing.T) (http.Handler, *sqlite.SQLiteStore) {
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("failed to migrate: %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() { _ = s.Close() })
 
 	server := NewServer(s, "test-version", "abc123", "2026-01-01", nil, "test-webhook-secret")
 	router := SetupRouter(server, s, testAdminKey)
@@ -132,7 +132,7 @@ func TestGetTenantWithTenantKey(t *testing.T) {
 	}
 
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 
 	// Get tenant with the tenant's API key
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/tenants/t1", nil)
@@ -145,7 +145,7 @@ func TestGetTenantWithTenantKey(t *testing.T) {
 	}
 
 	var tenant Tenant
-	json.NewDecoder(w.Body).Decode(&tenant)
+	_ = json.NewDecoder(w.Body).Decode(&tenant)
 	if tenant.Id != "t1" {
 		t.Errorf("expected tenant id t1, got %s", tenant.Id)
 	}
@@ -219,7 +219,7 @@ func TestListTenantsWithAdminKey(t *testing.T) {
 	}
 
 	var tenants []Tenant
-	json.NewDecoder(w.Body).Decode(&tenants)
+	_ = json.NewDecoder(w.Body).Decode(&tenants)
 	if len(tenants) != 2 {
 		t.Errorf("expected 2 tenants, got %d", len(tenants))
 	}
@@ -240,7 +240,7 @@ func TestDeleteTenantWithTenantKey(t *testing.T) {
 		t.Fatalf("create failed: %d", w.Code)
 	}
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 
 	// Delete with tenant's own API key
 	req = httptest.NewRequest(http.MethodDelete, "/api/v1/tenants/del-me", nil)
@@ -265,7 +265,7 @@ func TestSubscriptionCRUD(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	tenantKey := createResp.ApiKey
 	auth := "Bearer " + tenantKey
 
@@ -286,7 +286,7 @@ func TestSubscriptionCRUD(t *testing.T) {
 	}
 
 	var sub Subscription
-	json.NewDecoder(w.Body).Decode(&sub)
+	_ = json.NewDecoder(w.Body).Decode(&sub)
 	if sub.Target != "#general" {
 		t.Errorf("expected target #general, got %s", sub.Target)
 	}
@@ -305,7 +305,7 @@ func TestSubscriptionCRUD(t *testing.T) {
 	}
 
 	var subs []Subscription
-	json.NewDecoder(w.Body).Decode(&subs)
+	_ = json.NewDecoder(w.Body).Decode(&subs)
 	if len(subs) != 1 {
 		t.Fatalf("expected 1 subscription, got %d", len(subs))
 	}
@@ -327,7 +327,7 @@ func TestSubscriptionCRUD(t *testing.T) {
 	}
 
 	var updated Subscription
-	json.NewDecoder(w.Body).Decode(&updated)
+	_ = json.NewDecoder(w.Body).Decode(&updated)
 	if updated.Target != "#alerts" {
 		t.Errorf("expected target #alerts, got %s", updated.Target)
 	}
@@ -358,7 +358,7 @@ func TestFilterCRUD(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	auth := "Bearer " + createResp.ApiKey
 
 	// Create filter
@@ -375,7 +375,7 @@ func TestFilterCRUD(t *testing.T) {
 	}
 
 	var filter MeetingFilter
-	json.NewDecoder(w.Body).Decode(&filter)
+	_ = json.NewDecoder(w.Body).Decode(&filter)
 	if filter.Pattern != "standup" {
 		t.Errorf("expected pattern standup, got %s", filter.Pattern)
 	}
@@ -391,7 +391,7 @@ func TestFilterCRUD(t *testing.T) {
 	}
 
 	var filters []MeetingFilter
-	json.NewDecoder(w.Body).Decode(&filters)
+	_ = json.NewDecoder(w.Body).Decode(&filters)
 	if len(filters) != 1 {
 		t.Fatalf("expected 1 filter, got %d", len(filters))
 	}
@@ -419,7 +419,7 @@ func TestIRCConfigPutAndGet(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	auth := "Bearer " + createResp.ApiKey
 
 	// PUT IRC config
@@ -451,7 +451,7 @@ func TestIRCConfigPutAndGet(t *testing.T) {
 	}
 
 	var configs []IRCConfig
-	json.NewDecoder(w.Body).Decode(&configs)
+	_ = json.NewDecoder(w.Body).Decode(&configs)
 	if len(configs) != 1 {
 		t.Fatalf("expected 1 IRC config, got %d", len(configs))
 	}
@@ -475,7 +475,7 @@ func TestAdminCRUD(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	auth := "Bearer " + createResp.ApiKey
 
 	// Add admin
@@ -502,7 +502,7 @@ func TestAdminCRUD(t *testing.T) {
 	}
 
 	var admins []TenantAdmin
-	json.NewDecoder(w.Body).Decode(&admins)
+	_ = json.NewDecoder(w.Body).Decode(&admins)
 	if len(admins) != 1 {
 		t.Fatalf("expected 1 admin, got %d", len(admins))
 	}
@@ -533,7 +533,7 @@ func TestRotateAPIKey(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	oldKey := createResp.ApiKey
 
 	// Rotate key
@@ -547,7 +547,7 @@ func TestRotateAPIKey(t *testing.T) {
 	}
 
 	var rotateResp RotateKeyResponse
-	json.NewDecoder(w.Body).Decode(&rotateResp)
+	_ = json.NewDecoder(w.Body).Decode(&rotateResp)
 	if rotateResp.ApiKey == "" {
 		t.Error("expected non-empty new API key")
 	}
@@ -591,7 +591,7 @@ func TestTenantDefaultsInResponse(t *testing.T) {
 		t.Fatalf("create failed: %d %s", w.Code, w.Body.String())
 	}
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 
 	// Get tenant and check defaults are present
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/tenants/defaults-tenant", nil)
@@ -604,7 +604,7 @@ func TestTenantDefaultsInResponse(t *testing.T) {
 	}
 
 	var tenant Tenant
-	json.NewDecoder(w.Body).Decode(&tenant)
+	_ = json.NewDecoder(w.Body).Decode(&tenant)
 	if tenant.DefaultMsgSuffix == nil {
 		t.Error("expected default_msg_suffix to be present")
 	}
@@ -625,7 +625,7 @@ func TestPutTenantDefaults(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	auth := "Bearer " + createResp.ApiKey
 
 	// Update defaults
@@ -645,7 +645,7 @@ func TestPutTenantDefaults(t *testing.T) {
 	}
 
 	var tenant Tenant
-	json.NewDecoder(w.Body).Decode(&tenant)
+	_ = json.NewDecoder(w.Body).Decode(&tenant)
 	if tenant.DefaultMsgSuffix == nil || *tenant.DefaultMsgSuffix != "a custom suffix" {
 		t.Errorf("expected default_msg_suffix 'a custom suffix', got %v", tenant.DefaultMsgSuffix)
 	}
@@ -666,7 +666,7 @@ func TestFilterWithOverrides(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	auth := "Bearer " + createResp.ApiKey
 
 	// Create filter with overrides
@@ -687,7 +687,7 @@ func TestFilterWithOverrides(t *testing.T) {
 	}
 
 	var filter MeetingFilter
-	json.NewDecoder(w.Body).Decode(&filter)
+	_ = json.NewDecoder(w.Body).Decode(&filter)
 	if filter.MsgSuffix == nil || *filter.MsgSuffix != "the standup." {
 		t.Errorf("expected msg_suffix 'the standup.', got %v", filter.MsgSuffix)
 	}
@@ -702,7 +702,7 @@ func TestFilterWithOverrides(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	var filters []MeetingFilter
-	json.NewDecoder(w.Body).Decode(&filters)
+	_ = json.NewDecoder(w.Body).Decode(&filters)
 	if len(filters) != 1 {
 		t.Fatalf("expected 1 filter, got %d", len(filters))
 	}
@@ -726,7 +726,7 @@ func TestFilterWithOverrides(t *testing.T) {
 	}
 
 	var updatedFilter MeetingFilter
-	json.NewDecoder(w.Body).Decode(&updatedFilter)
+	_ = json.NewDecoder(w.Body).Decode(&updatedFilter)
 	if updatedFilter.MsgSuffix == nil || *updatedFilter.MsgSuffix != "updated suffix" {
 		t.Errorf("expected msg_suffix 'updated suffix', got %v", updatedFilter.MsgSuffix)
 	}
@@ -744,7 +744,7 @@ func TestZoomCredentialsPut(t *testing.T) {
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 	var createResp CreateTenantResponse
-	json.NewDecoder(w.Body).Decode(&createResp)
+	_ = json.NewDecoder(w.Body).Decode(&createResp)
 	auth := "Bearer " + createResp.ApiKey
 
 	// PUT zoom credentials

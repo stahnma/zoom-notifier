@@ -65,7 +65,7 @@ func main() {
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 			<-sigCh
 			log.Info("shutting down setup wizard...")
-			srv.Shutdown(context.Background())
+			_ = srv.Shutdown(context.Background())
 		}()
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("setup server error: %v", err)
@@ -85,7 +85,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Run migrations
 	if err := store.Migrate(); err != nil {
@@ -120,7 +120,7 @@ func main() {
 	// Landing page
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprintf(w, `<!DOCTYPE html>
+		_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -207,11 +207,11 @@ func main() {
 	// API documentation
 	r.Get("/api/docs/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
-		w.Write(apispec.OpenAPISpec)
+		_, _ = w.Write(apispec.OpenAPISpec)
 	})
 	r.Get("/api/docs", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		fmt.Fprint(w, `<!DOCTYPE html>
+		_, _ = fmt.Fprint(w, `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">

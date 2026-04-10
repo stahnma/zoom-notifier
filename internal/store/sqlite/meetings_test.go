@@ -50,7 +50,7 @@ func TestUpsertMeeting_UpdateExisting(t *testing.T) {
 		TenantID:  "T1",
 		Topic:     "Old Topic",
 	}
-	s.UpsertMeeting(ctx, meeting)
+	_ = s.UpsertMeeting(ctx, meeting)
 
 	meeting.Topic = "New Topic"
 	meeting.JoinURL = "https://zoom.us/j/updated"
@@ -73,9 +73,9 @@ func TestListActiveMeetings(t *testing.T) {
 	createTestTenant(t, s, "T1")
 	createTestTenant(t, s, "T2")
 
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "A"})
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-2", TenantID: "T1", Topic: "B"})
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-3", TenantID: "T2", Topic: "C"})
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "A"})
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-2", TenantID: "T1", Topic: "B"})
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-3", TenantID: "T2", Topic: "C"})
 
 	meetings, err := s.ListActiveMeetings(ctx, "T1")
 	if err != nil {
@@ -92,12 +92,12 @@ func TestMeetingLifecycle(t *testing.T) {
 	createTestTenant(t, s, "T1")
 
 	// Create meeting
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "Standup"})
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1", Topic: "Standup"})
 
 	// Add participants
 	now := time.Now().Truncate(time.Second)
-	s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", Email: "alice@example.com", JoinTime: now})
-	s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", Email: "bob@example.com", JoinTime: now})
+	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", Email: "alice@example.com", JoinTime: now})
+	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", Email: "bob@example.com", JoinTime: now})
 
 	// Get active participants — both should be active
 	active, err := s.GetActiveParticipants(ctx, "m-1")
@@ -145,9 +145,9 @@ func TestDeleteParticipantsForMeeting(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1"})
-	s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", JoinTime: time.Now()})
-	s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", JoinTime: time.Now()})
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{MeetingID: "m-1", TenantID: "T1"})
+	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Alice", JoinTime: time.Now()})
+	_ = s.AddParticipant(ctx, &store.Participant{MeetingID: "m-1", UserName: "Bob", JoinTime: time.Now()})
 
 	if err := s.DeleteParticipantsForMeeting(ctx, "m-1"); err != nil {
 		t.Fatalf("delete participants: %v", err)

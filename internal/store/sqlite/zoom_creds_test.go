@@ -45,11 +45,11 @@ func TestUpsertZoomCredentials_Update(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
+	_ = s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
 		TenantID: "T1", ClientID: "old-id", ClientSecret: "old-secret", AccountID: "old-acct",
 	})
 
-	s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
+	_ = s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
 		TenantID: "T1", ClientID: "new-id", ClientSecret: "new-secret", AccountID: "new-acct",
 	})
 

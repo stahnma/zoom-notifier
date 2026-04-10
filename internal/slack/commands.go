@@ -178,7 +178,7 @@ func (h *CommandHandler) status(ctx context.Context, cmd SlashCommand) (*SlashRe
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("*Active Meetings (%d):*\n", len(meetings)))
+	fmt.Fprintf(&sb, "*Active Meetings (%d):*\n", len(meetings))
 	for _, m := range meetings {
 		participants, err := h.store.GetActiveParticipants(ctx, m.MeetingID)
 		if err != nil {
@@ -188,9 +188,9 @@ func (h *CommandHandler) status(ctx context.Context, cmd SlashCommand) (*SlashRe
 		if topic == "" {
 			topic = "(no topic)"
 		}
-		sb.WriteString(fmt.Sprintf("• *%s* — %d participant(s)\n", topic, len(participants)))
+		fmt.Fprintf(&sb, "• *%s* — %d participant(s)\n", topic, len(participants))
 		for _, p := range participants {
-			sb.WriteString(fmt.Sprintf("    ◦ %s\n", p.UserName))
+			fmt.Fprintf(&sb, "    ◦ %s\n", p.UserName)
 		}
 	}
 	return inChannel(sb.String()), nil
@@ -488,7 +488,7 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 		if !s.Enabled {
 			status = "disabled"
 		}
-		target := s.Target
+		var target string
 		if id, ok := channelIDs[s.Target]; ok {
 			target = "<#" + id + ">"
 		} else {
@@ -525,16 +525,17 @@ func parseQuotedArgs(args []string) []string {
 	for i := 0; i < len(raw); i++ {
 		ch := raw[i]
 		if !inQuote {
-			if ch == '"' || ch == '\'' {
+			switch ch {
+			case '"', '\'':
 				inQuote = true
 				quoteChar = ch
 				current.Reset()
-			} else if ch == ' ' {
+			case ' ':
 				if current.Len() > 0 {
 					result = append(result, current.String())
 					current.Reset()
 				}
-			} else {
+			default:
 				current.WriteByte(ch)
 			}
 		} else {

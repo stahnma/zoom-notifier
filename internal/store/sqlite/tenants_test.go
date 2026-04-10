@@ -16,7 +16,7 @@ func setupTestStore(t *testing.T) *SQLiteStore {
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("migration failed: %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() { _ = s.Close() })
 	return s
 }
 
@@ -50,9 +50,9 @@ func TestGetTenantByZoomAccount(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1", ZoomAccountID: "zoom-1"})
-	s.CreateTenant(ctx, &store.Tenant{ID: "T2", APIKey: "k2", ZoomAccountID: "zoom-1"})
-	s.CreateTenant(ctx, &store.Tenant{ID: "T3", APIKey: "k3", ZoomAccountID: "zoom-2"})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1", ZoomAccountID: "zoom-1"})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T2", APIKey: "k2", ZoomAccountID: "zoom-1"})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T3", APIKey: "k3", ZoomAccountID: "zoom-2"})
 
 	tenants, err := s.GetTenantByZoomAccount(ctx, "zoom-1")
 	if err != nil {
@@ -67,7 +67,7 @@ func TestDeleteTenant(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1"})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1"})
 	if err := s.DeleteTenant(ctx, "T1"); err != nil {
 		t.Fatalf("delete tenant: %v", err)
 	}
@@ -84,8 +84,8 @@ func TestListTenants(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1"})
-	s.CreateTenant(ctx, &store.Tenant{ID: "T2", APIKey: "k2"})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1"})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T2", APIKey: "k2"})
 
 	tenants, err := s.ListTenants(ctx)
 	if err != nil {
@@ -127,7 +127,7 @@ func TestUpdateTenantDefaults(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1", DefaultMsgSuffix: "", DefaultIncludeLink: false})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "k1", DefaultMsgSuffix: "", DefaultIncludeLink: false})
 
 	if err := s.UpdateTenantDefaults(ctx, "T1", "the standup.", true); err != nil {
 		t.Fatalf("update tenant defaults: %v", err)
@@ -158,7 +158,7 @@ func TestUpdateTenantAPIKey(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "old-key"})
+	_ = s.CreateTenant(ctx, &store.Tenant{ID: "T1", APIKey: "old-key"})
 	if err := s.UpdateTenantAPIKey(ctx, "T1", "new-key"); err != nil {
 		t.Fatalf("update api key: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestUpdateTenant(t *testing.T) {
 	ctx := context.Background()
 
 	botToken := "xoxb-original"
-	s.CreateTenant(ctx, &store.Tenant{
+	_ = s.CreateTenant(ctx, &store.Tenant{
 		ID:            "T_UPD",
 		TeamName:      "Original Team",
 		BotToken:      &botToken,

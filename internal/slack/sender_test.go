@@ -27,7 +27,7 @@ func TestSender_Send(t *testing.T) {
 
 		// Slack API response format
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"ok":      true,
 			"channel": "C123",
 			"ts":      "1234567890.123456",
@@ -56,7 +56,7 @@ func TestSender_Send(t *testing.T) {
 func TestSender_SendError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"ok":    false,
 			"error": "channel_not_found",
 		})
@@ -77,13 +77,13 @@ func TestSender_MultipleChannels(t *testing.T) {
 	var channels []string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		mu.Lock()
 		channels = append(channels, r.FormValue("channel"))
 		mu.Unlock()
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"ok":      true,
 			"channel": "C123",
 			"ts":      "1234567890.123456",
@@ -94,8 +94,8 @@ func TestSender_MultipleChannels(t *testing.T) {
 	sender := NewSender(server.URL + "/")
 	ctx := context.Background()
 
-	sender.Send(ctx, "xoxb-token", "#general", "msg 1")
-	sender.Send(ctx, "xoxb-token", "#dev", "msg 2")
+	_ = sender.Send(ctx, "xoxb-token", "#general", "msg 1")
+	_ = sender.Send(ctx, "xoxb-token", "#dev", "msg 2")
 
 	mu.Lock()
 	defer mu.Unlock()

@@ -269,7 +269,7 @@ func TestHandleSetSuffixSubmission_FilterOverride(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a filter
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Standup"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Standup"})
 	filters, _ := s.ListFilters(ctx, "T-MODAL")
 	filterID := filters[0].ID
 
@@ -334,7 +334,7 @@ func TestHandleSetLinkSubmission_FilterOverride(t *testing.T) {
 	h, s, _ := setupModalCommandHandler(t)
 	ctx := context.Background()
 
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Retro"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-MODAL", Pattern: "Retro"})
 	filters, _ := s.ListFilters(ctx, "T-MODAL")
 	filterID := filters[0].ID
 
@@ -484,7 +484,7 @@ func TestHandleUnsubscribeSubmission(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a subscription
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T-MODAL", Type: "slack", Target: "C99999", Enabled: true,
 	})
 

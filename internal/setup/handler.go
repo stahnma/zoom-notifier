@@ -211,7 +211,7 @@ func (h *Handler) generateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"key": key})
+	_ = json.NewEncoder(w).Encode(map[string]string{"key": key})
 }
 
 func (h *Handler) manifestURL(w http.ResponseWriter, r *http.Request) {
@@ -220,7 +220,7 @@ func (h *Handler) manifestURL(w http.ResponseWriter, r *http.Request) {
 		serverURL = h.data.ServerURL
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"url": SlackManifestURL(serverURL)})
+	_ = json.NewEncoder(w).Encode(map[string]string{"url": SlackManifestURL(serverURL)})
 }
 
 func (h *Handler) saveZoomSecret(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +233,7 @@ func (h *Handler) saveZoomSecret(w http.ResponseWriter, r *http.Request) {
 	}
 	h.data.ZoomSecret = body.Secret
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 func (h *Handler) handleWebhookZoomCRC(w http.ResponseWriter, r *http.Request) {
@@ -262,5 +262,5 @@ func (h *Handler) handleWebhookZoomCRC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }

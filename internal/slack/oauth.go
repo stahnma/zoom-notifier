@@ -162,7 +162,7 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html")
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	fmt.Fprintf(w, `<!DOCTYPE html>
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -226,7 +226,7 @@ func (h *OAuthHandler) exchangeCode(code string) (*oauthV2Response, error) {
 	if err != nil {
 		return nil, fmt.Errorf("POST oauth.v2.access: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result oauthV2Response
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {

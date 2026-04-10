@@ -31,7 +31,7 @@ func (s *SQLiteStore) GetIRCConfig(ctx context.Context, tenantID string) ([]*sto
 	if err != nil {
 		return nil, fmt.Errorf("get irc config: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var configs []*store.IRCConfig
 	for rows.Next() {

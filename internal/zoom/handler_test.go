@@ -23,11 +23,11 @@ func setupHandlerTest(t *testing.T) (*sqlite.SQLiteStore, *Handler) {
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() { _ = s.Close() })
 
 	// Create a test tenant
 	ctx := context.Background()
-	s.CreateTenant(ctx, &store.Tenant{
+	_ = s.CreateTenant(ctx, &store.Tenant{
 		ID:            "T1",
 		APIKey:        "key-1",
 		ZoomAccountID: "uUpLA0YDRhWZvYIu_JxPpg",
@@ -145,7 +145,7 @@ func TestHandler_MeetingStarted(t *testing.T) {
 
 	// meeting_started has account_id "uUpLO0YDAhWZvYIu_JxPpg" — different from T1's
 	// Create a tenant matching this account
-	s.CreateTenant(ctx, &store.Tenant{
+	_ = s.CreateTenant(ctx, &store.Tenant{
 		ID:            "T2",
 		APIKey:        "key-2",
 		ZoomAccountID: "uUpLO0YDAhWZvYIu_JxPpg",
@@ -172,7 +172,7 @@ func TestHandler_MeetingEnded(t *testing.T) {
 	ctx := context.Background()
 
 	// First create the meeting
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{
 		MeetingID: "6703648745",
 		TenantID:  "T1",
 		Topic:     "Test Meeting",

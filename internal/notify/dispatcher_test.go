@@ -54,11 +54,11 @@ func setupDispatcherTest(t *testing.T) (*sqlite.SQLiteStore, *mockSlackSender, *
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
-	t.Cleanup(func() { s.Close() })
+	t.Cleanup(func() { _ = s.Close() })
 
 	ctx := context.Background()
 	botToken := "xoxb-test-token"
-	s.CreateTenant(ctx, &store.Tenant{
+	_ = s.CreateTenant(ctx, &store.Tenant{
 		ID:               "T1",
 		APIKey:           "key-1",
 		BotToken:         &botToken,
@@ -96,16 +96,16 @@ func TestDispatchFanOut(t *testing.T) {
 	ctx := context.Background()
 
 	// Create 2 slack subs and 1 IRC sub
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#dev", Enabled: true,
 	})
-	s.UpsertIRCConfig(ctx, &store.IRCConfig{
+	_ = s.UpsertIRCConfig(ctx, &store.IRCConfig{
 		TenantID: "T1", Server: "irc.libera.chat:6697", Nick: "bot", Password: "pass", UseTLS: true,
 	})
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "irc", Target: "#irc-channel", Enabled: true,
 	})
 
@@ -129,8 +129,8 @@ func TestDispatchRespectsFilters(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
 
@@ -149,8 +149,8 @@ func TestDispatchFilters_MatchingTopic(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
 
@@ -169,7 +169,7 @@ func TestDispatchDisabledSubscription(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#disabled", Enabled: false,
 	})
 
@@ -187,7 +187,7 @@ func TestDispatchLeaveMessage(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
 
@@ -210,7 +210,7 @@ func TestDispatchJoinMessage(t *testing.T) {
 	s, slackSender, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
 
@@ -234,9 +234,9 @@ func TestDispatchUsesTenantDefaultSuffix(t *testing.T) {
 	ctx := context.Background()
 
 	// Update tenant default suffix
-	s.UpdateTenantDefaults(ctx, "T1", "the zoom call.", false)
+	_ = s.UpdateTenantDefaults(ctx, "T1", "the zoom call.", false)
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
 
@@ -261,13 +261,13 @@ func TestDispatchFilterOverrideTakesPrecedence(t *testing.T) {
 	// Tenant default is "the meeting." (set in setupDispatcherTest)
 	// Filter override for "Daily Standup" uses "the standup."
 	filterSuffix := "the standup."
-	s.CreateFilter(ctx, &store.MeetingFilter{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID:  "T1",
 		Pattern:   "Daily Standup",
 		MsgSuffix: &filterSuffix,
 	})
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
 
@@ -290,12 +290,12 @@ func TestDispatchFilterWithoutOverrideUsesTenantDefault(t *testing.T) {
 	ctx := context.Background()
 
 	// Filter without suffix override -- should fall back to tenant default
-	s.CreateFilter(ctx, &store.MeetingFilter{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID: "T1",
 		Pattern:  "Daily Standup",
 	})
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
 
@@ -319,10 +319,10 @@ func TestDispatchSuffixAppliedToAllSubscriptions(t *testing.T) {
 	ctx := context.Background()
 
 	// Create two subscriptions -- both should get the same suffix
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#general", Enabled: true,
 	})
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", Target: "#dev", Enabled: true,
 	})
 
@@ -346,7 +346,7 @@ func TestGetMeetingLink_NoCredentials(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a tenant with no zoom credentials stored
-	s.CreateTenant(ctx, &store.Tenant{
+	_ = s.CreateTenant(ctx, &store.Tenant{
 		ID:     "T-NOCREDS",
 		APIKey: "key-nocreds",
 	})

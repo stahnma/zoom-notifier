@@ -9,7 +9,7 @@ func TestNewInMemory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 }
 
 func TestRunMigrations(t *testing.T) {
@@ -17,7 +17,7 @@ func TestRunMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)
 	}
-	defer s.Close()
+	defer func() { _ = s.Close() }()
 
 	if err := s.Migrate(); err != nil {
 		t.Fatalf("migration failed: %v", err)

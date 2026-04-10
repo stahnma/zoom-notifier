@@ -74,7 +74,7 @@ func (c *APIClient) GetAccessToken() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("token request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -110,7 +110,7 @@ func (c *APIClient) GetMeetingJoinLink(meetingID string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("meeting request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("meeting API error: status %d", resp.StatusCode)

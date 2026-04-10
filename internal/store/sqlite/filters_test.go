@@ -20,7 +20,7 @@ func TestCreateAndListFilters(t *testing.T) {
 		t.Error("expected ID to be set")
 	}
 
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "All Hands"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "All Hands"})
 
 	filters, err := s.ListFilters(ctx, "T1")
 	if err != nil {
@@ -37,7 +37,7 @@ func TestDeleteFilter(t *testing.T) {
 	createTestTenant(t, s, "T1")
 
 	f := &store.MeetingFilter{TenantID: "T1", Pattern: "Standup"}
-	s.CreateFilter(ctx, f)
+	_ = s.CreateFilter(ctx, f)
 
 	if err := s.DeleteFilter(ctx, f.ID); err != nil {
 		t.Fatalf("delete filter: %v", err)
@@ -68,8 +68,8 @@ func TestMatchesFilter_WithFilters_MatchingTopic(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "All Hands"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "All Hands"})
 
 	matches, err := s.MatchesFilter(ctx, "T1", "Daily Standup")
 	if err != nil {
@@ -85,7 +85,7 @@ func TestMatchesFilter_WithFilters_NonMatchingTopic(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
 
 	matches, err := s.MatchesFilter(ctx, "T1", "Random Meeting")
 	if err != nil {
@@ -117,7 +117,7 @@ func TestGetMatchingFilter_WithOverrides(t *testing.T) {
 
 	suffix := "the standup."
 	includeLink := true
-	s.CreateFilter(ctx, &store.MeetingFilter{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID:    "T1",
 		Pattern:     "Daily Standup",
 		MsgSuffix:   &suffix,
@@ -148,7 +148,7 @@ func TestGetMatchingFilter_NilOverrides(t *testing.T) {
 	createTestTenant(t, s, "T1")
 
 	// Filter without overrides (nil msg_suffix and include_link)
-	s.CreateFilter(ctx, &store.MeetingFilter{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID: "T1",
 		Pattern:  "Daily Standup",
 	})
@@ -173,7 +173,7 @@ func TestGetMatchingFilter_NonMatchingTopic(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T1", Pattern: "Daily Standup"})
 
 	f, err := s.GetMatchingFilter(ctx, "T1", "Random Meeting")
 	if err != nil {

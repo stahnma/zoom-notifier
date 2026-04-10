@@ -54,9 +54,9 @@ func TestListSubscriptions(t *testing.T) {
 	createTestTenant(t, s, "T1")
 	createTestTenant(t, s, "T2")
 
-	s.CreateSubscription(ctx, &store.Subscription{TenantID: "T1", Type: "slack", Target: "#a", Enabled: true})
-	s.CreateSubscription(ctx, &store.Subscription{TenantID: "T1", Type: "irc", Target: "#b", Enabled: true})
-	s.CreateSubscription(ctx, &store.Subscription{TenantID: "T2", Type: "slack", Target: "#c", Enabled: true})
+	_ = s.CreateSubscription(ctx, &store.Subscription{TenantID: "T1", Type: "slack", Target: "#a", Enabled: true})
+	_ = s.CreateSubscription(ctx, &store.Subscription{TenantID: "T1", Type: "irc", Target: "#b", Enabled: true})
+	_ = s.CreateSubscription(ctx, &store.Subscription{TenantID: "T2", Type: "slack", Target: "#c", Enabled: true})
 
 	subs, err := s.ListSubscriptions(ctx, "T1")
 	if err != nil {
@@ -74,18 +74,18 @@ func TestGetSubscriptionsForMeeting_WildcardMatch(t *testing.T) {
 
 	meetingID := "meeting-123"
 	// Sub with specific meeting ID
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", MeetingID: &meetingID,
 		Target: "#specific", Enabled: true,
 	})
 	// Sub with NULL meeting ID (wildcard — matches all)
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", MeetingID: nil,
 		Target: "#wildcard", Enabled: true,
 	})
 	// Sub for a different meeting
 	otherMeeting := "meeting-999"
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", MeetingID: &otherMeeting,
 		Target: "#other", Enabled: true,
 	})
@@ -115,7 +115,7 @@ func TestGetSubscriptionsForMeeting_DisabledExcluded(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T1", Type: "slack", MeetingID: nil,
 		Target: "#disabled", Enabled: false,
 	})
@@ -138,7 +138,7 @@ func TestUpdateSubscription(t *testing.T) {
 		TenantID: "T1", Type: "slack", Target: "#old",
 		Enabled: true,
 	}
-	s.CreateSubscription(ctx, sub)
+	_ = s.CreateSubscription(ctx, sub)
 
 	sub.Target = "#new"
 	sub.Enabled = false
@@ -161,7 +161,7 @@ func TestDeleteSubscription(t *testing.T) {
 	createTestTenant(t, s, "T1")
 
 	sub := &store.Subscription{TenantID: "T1", Type: "slack", Target: "#a", Enabled: true}
-	s.CreateSubscription(ctx, sub)
+	_ = s.CreateSubscription(ctx, sub)
 
 	if err := s.DeleteSubscription(ctx, sub.ID); err != nil {
 		t.Fatalf("delete subscription: %v", err)

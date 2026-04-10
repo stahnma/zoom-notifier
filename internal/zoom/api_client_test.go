@@ -20,7 +20,7 @@ func TestGetAccessToken(t *testing.T) {
 			t.Errorf("expected form content-type, got %s", r.Header.Get("Content-Type"))
 		}
 
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token": "test-token-123",
 			"token_type":   "bearer",
 			"expires_in":   3600,
@@ -42,7 +42,7 @@ func TestGetAccessToken_Cached(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token": "cached-token",
 			"token_type":   "bearer",
 			"expires_in":   3600,
@@ -76,7 +76,7 @@ func TestGetAccessToken_CacheExpiry(t *testing.T) {
 	callCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		callCount++
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token": "token-" + time.Now().String(),
 			"token_type":   "bearer",
 			"expires_in":   1, // 1 second expiry
@@ -86,10 +86,10 @@ func TestGetAccessToken_CacheExpiry(t *testing.T) {
 
 	client := NewAPIClient(server.URL, server.URL, "id", "secret", "acct")
 
-	client.GetAccessToken()
+	_, _ = client.GetAccessToken()
 	// Manually expire the token
 	client.tokenExpiry = time.Now().Add(-time.Minute)
-	client.GetAccessToken()
+	_, _ = client.GetAccessToken()
 
 	if callCount != 2 {
 		t.Errorf("expected 2 API calls (cache expired), got %d", callCount)
@@ -98,7 +98,7 @@ func TestGetAccessToken_CacheExpiry(t *testing.T) {
 
 func TestGetMeetingJoinLink(t *testing.T) {
 	oauthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token": "test-token",
 			"token_type":   "bearer",
 			"expires_in":   3600,
@@ -110,7 +110,7 @@ func TestGetMeetingJoinLink(t *testing.T) {
 		if r.Header.Get("Authorization") != "Bearer test-token" {
 			t.Errorf("unexpected auth header: %s", r.Header.Get("Authorization"))
 		}
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"join_url": "https://zoom.us/j/12345?pwd=abc123",
 		})
 	}))
@@ -128,7 +128,7 @@ func TestGetMeetingJoinLink(t *testing.T) {
 
 func TestGetMeetingJoinLink_APIError(t *testing.T) {
 	oauthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"access_token": "test-token",
 			"token_type":   "bearer",
 			"expires_in":   3600,

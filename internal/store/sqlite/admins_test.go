@@ -13,7 +13,7 @@ func TestAddAndListAdmins(t *testing.T) {
 	if err := s.AddAdmin(ctx, "T1", "U_ALICE"); err != nil {
 		t.Fatalf("add admin: %v", err)
 	}
-	s.AddAdmin(ctx, "T1", "U_BOB")
+	_ = s.AddAdmin(ctx, "T1", "U_BOB")
 
 	admins, err := s.ListAdmins(ctx, "T1")
 	if err != nil {
@@ -29,7 +29,7 @@ func TestIsAdmin(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.AddAdmin(ctx, "T1", "U_ALICE")
+	_ = s.AddAdmin(ctx, "T1", "U_ALICE")
 
 	isAdmin, err := s.IsAdmin(ctx, "T1", "U_ALICE")
 	if err != nil {
@@ -50,7 +50,7 @@ func TestRemoveAdmin(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	s.AddAdmin(ctx, "T1", "U_ALICE")
+	_ = s.AddAdmin(ctx, "T1", "U_ALICE")
 	if err := s.RemoveAdmin(ctx, "T1", "U_ALICE"); err != nil {
 		t.Fatalf("remove admin: %v", err)
 	}

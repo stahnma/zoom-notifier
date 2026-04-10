@@ -131,13 +131,13 @@ func TestCommandStatusWithMeetings(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a meeting with a participant
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{
 		MeetingID: "m1",
 		TenantID:  "T-CMD",
 		Topic:     "Standup",
 		StartTime: time.Now(),
 	})
-	s.AddParticipant(ctx, &store.Participant{
+	_ = s.AddParticipant(ctx, &store.Participant{
 		MeetingID: "m1",
 		UserName:  "Alice",
 		JoinTime:  time.Now(),
@@ -161,16 +161,16 @@ func TestCommandWhois(t *testing.T) {
 	h, s := setupCommandHandler(t)
 	ctx := context.Background()
 
-	s.UpsertMeeting(ctx, &store.ActiveMeeting{
+	_ = s.UpsertMeeting(ctx, &store.ActiveMeeting{
 		MeetingID: "m2",
 		TenantID:  "T-CMD",
 		Topic:     "Retro",
 		StartTime: time.Now(),
 	})
-	s.AddParticipant(ctx, &store.Participant{
+	_ = s.AddParticipant(ctx, &store.Participant{
 		MeetingID: "m2", UserName: "Bob", JoinTime: time.Now(),
 	})
-	s.AddParticipant(ctx, &store.Participant{
+	_ = s.AddParticipant(ctx, &store.Participant{
 		MeetingID: "m2", UserName: "Carol", JoinTime: time.Now(),
 	})
 
@@ -245,7 +245,7 @@ func TestCommandUnsubscribe(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a subscription first
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T-CMD", Type: "slack", Target: "alerts", Enabled: true,
 	})
 
@@ -265,7 +265,7 @@ func TestCommandUnsubscribeExactTargetMatch(t *testing.T) {
 	ctx := context.Background()
 
 	// Subscription stored with plain name "general"
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T-CMD", Type: "slack", Target: "general", Enabled: true,
 	})
 
@@ -289,7 +289,7 @@ func TestCommandUnsubscribeNoMatch(t *testing.T) {
 	h, s := setupCommandHandler(t)
 	ctx := context.Background()
 
-	s.CreateSubscription(ctx, &store.Subscription{
+	_ = s.CreateSubscription(ctx, &store.Subscription{
 		TenantID: "T-CMD", Type: "slack", Target: "general", Enabled: true,
 	})
 
@@ -349,7 +349,7 @@ func TestCommandFilters(t *testing.T) {
 	}
 
 	// Add a filter
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Standup"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Standup"})
 
 	resp, err = h.Handle(ctx, SlashCommand{
 		TeamID: "T-CMD", UserID: "U-ANYONE", Text: "filters",
@@ -433,7 +433,7 @@ func TestCommandSetSuffixFilterOverride(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a filter first
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Standup"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Standup"})
 
 	resp, err := h.Handle(ctx, SlashCommand{
 		TeamID: "T-CMD", UserID: "U-ADMIN", Text: `set-suffix "Standup" "the standup meeting"`,
@@ -526,7 +526,7 @@ func TestCommandSetLinkFilterOverride(t *testing.T) {
 	ctx := context.Background()
 
 	// Create a filter
-	s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Retro"})
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{TenantID: "T-CMD", Pattern: "Retro"})
 
 	resp, err := h.Handle(ctx, SlashCommand{
 		TeamID: "T-CMD", UserID: "U-ADMIN", Text: `set-link "Retro" on`,
@@ -583,12 +583,12 @@ func TestCommandSettings(t *testing.T) {
 	ctx := context.Background()
 
 	// Set some defaults
-	s.UpdateTenantDefaults(ctx, "T-CMD", "the meeting", true)
+	_ = s.UpdateTenantDefaults(ctx, "T-CMD", "the meeting", true)
 
 	// Create a filter with overrides
 	suffix := "standup suffix"
 	includeLink := false
-	s.CreateFilter(ctx, &store.MeetingFilter{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID:    "T-CMD",
 		Pattern:     "Standup",
 		MsgSuffix:   &suffix,
@@ -596,7 +596,7 @@ func TestCommandSettings(t *testing.T) {
 	})
 
 	// Create a filter without overrides
-	s.CreateFilter(ctx, &store.MeetingFilter{
+	_ = s.CreateFilter(ctx, &store.MeetingFilter{
 		TenantID: "T-CMD",
 		Pattern:  "Retro",
 	})
