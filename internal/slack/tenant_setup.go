@@ -89,7 +89,9 @@ func (h *TenantSetupHandler) handleGet(w http.ResponseWriter, r *http.Request, t
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = h.tmpl.Execute(w, data)
+	if err := h.tmpl.Execute(w, data); err != nil {
+		log.WithError(err).Error("failed to render tenant setup template")
+	}
 }
 
 func (h *TenantSetupHandler) handlePost(w http.ResponseWriter, r *http.Request, tenant *store.Tenant, apiKey string) {
@@ -114,7 +116,9 @@ func (h *TenantSetupHandler) handlePost(w http.ResponseWriter, r *http.Request, 
 		log.WithField("tenant_id", tenant.ID).Warn("tenant setup validation failed: missing Zoom Account ID")
 		data.Error = "Zoom Account ID is required."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = h.tmpl.Execute(w, data)
+		if err := h.tmpl.Execute(w, data); err != nil {
+			log.WithError(err).Error("failed to render tenant setup template")
+		}
 		return
 	}
 
@@ -124,7 +128,9 @@ func (h *TenantSetupHandler) handlePost(w http.ResponseWriter, r *http.Request, 
 		log.WithError(err).Error("failed to update tenant zoom account ID")
 		data.Error = "Failed to save Zoom Account ID."
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_ = h.tmpl.Execute(w, data)
+		if err := h.tmpl.Execute(w, data); err != nil {
+			log.WithError(err).Error("failed to render tenant setup template")
+		}
 		return
 	}
 
@@ -140,14 +146,18 @@ func (h *TenantSetupHandler) handlePost(w http.ResponseWriter, r *http.Request, 
 			log.WithError(err).Error("failed to upsert zoom credentials")
 			data.Error = "Saved Account ID but failed to save API credentials."
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			_ = h.tmpl.Execute(w, data)
+			if err := h.tmpl.Execute(w, data); err != nil {
+				log.WithError(err).Error("failed to render tenant setup template")
+			}
 			return
 		}
 	}
 
 	data.Success = "Zoom credentials saved successfully."
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_ = h.tmpl.Execute(w, data)
+	if err := h.tmpl.Execute(w, data); err != nil {
+		log.WithError(err).Error("failed to render tenant setup template")
+	}
 
 	log.WithField("team_id", tenant.ID).Info("tenant Zoom credentials updated via setup page")
 }
