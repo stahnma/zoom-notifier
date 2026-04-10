@@ -11,16 +11,28 @@ import (
 	"github.com/stahnma/mandatoryFun/zoom-notifier/internal/store"
 )
 
-// postConfirmation sends an ephemeral message to the user after a modal submission.
-func (h *CommandHandler) postConfirmation(ctx context.Context, teamID, userID, text string) {
+// parseMetadata extracts teamID and channelID from the modal's PrivateMetadata field.
+func parseMetadata(metadata string) (teamID, channelID string) {
+	parts := strings.SplitN(metadata, "|", 2)
+	teamID = parts[0]
+	if len(parts) > 1 {
+		channelID = parts[1]
+	}
+	return
+}
+
+// postConfirmation sends an ephemeral message to the user in the channel where
+// the slash command was invoked.
+func (h *CommandHandler) postConfirmation(ctx context.Context, teamID, channelID, userID, text string) {
 	botToken := h.getBotToken(ctx, teamID)
 	if botToken == "" {
 		return
 	}
+	if channelID == "" {
+		channelID = userID // fall back to DM
+	}
 	api := slackapi.New(botToken)
-	// Post to the user's DM via ephemeral in their most recent channel
-	// Using PostEphemeral to the user's ID posts a DM-like message
-	_, err := api.PostEphemeralContext(ctx, userID, userID, slackapi.MsgOptionText(text, false))
+	_, err := api.PostEphemeralContext(ctx, channelID, userID, slackapi.MsgOptionText(text, false))
 	if err != nil {
 		log.WithError(err).Debug("failed to send modal confirmation")
 	}
@@ -36,7 +48,7 @@ func (h *CommandHandler) RegisterModalHandlers(ih *InteractionHandler) {
 
 func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) error {
 	ctx := context.Background()
-	teamID := payload.View.PrivateMetadata
+	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
 	if teamID == "" {
 		teamID = payload.Team.ID
 	}
@@ -69,7 +81,7 @@ func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) e
 		if err := h.store.UpdateTenantDefaults(ctx, teamID, suffixValue, tenant.DefaultIncludeLink); err != nil {
 			return err
 		}
-		h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Updated default message suffix to `%s`.", suffixValue))
+		h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Updated default message suffix to `%s`.", suffixValue))
 		return nil
 	}
 
@@ -84,13 +96,13 @@ func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) e
 	if err := h.store.UpdateFilter(ctx, filter); err != nil {
 		return err
 	}
-	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Updated suffix on filter `%s` to `%s`.", filter.Pattern, suffixValue))
+	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Updated suffix on filter `%s` to `%s`.", filter.Pattern, suffixValue))
 	return nil
 }
 
 func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) error {
 	ctx := context.Background()
-	teamID := payload.View.PrivateMetadata
+	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
 	if teamID == "" {
 		teamID = payload.Team.ID
 	}
@@ -129,7 +141,7 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 		if err := h.store.UpdateTenantDefaults(ctx, teamID, tenant.DefaultMsgSuffix, includeLink); err != nil {
 			return err
 		}
-		h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Meeting links set to %s (default).", state))
+		h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s (default).", state))
 		return nil
 	}
 
@@ -144,13 +156,13 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 	if err := h.store.UpdateFilter(ctx, filter); err != nil {
 		return err
 	}
-	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Meeting links set to %s on filter `%s`.", state, filter.Pattern))
+	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s on filter `%s`.", state, filter.Pattern))
 	return nil
 }
 
 func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) error {
 	ctx := context.Background()
-	teamID := payload.View.PrivateMetadata
+	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
 	if teamID == "" {
 		teamID = payload.Team.ID
 	}
@@ -159,19 +171,19 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 		return fmt.Errorf("no view state in payload")
 	}
 
-	channelID := ""
+	selectedChannel := ""
 	if cv, ok := payload.View.State.Values["channel_block"]["channel_select"]; ok {
 		if cv.SelectedConversation != nil {
-			channelID = *cv.SelectedConversation
+			selectedChannel = *cv.SelectedConversation
 		}
 	}
-	if channelID == "" {
+	if selectedChannel == "" {
 		return fmt.Errorf("no channel selected")
 	}
 
 	log.WithFields(log.Fields{
 		"team_id": teamID,
-		"channel": channelID,
+		"channel": selectedChannel,
 	}).Debug("subscribe modal submission")
 
 	// Check for duplicate
@@ -180,8 +192,8 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 		return fmt.Errorf("list subscriptions: %w", err)
 	}
 	for _, s := range existing {
-		if s.Target == channelID && s.Type == "slack" {
-			h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("<#%s> is already subscribed.", channelID))
+		if s.Target == selectedChannel && s.Type == "slack" {
+			h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("<#%s> is already subscribed.", selectedChannel))
 			return nil
 		}
 	}
@@ -189,21 +201,20 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 	sub := &store.Subscription{
 		TenantID: teamID,
 		Type:     "slack",
-		Target:   channelID,
+		Target:   selectedChannel,
 		Enabled:  true,
 	}
 	if err := h.store.CreateSubscription(ctx, sub); err != nil {
 		return err
 	}
 
-	// Send confirmation to the user
-	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Subscribed <#%s> to meeting notifications.", channelID))
+	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Subscribed <#%s> to meeting notifications.", selectedChannel))
 	return nil
 }
 
 func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) error {
 	ctx := context.Background()
-	teamID := payload.View.PrivateMetadata
+	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
 	if teamID == "" {
 		teamID = payload.Team.ID
 	}
@@ -252,7 +263,7 @@ func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) e
 	if err := h.store.CreateFilter(ctx, f); err != nil {
 		return err
 	}
-	h.postConfirmation(ctx, teamID, payload.User.ID, fmt.Sprintf("Added meeting filter `%s`.", pattern))
+	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Added meeting filter `%s`.", pattern))
 	return nil
 }
 

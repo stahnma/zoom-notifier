@@ -235,7 +235,7 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 		botToken := h.getBotToken(ctx, cmd.TeamID)
 		if botToken != "" {
 			modal := BuildSubscribeModal()
-			modal.PrivateMetadata = cmd.TeamID
+			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
 			opener := NewSlackModalOpener(botToken)
 			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
 				log.WithError(err).Error("failed to open subscribe modal")
@@ -328,7 +328,7 @@ func (h *CommandHandler) addFilter(ctx context.Context, cmd SlashCommand, args [
 		botToken := h.getBotToken(ctx, cmd.TeamID)
 		if botToken != "" {
 			modal := BuildFilterModal()
-			modal.PrivateMetadata = cmd.TeamID
+			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
 			opener := NewSlackModalOpener(botToken)
 			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
 				log.WithError(err).Error("failed to open filter modal")
@@ -514,7 +514,7 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 				return nil, fmt.Errorf("list filters: %w", err)
 			}
 			modal := BuildSetSuffixModal(tenant.DefaultMsgSuffix, filters)
-			modal.PrivateMetadata = cmd.TeamID
+			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
 			opener := NewSlackModalOpener(botToken)
 			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
 				log.WithError(err).Error("failed to open set-suffix modal")
@@ -581,7 +581,7 @@ func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []s
 				return nil, fmt.Errorf("list filters: %w", err)
 			}
 			modal := BuildSetLinkModal(tenant.DefaultIncludeLink, filters)
-			modal.PrivateMetadata = cmd.TeamID
+			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
 			opener := NewSlackModalOpener(botToken)
 			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
 				log.WithError(err).Error("failed to open set-link modal")
