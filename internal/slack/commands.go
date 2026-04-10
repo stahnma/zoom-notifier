@@ -346,18 +346,32 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 		return ephemeral("No subscriptions configured. Use `/zoom-notifier subscribe #channel` to add one."), nil
 	}
 
-	// Resolve channel names via Slack API
-	channelNames := make(map[string]string)
+	// Resolve channel IDs/names via Slack API for display
+	channelIDs := make(map[string]string) // target -> channel ID
 	botToken := h.getBotToken(ctx, cmd.TeamID)
 	if botToken != "" {
 		api := slackapi.New(botToken)
 		for _, s := range subs {
-			if s.Type == "slack" && strings.HasPrefix(s.Target, "C") {
-				info, err := api.GetConversationInfoContext(ctx, &slackapi.GetConversationInfoInput{
-					ChannelID: s.Target,
+			if s.Type != "slack" {
+				continue
+			}
+			if strings.HasPrefix(s.Target, "C") {
+				// Already a channel ID
+				channelIDs[s.Target] = s.Target
+			} else {
+				// Name-based target — search for matching channel
+				channels, _, err := api.GetConversationsContext(ctx, &slackapi.GetConversationsParameters{
+					Types:           []string{"public_channel", "private_channel"},
+					ExcludeArchived: true,
+					Limit:           200,
 				})
-				if err == nil && info != nil {
-					channelNames[s.Target] = info.Name
+				if err == nil {
+					for _, ch := range channels {
+						if ch.Name == s.Target {
+							channelIDs[s.Target] = ch.ID
+							break
+						}
+					}
 				}
 			}
 		}
@@ -371,8 +385,8 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 			status = "disabled"
 		}
 		target := s.Target
-		if name, ok := channelNames[s.Target]; ok {
-			target = "#" + name
+		if id, ok := channelIDs[s.Target]; ok {
+			target = "<#" + id + ">"
 		} else {
 			target = formatChannel(s.Target)
 		}
