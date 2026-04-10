@@ -75,7 +75,7 @@ func GenerateSlackManifest(serverURL string) string {
 		OAuthConfig: oauthConfig{
 			RedirectURLs: []string{serverURL + "/slack/callback"},
 			Scopes: oauthScopes{
-				Bot: []string{"commands", "chat:write", "channels:read"},
+				Bot: []string{"commands", "chat:write", "chat:write.public", "channels:read"},
 			},
 		},
 		Settings: manifestSettings{
