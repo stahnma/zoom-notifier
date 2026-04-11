@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
@@ -12,7 +13,9 @@ func LivezHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+		if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+			log.WithError(err).Error("failed to encode livez response")
+		}
 	}
 }
 
@@ -25,17 +28,21 @@ func ReadyzHandler(s store.Store) http.HandlerFunc {
 		// Check database by listing tenants (lightweight query)
 		if _, err := s.ListTenants(r.Context()); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_ = json.NewEncoder(w).Encode(map[string]string{
+			if encErr := json.NewEncoder(w).Encode(map[string]string{
 				"status":   "not ready",
 				"database": err.Error(),
-			})
+			}); encErr != nil {
+				log.WithError(encErr).Error("failed to encode readyz response")
+			}
 			return
 		}
 
 		w.WriteHeader(http.StatusOK)
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"status":   "ok",
 			"database": "ok",
-		})
+		}); err != nil {
+			log.WithError(err).Error("failed to encode readyz response")
+		}
 	}
 }
