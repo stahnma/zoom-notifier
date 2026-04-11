@@ -2,6 +2,12 @@ package store
 
 import "time"
 
+// Subscription type constants.
+const (
+	SubscriptionTypeSlack = "slack"
+	SubscriptionTypeIRC   = "irc"
+)
+
 type Tenant struct {
 	ID                 string
 	TeamName           string
