@@ -196,9 +196,9 @@ func (d *Dispatcher) getMeetingLink(ctx context.Context, tenantID string, meetin
 func formatMessage(payload zoom.WebhookPayload) string {
 	userName := payload.Payload.Object.Participant.UserName
 	switch payload.Event {
-	case "meeting.participant_joined":
+	case zoom.EventParticipantJoined:
 		return userName + " has joined "
-	case "meeting.participant_left":
+	case zoom.EventParticipantLeft:
 		return userName + " has left "
 	default:
 		return ""

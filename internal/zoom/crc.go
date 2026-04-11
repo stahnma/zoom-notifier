@@ -8,7 +8,7 @@ import (
 )
 
 func ValidateCRC(payload WebhookPayload, secret string) (*CRCResponse, error) {
-	if payload.Event != "endpoint.url_validation" {
+	if payload.Event != EventURLValidation {
 		return nil, fmt.Errorf("not a CRC validation event: %s", payload.Event)
 	}
 	h := hmac.New(sha256.New, []byte(secret))

@@ -539,7 +539,7 @@ func (s *Server) PostWebhookZoom(ctx context.Context, request PostWebhookZoomReq
 	}
 
 	// Handle CRC validation
-	if payload.Event == "endpoint.url_validation" {
+	if payload.Event == zoom.EventURLValidation {
 		resp, err := zoom.ValidateCRC(payload, s.webhookSecret)
 		if err != nil {
 			return PostWebhookZoom200Response{}, nil

@@ -34,7 +34,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Handle CRC validation (no tenant resolution needed)
-	if payload.Event == "endpoint.url_validation" {
+	if payload.Event == EventURLValidation {
 		resp, err := ValidateCRC(payload, h.webhookSecret)
 		if err != nil {
 			log.WithError(err).Error("CRC validation failed")
@@ -79,7 +79,7 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 
 	for _, tenant := range tenants {
 		switch payload.Event {
-		case "meeting.started":
+		case EventMeetingStarted:
 			log.WithFields(log.Fields{
 				"meeting_id": obj.ID,
 				"topic":      obj.Topic,
@@ -96,7 +96,7 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 				log.WithError(err).Error("failed to upsert meeting on start")
 			}
 
-		case "meeting.ended":
+		case EventMeetingEnded:
 			log.WithFields(log.Fields{
 				"meeting_id": obj.ID,
 				"topic":      obj.Topic,
@@ -109,7 +109,7 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 				log.WithError(err).Error("failed to delete meeting on end")
 			}
 
-		case "meeting.participant_joined":
+		case EventParticipantJoined:
 			log.WithFields(log.Fields{
 				"meeting_id": obj.ID,
 				"topic":      obj.Topic,
@@ -142,7 +142,7 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 				h.dispatch(tenant.ID, payload.Event, payload)
 			}
 
-		case "meeting.participant_left":
+		case EventParticipantLeft:
 			log.WithFields(log.Fields{
 				"meeting_id": obj.ID,
 				"topic":      obj.Topic,

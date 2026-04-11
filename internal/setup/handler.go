@@ -249,7 +249,7 @@ func (h *Handler) handleWebhookZoomCRC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.Event != "endpoint.url_validation" {
+	if payload.Event != zoom.EventURLValidation {
 		// During setup, only handle CRC validation — ignore all other events
 		w.WriteHeader(http.StatusOK)
 		return
