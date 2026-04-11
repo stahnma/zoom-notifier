@@ -17,6 +17,7 @@ import (
 	"github.com/stahnma/zoom-notifier/internal/api"
 	"github.com/stahnma/zoom-notifier/internal/config"
 	"github.com/stahnma/zoom-notifier/internal/irc"
+	appmiddleware "github.com/stahnma/zoom-notifier/internal/middleware"
 	"github.com/stahnma/zoom-notifier/internal/notify"
 	"github.com/stahnma/zoom-notifier/internal/setup"
 	appslack "github.com/stahnma/zoom-notifier/internal/slack"
@@ -116,6 +117,7 @@ func main() {
 
 	// Build main router
 	r := chi.NewRouter()
+	r.Use(appmiddleware.Recovery)
 
 	// Landing page
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
