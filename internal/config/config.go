@@ -73,6 +73,9 @@ func (c *Config) Validate() error {
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required config: %s", strings.Join(missing, ", "))
 	}
+	if c.Log.Format != "text" && c.Log.Format != "json" {
+		return fmt.Errorf("invalid log.format %q: must be \"text\" or \"json\"", c.Log.Format)
+	}
 	return nil
 }
 

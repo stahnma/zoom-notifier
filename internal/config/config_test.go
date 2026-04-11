@@ -99,6 +99,7 @@ func validConfig() *Config {
 		Zoom:  ZoomConfig{WebhookSecret: "secret", AccountID: "acct"},
 		Slack: SlackConfig{ClientID: "cid", ClientSecret: "csec", SigningSecret: "ssec"},
 		Admin: AdminConfig{APIKey: "key"},
+		Log:   LogConfig{Format: "text"},
 	}
 }
 
@@ -192,6 +193,26 @@ func TestValidate_MultipleFieldsMissing(t *testing.T) {
 		if !contains(err.Error(), field) {
 			t.Errorf("expected error to mention %s, got: %v", field, err)
 		}
+	}
+}
+
+func TestValidate_InvalidLogFormat(t *testing.T) {
+	cfg := validConfig()
+	cfg.Log.Format = "xml"
+	err := cfg.Validate()
+	if err == nil {
+		t.Fatal("expected error for invalid log format")
+	}
+	if !contains(err.Error(), "log.format") {
+		t.Errorf("expected error to mention log.format, got: %v", err)
+	}
+}
+
+func TestValidate_JSONLogFormat(t *testing.T) {
+	cfg := validConfig()
+	cfg.Log.Format = "json"
+	if err := cfg.Validate(); err != nil {
+		t.Errorf("expected no error for json format, got: %v", err)
 	}
 }
 
