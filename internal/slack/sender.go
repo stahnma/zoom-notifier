@@ -17,12 +17,16 @@ const (
 
 // Sender sends notifications to Slack channels using bot tokens.
 type Sender struct {
-	apiURL string // empty = use default Slack API URL
+	apiURL     string // empty = use default Slack API URL
+	httpClient *http.Client
 }
 
 // NewSender creates a Slack sender. Pass empty string for apiURL to use default.
 func NewSender(apiURL string) *Sender {
-	return &Sender{apiURL: apiURL}
+	return &Sender{
+		apiURL:     apiURL,
+		httpClient: &http.Client{Timeout: slackAPITimeout},
+	}
 }
 
 // Send posts a message to a Slack channel using the given bot token.
@@ -32,9 +36,8 @@ func (s *Sender) Send(ctx context.Context, botToken string, channelID string, ms
 		"msg_length": len(msg),
 	}).Debug("sending slack message")
 
-	httpClient := &http.Client{Timeout: slackAPITimeout}
 	opts := []slack.Option{
-		slack.OptionHTTPClient(httpClient),
+		slack.OptionHTTPClient(s.httpClient),
 	}
 	if s.apiURL != "" {
 		opts = append(opts, slack.OptionAPIURL(s.apiURL))
