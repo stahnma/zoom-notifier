@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/didip/tollbooth/v7"
 	"github.com/didip/tollbooth/v7/limiter"
@@ -21,6 +22,7 @@ const (
 func NewWebhookRateLimiter() *limiter.Limiter {
 	lmt := tollbooth.NewLimiter(webhookRateLimit, nil)
 	lmt.SetBurst(webhookBurstSize)
+	lmt.SetTokenBucketExpirationTTL(time.Hour)
 	lmt.SetMessage("rate limit exceeded")
 	lmt.SetMessageContentType("text/plain")
 	return lmt
