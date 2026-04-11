@@ -113,3 +113,13 @@ func TestRequestLogger_PassesResponseThrough(t *testing.T) {
 		t.Errorf("expected X-Custom header, got '%s'", w.Header().Get("X-Custom"))
 	}
 }
+
+func TestStatusRecorder_Unwrap(t *testing.T) {
+	w := httptest.NewRecorder()
+	rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+
+	unwrapped := rec.Unwrap()
+	if unwrapped != w {
+		t.Error("expected Unwrap to return the underlying ResponseWriter")
+	}
+}

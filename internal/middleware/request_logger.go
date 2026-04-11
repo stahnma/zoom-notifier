@@ -21,6 +21,12 @@ func (r *statusRecorder) WriteHeader(code int) {
 	r.ResponseWriter.WriteHeader(code)
 }
 
+// Unwrap returns the underlying ResponseWriter, allowing http.ResponseController
+// to access interfaces like http.Flusher and http.Hijacker on the original writer.
+func (r *statusRecorder) Unwrap() http.ResponseWriter {
+	return r.ResponseWriter
+}
+
 // RequestLogger returns middleware that logs each HTTP request with
 // method, path, status code, and duration. It also records Prometheus
 // metrics using the Chi route pattern (not the raw URL path).
