@@ -33,6 +33,21 @@ func (s *SQLiteStore) CreateFilter(ctx context.Context, f *store.MeetingFilter) 
 	return nil
 }
 
+func (s *SQLiteStore) GetFilter(ctx context.Context, id int64) (*store.MeetingFilter, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT id, tenant_id, pattern, msg_suffix, include_link FROM meeting_filters WHERE id = ?`, id,
+	)
+	f := &store.MeetingFilter{}
+	err := row.Scan(&f.ID, &f.TenantID, &f.Pattern, &f.MsgSuffix, &f.IncludeLink)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get filter: %w", err)
+	}
+	return f, nil
+}
+
 func (s *SQLiteStore) UpdateFilter(ctx context.Context, f *store.MeetingFilter) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE meeting_filters SET pattern = ?, msg_suffix = ?, include_link = ? WHERE id = ?`,

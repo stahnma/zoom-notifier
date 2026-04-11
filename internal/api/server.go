@@ -333,19 +333,11 @@ func (s *Server) UpdateFilter(ctx context.Context, request UpdateFilterRequestOb
 		"tenant_id": request.TenantId,
 		"filter_id": request.FilterId,
 	}).Info("updating filter via API")
-	// Get existing filters to find this one
-	filters, err := s.store.ListFilters(ctx, request.TenantId)
+	existing, err := s.store.GetFilter(ctx, request.FilterId)
 	if err != nil {
 		return nil, err
 	}
-	var existing *store.MeetingFilter
-	for _, f := range filters {
-		if f.ID == request.FilterId {
-			existing = f
-			break
-		}
-	}
-	if existing == nil {
+	if existing == nil || existing.TenantID != request.TenantId {
 		return UpdateFilter404JSONResponse{NotFoundJSONResponse{Error: "filter not found"}}, nil
 	}
 
@@ -364,18 +356,11 @@ func (s *Server) UpdateFilter(ctx context.Context, request UpdateFilterRequestOb
 
 func (s *Server) DeleteFilter(ctx context.Context, request DeleteFilterRequestObject) (DeleteFilterResponseObject, error) {
 	log.WithField("filter_id", request.FilterId).Info("deleting filter via API")
-	filters, err := s.store.ListFilters(ctx, request.TenantId)
+	existing, err := s.store.GetFilter(ctx, request.FilterId)
 	if err != nil {
 		return nil, err
 	}
-	var found bool
-	for _, f := range filters {
-		if f.ID == request.FilterId {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if existing == nil || existing.TenantID != request.TenantId {
 		return DeleteFilter404JSONResponse{NotFoundJSONResponse{Error: "filter not found"}}, nil
 	}
 	if err := s.store.DeleteFilter(ctx, request.FilterId); err != nil {

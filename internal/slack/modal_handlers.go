@@ -401,14 +401,12 @@ func (h *CommandHandler) getFilterBySelectValue(ctx context.Context, teamID, sel
 		return nil, fmt.Errorf("invalid filter ID: %s", selectValue)
 	}
 
-	filters, err := h.store.ListFilters(ctx, teamID)
+	f, err := h.store.GetFilter(ctx, filterID)
 	if err != nil {
-		return nil, fmt.Errorf("list filters: %w", err)
+		return nil, fmt.Errorf("get filter: %w", err)
 	}
-	for _, f := range filters {
-		if f.ID == filterID {
-			return f, nil
-		}
+	if f != nil && f.TenantID != teamID {
+		return nil, nil
 	}
-	return nil, nil
+	return f, nil
 }
