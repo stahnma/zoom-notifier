@@ -933,10 +933,13 @@ func (h *CommandHandler) apiKey(ctx context.Context, cmd SlashCommand) (*SlashRe
 }
 
 func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResponse, error) {
-	isAdminUser, _ := h.store.IsAdmin(ctx, cmd.TeamID, cmd.UserID)
+	isAdmin, err := h.store.IsAdmin(ctx, cmd.TeamID, cmd.UserID)
+	if err != nil {
+		log.WithError(err).Warn("failed to check admin status in help command")
+	}
 	log.WithFields(log.Fields{
 		"team_id":  cmd.TeamID,
-		"is_admin": isAdminUser,
+		"is_admin": isAdmin,
 	}).Debug("help command")
 
 	text := "*zoom-notifier commands:*\n" +
@@ -946,7 +949,6 @@ func (h *CommandHandler) help(ctx context.Context, cmd SlashCommand) (*SlashResp
 		"• `/zoom-notifier settings` — Show notification settings and filter overrides\n" +
 		"• `/zoom-notifier help` — Show this help"
 
-	isAdmin, err := h.store.IsAdmin(ctx, cmd.TeamID, cmd.UserID)
 	if err == nil && isAdmin {
 		text += "\n\n*Admin commands:*\n" +
 			"• `/zoom-notifier subscriptions` — List channel subscriptions\n" +
