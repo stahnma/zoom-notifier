@@ -78,7 +78,7 @@ api/
 - **Notification settings**: Two-tier model — tenant-wide defaults with per-filter overrides for message suffix and meeting link toggle
 - **Slack modals**: Admin commands (subscribe, filter, set-suffix, set-link, admins add) open interactive modals with proper form UIs; text-based fallback when modals unavailable
 - **Single Zoom app**: Server-to-Server OAuth app handles both webhooks and API access (no separate Webhook Only app needed)
-- **Rate limiting**: `/webhook/zoom` is rate-limited at 10 req/s per IP via tollbooth
+- **Rate limiting**: `/webhook/zoom` is rate-limited per IP via tollbooth (10 req/s sustained, burst of 50 for meeting-end scenarios)
 
 ## Configuration
 

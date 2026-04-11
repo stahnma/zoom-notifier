@@ -86,6 +86,37 @@ func TestRateLimit_DifferentIPsNotAffected(t *testing.T) {
 	}
 }
 
+func TestRateLimit_BurstAllowed(t *testing.T) {
+	lmt := tollbooth.NewLimiter(1, nil) // 1 req/s sustained
+	lmt.SetBurst(10)                    // but allow bursts of 10
+
+	handler := RateLimit(lmt, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Send 10 rapid requests — all should pass (within burst)
+	for i := 0; i < 10; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", nil)
+		req.RemoteAddr = "10.0.0.50:12345"
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("request %d: expected 200, got %d", i+1, w.Code)
+		}
+	}
+
+	// 11th request should be rate limited (burst exhausted)
+	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", nil)
+	req.RemoteAddr = "10.0.0.50:12345"
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Errorf("request after burst: expected 429, got %d", w.Code)
+	}
+}
+
 func TestNewWebhookRateLimiter(t *testing.T) {
 	lmt := NewWebhookRateLimiter()
 	if lmt == nil {
