@@ -74,6 +74,11 @@ func main() {
 		return
 	}
 
+	// Validate required config
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
+
 	// Setup logging
 	level, err := log.ParseLevel(cfg.Log.Level)
 	if err != nil {

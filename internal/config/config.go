@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -44,6 +45,34 @@ type AdminConfig struct {
 
 type LogConfig struct {
 	Level string
+}
+
+// Validate checks that all required configuration fields are set.
+// Returns an error listing all missing fields.
+func (c *Config) Validate() error {
+	var missing []string
+	if c.Zoom.WebhookSecret == "" {
+		missing = append(missing, "zoom.webhook_secret")
+	}
+	if c.Zoom.AccountID == "" {
+		missing = append(missing, "zoom.account_id")
+	}
+	if c.Slack.ClientID == "" {
+		missing = append(missing, "slack.client_id")
+	}
+	if c.Slack.ClientSecret == "" {
+		missing = append(missing, "slack.client_secret")
+	}
+	if c.Slack.SigningSecret == "" {
+		missing = append(missing, "slack.signing_secret")
+	}
+	if c.Admin.APIKey == "" {
+		missing = append(missing, "admin.api_key")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required config: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 func Load(configPath string) (*Config, error) {
