@@ -2,6 +2,15 @@ package zoom
 
 import "time"
 
+// Zoom webhook event types.
+const (
+	EventURLValidation     = "endpoint.url_validation"
+	EventMeetingStarted    = "meeting.started"
+	EventMeetingEnded      = "meeting.ended"
+	EventParticipantJoined = "meeting.participant_joined"
+	EventParticipantLeft   = "meeting.participant_left"
+)
+
 type WebhookPayload struct {
 	Payload struct {
 		PlainToken string `json:"plainToken"`
