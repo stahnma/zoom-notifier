@@ -2,9 +2,11 @@ package slack
 
 import (
 	"crypto/rand"
+	"embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"net/http"
 	"net/url"
 	"time"
@@ -13,6 +15,11 @@ import (
 	"github.com/stahnma/zoom-notifier/internal/setup"
 	"github.com/stahnma/zoom-notifier/internal/store"
 )
+
+//go:embed templates/install_success.html
+var installSuccessFS embed.FS
+
+var installSuccessTmpl = template.Must(template.ParseFS(installSuccessFS, "templates/install_success.html"))
 
 const (
 	defaultSlackOAuthURL = "https://slack.com/oauth/v2/authorize"
@@ -206,41 +213,7 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}).Info("Slack app installed successfully")
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if _, err := fmt.Fprintf(w, `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>zoom-notifier — Installed</title>
-<style>
-  body { font-family: system-ui, -apple-system, sans-serif; max-width: 560px; margin: 2rem auto; padding: 0 1rem; color: #333; background: #fafafa; }
-  .container { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 2rem; text-align: center; }
-  h1 { color: #1a73e8; margin-bottom: 0.5rem; }
-  .team-name { font-size: 1.1rem; color: #666; margin-bottom: 1.5rem; }
-  .next-steps { text-align: left; background: #f0f7ff; border: 1px solid #c2deff; border-radius: 6px; padding: 1rem 1.25rem; margin: 1.5rem 0; }
-  .next-steps h3 { margin-top: 0; color: #1a73e8; }
-  .next-steps li { margin: 0.4rem 0; }
-  .btn { display: inline-block; padding: 0.6rem 1.5rem; background: #1a73e8; color: #fff; text-decoration: none; border-radius: 4px; font-size: 1rem; margin-top: 1rem; }
-  .btn:hover { background: #1557b0; }
-  code { background: #f0f0f0; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9rem; }
-</style>
-</head>
-<body>
-<div class="container">
-  <h1>zoom-notifier installed</h1>
-  <p class="team-name">%s</p>
-  <div class="next-steps">
-    <h3>Next steps</h3>
-    <ol>
-      <li>Run <code>/zoom-notifier setup</code> in Slack to configure your Zoom account</li>
-      <li>Subscribe channels with <code>/zoom-notifier subscribe #channel</code></li>
-      <li>Optionally add filters with <code>/zoom-notifier filter "Topic"</code></li>
-    </ol>
-  </div>
-  <a href="/" class="btn">Back to zoom-notifier</a>
-</div>
-</body>
-</html>`, teamName); err != nil {
+	if err := installSuccessTmpl.Execute(w, struct{ TeamName string }{teamName}); err != nil {
 		log.WithError(err).Warn("failed to write install success page")
 	}
 }
