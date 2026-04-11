@@ -253,7 +253,9 @@ SwaggerUIBundle({
 </html>`)
 	})
 
-	// Prometheus metrics endpoint
+	// Probes and metrics
+	r.Get("/livez", api.LivezHandler())
+	r.Get("/readyz", api.ReadyzHandler(store))
 	r.Handle("/metrics", promhttp.Handler())
 
 	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
