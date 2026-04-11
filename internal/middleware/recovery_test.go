@@ -40,7 +40,7 @@ func TestRecovery_PanicHandler(t *testing.T) {
 	}
 }
 
-func TestRecovery_PanicWithError(t *testing.T) {
+func TestRecovery_ErrAbortHandler_RePanics(t *testing.T) {
 	handler := Recovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic(http.ErrAbortHandler)
 	}))
@@ -48,11 +48,19 @@ func TestRecovery_PanicWithError(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/panic-error", nil)
 	w := httptest.NewRecorder()
 
-	handler.ServeHTTP(w, req)
+	// Should re-panic with http.ErrAbortHandler
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected re-panic for http.ErrAbortHandler")
+		}
+		if r != http.ErrAbortHandler {
+			t.Errorf("expected http.ErrAbortHandler, got %v", r)
+		}
+	}()
 
-	if w.Code != http.StatusInternalServerError {
-		t.Errorf("expected 500, got %d", w.Code)
-	}
+	handler.ServeHTTP(w, req)
+	t.Fatal("should not reach here")
 }
 
 func TestRecovery_PanicWithNil(t *testing.T) {
