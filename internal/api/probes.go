@@ -25,8 +25,8 @@ func ReadyzHandler(s store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 
-		// Check database by listing tenants (lightweight query)
-		if _, err := s.ListTenants(r.Context()); err != nil {
+		// Check database connectivity
+		if err := s.Ping(r.Context()); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			if encErr := json.NewEncoder(w).Encode(map[string]string{
 				"status":   "not ready",

@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"fmt"
@@ -57,6 +58,10 @@ func (s *SQLiteStore) Migrate() error {
 	}
 
 	return nil
+}
+
+func (s *SQLiteStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
 }
 
 func (s *SQLiteStore) Close() error {

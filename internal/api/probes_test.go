@@ -81,9 +81,9 @@ type mockProbeStore struct {
 	healthy bool
 }
 
-func (m *mockProbeStore) ListTenants(_ context.Context) ([]*store.Tenant, error) {
+func (m *mockProbeStore) Ping(_ context.Context) error {
 	if !m.healthy {
-		return nil, context.DeadlineExceeded
+		return context.DeadlineExceeded
 	}
-	return []*store.Tenant{}, nil
+	return nil
 }
