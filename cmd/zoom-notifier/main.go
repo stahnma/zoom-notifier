@@ -258,7 +258,13 @@ SwaggerUIBundle({
 	r.Get("/readyz", api.ReadyzHandler(store))
 	r.Handle("/metrics", promhttp.Handler())
 
-	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
+	// Rate-limited webhook endpoint (applied before the generated router mount)
+	webhookLimiter := appmiddleware.NewWebhookRateLimiter()
+	r.With(func(next http.Handler) http.Handler {
+		return appmiddleware.RateLimit(webhookLimiter, next)
+	}).Post("/webhook/zoom", zoomHandler.ServeHTTP)
+
+	// Mount the generated API router (handles /api/v1/*, /healthz)
 	r.Mount("/", apiRouter)
 
 	// Start HTTP server

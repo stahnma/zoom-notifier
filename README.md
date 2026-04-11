@@ -14,6 +14,8 @@ Multi-tenant service that receives Zoom webhook events and dispatches notificati
 - **REST API**: Full CRUD for tenants, subscriptions, filters, and credentials with Swagger UI docs
 - **IRC Relay**: Per-tenant IRC notification support with TLS
 - **Meeting State**: Tracks active meetings and participants in SQLite
+- **Observability**: Prometheus metrics, structured JSON logging, request logging, liveness/readiness probes
+- **Rate Limiting**: Per-IP rate limiting on webhook endpoint (10 req/s)
 
 ## Quick Start
 
