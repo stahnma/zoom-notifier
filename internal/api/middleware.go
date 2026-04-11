@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
@@ -96,5 +97,7 @@ func extractTenantIDFromPath(path string) string {
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+	if err := json.NewEncoder(w).Encode(v); err != nil {
+		log.WithError(err).Warn("failed to write JSON response")
+	}
 }

@@ -74,10 +74,12 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.WithError(err).Error("slash command handler failed")
 		// Slack requires 200 — return ephemeral error message
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]string{
+		if err := json.NewEncoder(w).Encode(map[string]string{
 			"response_type": "ephemeral",
 			"text":          "Something went wrong. Please try again.",
-		})
+		}); err != nil {
+			log.WithError(err).Warn("failed to write error response")
+		}
 		return
 	}
 
@@ -93,10 +95,12 @@ func (h *HTTPCommandHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}).Debug("sending slash command response")
 
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	if err := json.NewEncoder(w).Encode(map[string]string{
 		"response_type": resp.ResponseType,
 		"text":          resp.Text,
-	})
+	}); err != nil {
+		log.WithError(err).Warn("failed to write command response")
+	}
 }
 
 // verifySignature checks the Slack request signature using HMAC-SHA256.

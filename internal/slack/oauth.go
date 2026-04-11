@@ -206,7 +206,7 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
 	}).Info("Slack app installed successfully")
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, `<!DOCTYPE html>
+	if _, err := fmt.Fprintf(w, `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -240,7 +240,9 @@ func (h *OAuthHandler) HandleCallback(w http.ResponseWriter, r *http.Request) {
   <a href="/" class="btn">Back to zoom-notifier</a>
 </div>
 </body>
-</html>`, teamName)
+</html>`, teamName); err != nil {
+		log.WithError(err).Warn("failed to write install success page")
+	}
 }
 
 // oauthV2Response is the response from Slack's oauth.v2.access endpoint.

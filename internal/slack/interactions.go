@@ -112,12 +112,14 @@ func (h *InteractionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				// Slack requires 200 for view_submission — return validation error
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
-				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				if encErr := json.NewEncoder(w).Encode(map[string]interface{}{
 					"response_action": "errors",
 					"errors": map[string]string{
 						"pattern_block": err.Error(),
 					},
-				})
+				}); encErr != nil {
+					log.WithError(encErr).Warn("failed to write interaction error response")
+				}
 				return
 			}
 		} else {

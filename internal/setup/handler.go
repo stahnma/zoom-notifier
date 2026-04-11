@@ -211,7 +211,9 @@ func (h *Handler) generateKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"key": key})
+	if err := json.NewEncoder(w).Encode(map[string]string{"key": key}); err != nil {
+		log.WithError(err).Warn("failed to write key response")
+	}
 }
 
 func (h *Handler) manifestURL(w http.ResponseWriter, r *http.Request) {
@@ -220,7 +222,9 @@ func (h *Handler) manifestURL(w http.ResponseWriter, r *http.Request) {
 		serverURL = h.data.ServerURL
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"url": SlackManifestURL(serverURL)})
+	if err := json.NewEncoder(w).Encode(map[string]string{"url": SlackManifestURL(serverURL)}); err != nil {
+		log.WithError(err).Warn("failed to write manifest URL response")
+	}
 }
 
 func (h *Handler) saveZoomSecret(w http.ResponseWriter, r *http.Request) {
@@ -233,7 +237,9 @@ func (h *Handler) saveZoomSecret(w http.ResponseWriter, r *http.Request) {
 	}
 	h.data.ZoomSecret = body.Secret
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	if err := json.NewEncoder(w).Encode(map[string]string{"status": "ok"}); err != nil {
+		log.WithError(err).Warn("failed to write save response")
+	}
 }
 
 func (h *Handler) handleWebhookZoomCRC(w http.ResponseWriter, r *http.Request) {
@@ -262,5 +268,7 @@ func (h *Handler) handleWebhookZoomCRC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(resp)
+	if err := json.NewEncoder(w).Encode(resp); err != nil {
+		log.WithError(err).Warn("failed to write CRC response")
+	}
 }

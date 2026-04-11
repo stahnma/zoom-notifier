@@ -67,7 +67,9 @@ func main() {
 			signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 			<-sigCh
 			log.Info("shutting down setup wizard...")
-			_ = srv.Shutdown(context.Background())
+			if err := srv.Shutdown(context.Background()); err != nil {
+					log.WithError(err).Warn("setup wizard shutdown error")
+				}
 		}()
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("setup server error: %v", err)
@@ -95,7 +97,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
-	defer func() { _ = store.Close() }()
+	defer func() {
+		if err := store.Close(); err != nil {
+			log.WithError(err).Warn("failed to close database")
+		}
+	}()
 
 	// Run migrations
 	if err := store.Migrate(); err != nil {
