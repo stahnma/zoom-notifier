@@ -58,6 +58,9 @@ type Store interface {
 	UpsertZoomCredentials(ctx context.Context, z *ZoomCredentials) error
 	GetZoomCredentials(ctx context.Context, tenantID string) (*ZoomCredentials, error)
 
+	// Health
+	Ping(ctx context.Context) error
+
 	// Lifecycle
 	Close() error
 }

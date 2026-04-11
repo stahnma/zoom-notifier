@@ -16,6 +16,8 @@ import (
 const (
 	defaultSlackOAuthURL = "https://slack.com/oauth/v2/authorize"
 	defaultSlackAPIURL   = "https://slack.com/api/"
+	// slackOAuthTimeout is the timeout for Slack OAuth token exchange requests.
+	slackOAuthTimeout = 30 * time.Second
 )
 
 // OAuthHandler handles the Slack OAuth install flow.
@@ -27,6 +29,7 @@ type OAuthHandler struct {
 	store        store.Store
 	oauthURL     string // authorize URL (overridable for testing)
 	apiURL       string // API base URL (overridable for testing)
+	httpClient   *http.Client
 }
 
 // OAuthConfig configures the Slack OAuth handler.
@@ -56,6 +59,7 @@ func NewOAuthHandler(cfg OAuthConfig) *OAuthHandler {
 		store:        cfg.Store,
 		oauthURL:     oauthURL,
 		apiURL:       apiURL,
+		httpClient:   &http.Client{Timeout: slackOAuthTimeout},
 	}
 }
 
@@ -261,7 +265,7 @@ func (h *OAuthHandler) exchangeCode(code string) (*oauthV2Response, error) {
 		"redirect_uri":  {h.redirectURI},
 	}
 
-	resp, err := http.PostForm(h.apiURL+"oauth.v2.access", data)
+	resp, err := h.httpClient.PostForm(h.apiURL+"oauth.v2.access", data)
 	if err != nil {
 		return nil, fmt.Errorf("POST oauth.v2.access: %w", err)
 	}

@@ -3,9 +3,16 @@ package slack
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/slack-go/slack"
+)
+
+const (
+	// slackAPITimeout is the timeout for Slack API requests (sending messages, etc).
+	slackAPITimeout = 10 * time.Second
 )
 
 // Sender sends notifications to Slack channels using bot tokens.
@@ -25,7 +32,10 @@ func (s *Sender) Send(ctx context.Context, botToken string, channelID string, ms
 		"msg_length": len(msg),
 	}).Debug("sending slack message")
 
-	opts := []slack.Option{}
+	httpClient := &http.Client{Timeout: slackAPITimeout}
+	opts := []slack.Option{
+		slack.OptionHTTPClient(httpClient),
+	}
 	if s.apiURL != "" {
 		opts = append(opts, slack.OptionAPIURL(s.apiURL))
 	}

@@ -9,5 +9,10 @@ User=zoom-notifier
 Restart=on-failure
 RestartSec=5
 
+# Resource limits
+MemoryMax=512M
+CPUQuota=100%
+LimitNOFILE=65536
+
 [Install]
 WantedBy=multi-user.target

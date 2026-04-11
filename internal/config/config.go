@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/viper"
@@ -43,7 +44,39 @@ type AdminConfig struct {
 }
 
 type LogConfig struct {
-	Level string
+	Level  string
+	Format string // "text" (default) or "json"
+}
+
+// Validate checks that all required configuration fields are set.
+// Returns an error listing all missing fields.
+func (c *Config) Validate() error {
+	var missing []string
+	if c.Zoom.WebhookSecret == "" {
+		missing = append(missing, "zoom.webhook_secret")
+	}
+	if c.Zoom.AccountID == "" {
+		missing = append(missing, "zoom.account_id")
+	}
+	if c.Slack.ClientID == "" {
+		missing = append(missing, "slack.client_id")
+	}
+	if c.Slack.ClientSecret == "" {
+		missing = append(missing, "slack.client_secret")
+	}
+	if c.Slack.SigningSecret == "" {
+		missing = append(missing, "slack.signing_secret")
+	}
+	if c.Admin.APIKey == "" {
+		missing = append(missing, "admin.api_key")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required config: %s", strings.Join(missing, ", "))
+	}
+	if c.Log.Format != "text" && c.Log.Format != "json" {
+		return fmt.Errorf("invalid log.format %q: must be \"text\" or \"json\"", c.Log.Format)
+	}
+	return nil
 }
 
 func Load(configPath string) (*Config, error) {
@@ -55,6 +88,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("server.host", "localhost")
 	v.SetDefault("database.path", "./zoom-notifier.db")
 	v.SetDefault("log.level", "info")
+	v.SetDefault("log.format", "text")
 
 	// Environment variable bindings
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -95,6 +129,7 @@ func Load(configPath string) (*Config, error) {
 	cfg.Slack.SigningSecret = v.GetString("slack.signing_secret")
 	cfg.Admin.APIKey = v.GetString("admin.api_key")
 	cfg.Log.Level = v.GetString("log.level")
+	cfg.Log.Format = v.GetString("log.format")
 
 	return cfg, nil
 }

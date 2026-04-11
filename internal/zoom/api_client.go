@@ -10,6 +10,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/stahnma/zoom-notifier/internal/metrics"
+)
+
+const (
+	// oauthTimeout is the timeout for OAuth token exchange requests.
+	oauthTimeout = 30 * time.Second
+	// apiTimeout is the timeout for Zoom API requests (meeting info, etc).
+	apiTimeout = 10 * time.Second
 )
 
 type APIClient struct {
@@ -18,6 +27,9 @@ type APIClient struct {
 	clientID     string
 	clientSecret string
 	accountID    string
+
+	tokenClient *http.Client // HTTP client for OAuth token requests
+	apiClient   *http.Client // HTTP client for API requests
 
 	mu          sync.Mutex
 	cachedToken string
@@ -43,6 +55,8 @@ func NewAPIClient(oauthBaseURL, apiBaseURL, clientID, clientSecret, accountID st
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		accountID:    accountID,
+		tokenClient:  &http.Client{Timeout: oauthTimeout},
+		apiClient:    &http.Client{Timeout: apiTimeout},
 	}
 }
 
@@ -70,22 +84,29 @@ func (c *APIClient) GetAccessToken() (string, error) {
 	req.Header.Set("Authorization", "Basic "+authEncoded)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.tokenClient.Do(req)
 	if err != nil {
+		metrics.ZoomTokenRefreshes.WithLabelValues("error").Inc()
 		return "", fmt.Errorf("token request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		metrics.ZoomTokenRefreshes.WithLabelValues("error").Inc()
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return "", fmt.Errorf("token API error (status %d), failed to read body: %w", resp.StatusCode, readErr)
+		}
 		return "", fmt.Errorf("token API error (status %d): %s", resp.StatusCode, body)
 	}
 
 	var tokenResp tokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+		metrics.ZoomTokenRefreshes.WithLabelValues("error").Inc()
 		return "", fmt.Errorf("decode token response: %w", err)
 	}
 
+	metrics.ZoomTokenRefreshes.WithLabelValues("success").Inc()
 	c.cachedToken = tokenResp.AccessToken
 	c.tokenExpiry = time.Now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 
@@ -106,15 +127,18 @@ func (c *APIClient) GetMeetingJoinLink(meetingID string) (string, error) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := c.apiClient.Do(req)
 	if err != nil {
+		metrics.ZoomAPIRequests.WithLabelValues("meetings", "error").Inc()
 		return "", fmt.Errorf("meeting request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
+		metrics.ZoomAPIRequests.WithLabelValues("meetings", "error").Inc()
 		return "", fmt.Errorf("meeting API error: status %d", resp.StatusCode)
 	}
+	metrics.ZoomAPIRequests.WithLabelValues("meetings", "success").Inc()
 
 	var meetingResp meetingResponse
 	if err := json.NewDecoder(resp.Body).Decode(&meetingResp); err != nil {

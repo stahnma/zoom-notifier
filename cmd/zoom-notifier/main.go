@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
 	apispec "github.com/stahnma/zoom-notifier/api"
 	"github.com/stahnma/zoom-notifier/internal/api"
 	"github.com/stahnma/zoom-notifier/internal/config"
 	"github.com/stahnma/zoom-notifier/internal/irc"
+	appmiddleware "github.com/stahnma/zoom-notifier/internal/middleware"
 	"github.com/stahnma/zoom-notifier/internal/notify"
 	"github.com/stahnma/zoom-notifier/internal/setup"
 	appslack "github.com/stahnma/zoom-notifier/internal/slack"
@@ -73,12 +75,20 @@ func main() {
 		return
 	}
 
+	// Validate required config
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("invalid configuration: %v", err)
+	}
+
 	// Setup logging
 	level, err := log.ParseLevel(cfg.Log.Level)
 	if err != nil {
 		level = log.InfoLevel
 	}
 	log.SetLevel(level)
+	if cfg.Log.Format == "json" {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 
 	// Open SQLite store
 	store, err := sqlite.New(cfg.Database.Path)
@@ -116,6 +126,8 @@ func main() {
 
 	// Build main router
 	r := chi.NewRouter()
+	r.Use(appmiddleware.Recovery)
+	r.Use(appmiddleware.RequestLogger)
 
 	// Landing page
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
@@ -241,14 +253,29 @@ SwaggerUIBundle({
 </html>`)
 	})
 
-	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
+	// Probes and metrics
+	r.Get("/livez", api.LivezHandler())
+	r.Get("/readyz", api.ReadyzHandler(store))
+	r.Handle("/metrics", promhttp.Handler())
+
+	// Rate-limited webhook endpoint (applied before the generated router mount)
+	webhookLimiter := appmiddleware.NewWebhookRateLimiter()
+	r.With(func(next http.Handler) http.Handler {
+		return appmiddleware.RateLimit(webhookLimiter, next)
+	}).Post("/webhook/zoom", zoomHandler.ServeHTTP)
+
+	// Mount the generated API router (handles /api/v1/*, /healthz)
 	r.Mount("/", apiRouter)
 
 	// Start HTTP server
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: r,
+		Addr:              addr,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Graceful shutdown

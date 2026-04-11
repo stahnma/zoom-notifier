@@ -147,3 +147,71 @@ func TestGetMeetingJoinLink_APIError(t *testing.T) {
 		t.Error("expected error for 404 response")
 	}
 }
+
+func TestAPIClient_HasHTTPClientTimeouts(t *testing.T) {
+	client := NewAPIClient("https://zoom.us", "https://api.zoom.us", "id", "secret", "acct")
+
+	if client.tokenClient == nil {
+		t.Fatal("expected tokenClient to be set")
+	}
+	if client.tokenClient.Timeout != oauthTimeout {
+		t.Errorf("expected tokenClient timeout %v, got %v", oauthTimeout, client.tokenClient.Timeout)
+	}
+
+	if client.apiClient == nil {
+		t.Fatal("expected apiClient to be set")
+	}
+	if client.apiClient.Timeout != apiTimeout {
+		t.Errorf("expected apiClient timeout %v, got %v", apiTimeout, client.apiClient.Timeout)
+	}
+}
+
+func TestGetAccessToken_SlowServer_TimesOut(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Sleep longer than the token client timeout
+		time.Sleep(200 * time.Millisecond)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token": "test-token",
+			"token_type":   "bearer",
+			"expires_in":   3600,
+		})
+	}))
+	defer server.Close()
+
+	client := NewAPIClient(server.URL, server.URL, "id", "secret", "acct")
+	// Override with a very short timeout for testing
+	client.tokenClient = &http.Client{Timeout: 50 * time.Millisecond}
+
+	_, err := client.GetAccessToken()
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+}
+
+func TestGetMeetingJoinLink_SlowServer_TimesOut(t *testing.T) {
+	oauthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"access_token": "test-token",
+			"token_type":   "bearer",
+			"expires_in":   3600,
+		})
+	}))
+	defer oauthServer.Close()
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"join_url": "https://zoom.us/j/12345",
+		})
+	}))
+	defer apiServer.Close()
+
+	client := NewAPIClient(oauthServer.URL, apiServer.URL, "id", "secret", "acct")
+	// Override with a very short timeout for testing
+	client.apiClient = &http.Client{Timeout: 50 * time.Millisecond}
+
+	_, err := client.GetMeetingJoinLink("12345")
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+}

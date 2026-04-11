@@ -7,6 +7,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stahnma/zoom-notifier/internal/metrics"
 	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
@@ -45,6 +46,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	metrics.WebhooksReceived.WithLabelValues(payload.Event).Inc()
 	log.WithField("event", payload.Event).Debug("received zoom webhook")
 	h.ProcessWebhook(r.Context(), payload)
 	w.WriteHeader(http.StatusOK)
@@ -60,6 +62,7 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 		return
 	}
 	if len(tenants) == 0 {
+		metrics.WebhooksNoTenant.Inc()
 		log.WithField("account_id", accountID).Warn("no tenant found for zoom account")
 		return
 	}

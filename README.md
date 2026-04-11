@@ -14,6 +14,8 @@ Multi-tenant service that receives Zoom webhook events and dispatches notificati
 - **REST API**: Full CRUD for tenants, subscriptions, filters, and credentials with Swagger UI docs
 - **IRC Relay**: Per-tenant IRC notification support with TLS
 - **Meeting State**: Tracks active meetings and participants in SQLite
+- **Observability**: Prometheus metrics, structured JSON logging, request logging, liveness/readiness probes
+- **Rate Limiting**: Per-IP rate limiting on webhook endpoint (10 req/s sustained, burst of 50)
 
 ## Quick Start
 
@@ -75,6 +77,7 @@ api_key = "your-admin-key"                  # or ZOOMNOTIFIER_ADMIN_KEY
 
 [log]
 level = "info"
+format = "text"  # "text" for dev, "json" for production log aggregation
 ```
 
 ### Run
@@ -196,6 +199,9 @@ Interactive Swagger UI docs are available at `/api/docs` when the server is runn
 The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 
 - `GET /healthz` -- Health check (version, uptime, database status, tenant count)
+- `GET /livez` -- Liveness probe (always 200)
+- `GET /readyz` -- Readiness probe (200 if database connected, 503 otherwise)
+- `GET /metrics` -- Prometheus metrics
 - `POST /webhook/zoom` -- Zoom webhook receiver
 - `GET/POST /api/v1/tenants` -- Tenant management (admin key)
 - `PUT /api/v1/tenants/{id}/defaults` -- Update tenant notification defaults
@@ -214,6 +220,9 @@ The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 | `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
 | `/api/docs` | Swagger UI API documentation |
 | `/healthz` | Health check endpoint |
+| `/livez` | Liveness probe |
+| `/readyz` | Readiness probe |
+| `/metrics` | Prometheus metrics |
 
 ## Running via systemd
 

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stahnma/zoom-notifier/internal/metrics"
 	"github.com/stahnma/zoom-notifier/internal/store"
 	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
@@ -134,10 +135,13 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 				botToken = *tenant.BotToken
 			}
 			if err := d.slack.Send(ctx, botToken, sub.Target, subMsg); err != nil {
+				metrics.NotificationsSent.WithLabelValues("slack", "error").Inc()
 				log.WithError(err).WithFields(log.Fields{
 					"target":    sub.Target,
 					"tenant_id": tenantID,
 				}).Error("failed to send slack notification")
+			} else {
+				metrics.NotificationsSent.WithLabelValues("slack", "success").Inc()
 			}
 
 		case "irc":
@@ -148,11 +152,14 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 			}
 			for _, cfg := range configs {
 				if err := d.irc.Send(ctx, cfg, sub.Target, subMsg); err != nil {
+					metrics.NotificationsSent.WithLabelValues("irc", "error").Inc()
 					log.WithError(err).WithFields(log.Fields{
 						"target":    sub.Target,
 						"server":    cfg.Server,
 						"tenant_id": tenantID,
 					}).Error("failed to send IRC notification")
+				} else {
+					metrics.NotificationsSent.WithLabelValues("irc", "success").Inc()
 				}
 			}
 		}
