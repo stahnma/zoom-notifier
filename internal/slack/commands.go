@@ -266,16 +266,8 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	// Open modal if no args and modal support is available
 	if len(args) == 0 && h.canOpenModal(cmd) {
-		botToken := h.getBotToken(ctx, cmd.TeamID)
-		if botToken != "" {
-			modal := BuildSubscribeModal()
-			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
-			opener := NewSlackModalOpener(botToken)
-			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
-				log.WithError(err).Error("failed to open subscribe modal")
-			} else {
-				return ephemeral(""), nil
-			}
+		if h.openModal(ctx, cmd, BuildSubscribeModal(), "subscribe") {
+			return ephemeral(""), nil
 		}
 	}
 
@@ -316,18 +308,10 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 
 func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	if len(args) == 0 && h.canOpenModal(cmd) {
-		botToken := h.getBotToken(ctx, cmd.TeamID)
-		if botToken != "" {
-			subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
-			if err == nil && len(subs) > 0 {
-				modal := BuildUnsubscribeModal(subs)
-				modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
-				opener := NewSlackModalOpener(botToken)
-				if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
-					log.WithError(err).Error("failed to open unsubscribe modal")
-				} else {
-					return ephemeral(""), nil
-				}
+		subs, err := h.store.ListSubscriptions(ctx, cmd.TeamID)
+		if err == nil && len(subs) > 0 {
+			if h.openModal(ctx, cmd, BuildUnsubscribeModal(subs), "unsubscribe") {
+				return ephemeral(""), nil
 			}
 		}
 	}
@@ -387,16 +371,8 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 func (h *CommandHandler) addFilter(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	// Open modal if no args and modal support is available
 	if len(args) == 0 && h.canOpenModal(cmd) {
-		botToken := h.getBotToken(ctx, cmd.TeamID)
-		if botToken != "" {
-			modal := BuildFilterModal()
-			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
-			opener := NewSlackModalOpener(botToken)
-			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
-				log.WithError(err).Error("failed to open filter modal")
-			} else {
-				return ephemeral(""), nil
-			}
+		if h.openModal(ctx, cmd, BuildFilterModal(), "filter") {
+			return ephemeral(""), nil
 		}
 	}
 
@@ -467,25 +443,34 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 	botToken := h.getBotToken(ctx, cmd.TeamID)
 	if botToken != "" {
 		api := slackapi.New(botToken)
+		// Collect name-based targets that need resolution
+		var needsResolution bool
 		for _, s := range subs {
 			if s.Type != store.SubscriptionTypeSlack {
 				continue
 			}
 			if strings.HasPrefix(s.Target, "C") {
-				// Already a channel ID
 				channelIDs[s.Target] = s.Target
 			} else {
-				// Name-based target — search for matching channel
-				channels, _, err := api.GetConversationsContext(ctx, &slackapi.GetConversationsParameters{
-					Types:           []string{"public_channel", "private_channel"},
-					ExcludeArchived: true,
-					Limit:           200,
-				})
-				if err == nil {
-					for _, ch := range channels {
-						if ch.Name == s.Target {
-							channelIDs[s.Target] = ch.ID
-							break
+				needsResolution = true
+			}
+		}
+		// Fetch channel list once for all name-based targets
+		if needsResolution {
+			channels, _, err := api.GetConversationsContext(ctx, &slackapi.GetConversationsParameters{
+				Types:           []string{"public_channel", "private_channel"},
+				ExcludeArchived: true,
+				Limit:           200,
+			})
+			if err == nil {
+				channelsByName := make(map[string]string, len(channels))
+				for _, ch := range channels {
+					channelsByName[ch.Name] = ch.ID
+				}
+				for _, s := range subs {
+					if s.Type == store.SubscriptionTypeSlack && !strings.HasPrefix(s.Target, "C") {
+						if id, ok := channelsByName[s.Target]; ok {
+							channelIDs[s.Target] = id
 						}
 					}
 				}
@@ -580,31 +565,36 @@ func (h *CommandHandler) getBotToken(ctx context.Context, teamID string) string 
 	return *tenant.BotToken
 }
 
+// openModal opens a Slack modal for the given command. Returns true if the modal was
+// opened successfully. On failure, logs the error and returns false (caller should fall
+// through to text-based flow).
+func (h *CommandHandler) openModal(ctx context.Context, cmd SlashCommand, modal slackapi.ModalViewRequest, name string) bool {
+	botToken := h.getBotToken(ctx, cmd.TeamID)
+	if botToken == "" {
+		return false
+	}
+	modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
+	opener := NewSlackModalOpener(botToken)
+	if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
+		log.WithError(err).Errorf("failed to open %s modal", name)
+		return false
+	}
+	return true
+}
+
 func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	// Open modal if no args and modal support is available
 	if len(args) == 0 && h.canOpenModal(cmd) {
-		log.WithField("trigger_id", cmd.TriggerID).Debug("attempting to open set-suffix modal")
-		botToken := h.getBotToken(ctx, cmd.TeamID)
-		if botToken != "" {
-			tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
-			if err != nil {
-				return nil, fmt.Errorf("get tenant: %w", err)
-			}
-			filters, err := h.store.ListFilters(ctx, cmd.TeamID)
-			if err != nil {
-				return nil, fmt.Errorf("list filters: %w", err)
-			}
-			modal := BuildSetSuffixModal(tenant.DefaultMsgSuffix, filters)
-			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
-			opener := NewSlackModalOpener(botToken)
-			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
-				log.WithError(err).Error("failed to open set-suffix modal")
-			} else {
-				log.Debug("set-suffix modal opened successfully")
-				return ephemeral(""), nil
-			}
-		} else {
-			log.Warn("no bot token available, falling back to text command")
+		tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+		if err != nil {
+			return nil, fmt.Errorf("get tenant: %w", err)
+		}
+		filters, err := h.store.ListFilters(ctx, cmd.TeamID)
+		if err != nil {
+			return nil, fmt.Errorf("list filters: %w", err)
+		}
+		if h.openModal(ctx, cmd, BuildSetSuffixModal(tenant.DefaultMsgSuffix, filters), "set-suffix") {
+			return ephemeral(""), nil
 		}
 	}
 
@@ -660,24 +650,16 @@ func (h *CommandHandler) setSuffix(ctx context.Context, cmd SlashCommand, args [
 func (h *CommandHandler) setLink(ctx context.Context, cmd SlashCommand, args []string) (*SlashResponse, error) {
 	// Open modal if no args and modal support is available
 	if len(args) == 0 && h.canOpenModal(cmd) {
-		botToken := h.getBotToken(ctx, cmd.TeamID)
-		if botToken != "" {
-			tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
-			if err != nil {
-				return nil, fmt.Errorf("get tenant: %w", err)
-			}
-			filters, err := h.store.ListFilters(ctx, cmd.TeamID)
-			if err != nil {
-				return nil, fmt.Errorf("list filters: %w", err)
-			}
-			modal := BuildSetLinkModal(tenant.DefaultIncludeLink, filters)
-			modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
-			opener := NewSlackModalOpener(botToken)
-			if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
-				log.WithError(err).Error("failed to open set-link modal")
-			} else {
-				return ephemeral(""), nil
-			}
+		tenant, err := h.store.GetTenant(ctx, cmd.TeamID)
+		if err != nil {
+			return nil, fmt.Errorf("get tenant: %w", err)
+		}
+		filters, err := h.store.ListFilters(ctx, cmd.TeamID)
+		if err != nil {
+			return nil, fmt.Errorf("list filters: %w", err)
+		}
+		if h.openModal(ctx, cmd, BuildSetLinkModal(tenant.DefaultIncludeLink, filters), "set-link") {
+			return ephemeral(""), nil
 		}
 	}
 
@@ -889,16 +871,8 @@ func (h *CommandHandler) admins(ctx context.Context, cmd SlashCommand, args []st
 
 	case "add":
 		if h.canOpenModal(cmd) {
-			botToken := h.getBotToken(ctx, cmd.TeamID)
-			if botToken != "" {
-				modal := BuildAdminAddModal()
-				modal.PrivateMetadata = cmd.TeamID + "|" + cmd.ChannelID
-				opener := NewSlackModalOpener(botToken)
-				if _, err := opener.OpenView(cmd.TriggerID, modal); err != nil {
-					log.WithError(err).Error("failed to open admin add modal")
-				} else {
-					return ephemeral(""), nil
-				}
+			if h.openModal(ctx, cmd, BuildAdminAddModal(), "admin add") {
+				return ephemeral(""), nil
 			}
 		}
 		return ephemeral("Unable to open admin picker. Please try again."), nil
