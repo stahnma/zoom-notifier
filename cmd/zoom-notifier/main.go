@@ -126,6 +126,7 @@ func main() {
 	// Build main router
 	r := chi.NewRouter()
 	r.Use(appmiddleware.Recovery)
+	r.Use(appmiddleware.RequestLogger)
 
 	// Landing page
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
