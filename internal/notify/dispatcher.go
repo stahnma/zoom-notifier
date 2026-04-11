@@ -2,6 +2,7 @@ package notify
 
 import (
 	"context"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/zoom-notifier/internal/metrics"
@@ -24,10 +25,18 @@ type Dispatcher struct {
 	store store.Store
 	slack SlackSender
 	irc   IRCSender
+
+	mu          sync.Mutex
+	zoomClients map[string]*zoom.APIClient // cached per tenant ID
 }
 
 func NewDispatcher(s store.Store, slack SlackSender, irc IRCSender) *Dispatcher {
-	return &Dispatcher{store: s, slack: slack, irc: irc}
+	return &Dispatcher{
+		store:       s,
+		slack:       slack,
+		irc:         irc,
+		zoomClients: make(map[string]*zoom.APIClient),
+	}
 }
 
 // Dispatch finds all matching subscriptions for a webhook event and sends notifications.
@@ -159,6 +168,20 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	}
 }
 
+// getOrCreateZoomClient returns a cached Zoom API client for the tenant, or creates one.
+func (d *Dispatcher) getOrCreateZoomClient(tenantID string, creds *store.ZoomCredentials) *zoom.APIClient {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if client, ok := d.zoomClients[tenantID]; ok {
+		return client
+	}
+
+	client := zoom.NewAPIClient("https://zoom.us", "https://api.zoom.us", creds.ClientID, creds.ClientSecret, creds.AccountID)
+	d.zoomClients[tenantID] = client
+	return client
+}
+
 // getMeetingLink fetches the join URL for a meeting using the tenant's Zoom API credentials.
 func (d *Dispatcher) getMeetingLink(ctx context.Context, tenantID string, meetingID string) string {
 	creds, err := d.store.GetZoomCredentials(ctx, tenantID)
@@ -169,7 +192,7 @@ func (d *Dispatcher) getMeetingLink(ctx context.Context, tenantID string, meetin
 		return ""
 	}
 
-	client := zoom.NewAPIClient("https://zoom.us", "https://api.zoom.us", creds.ClientID, creds.ClientSecret, creds.AccountID)
+	client := d.getOrCreateZoomClient(tenantID, creds)
 	link, err := client.GetMeetingJoinLink(meetingID)
 	if err != nil {
 		log.WithError(err).WithFields(log.Fields{
