@@ -71,12 +71,11 @@ func TestRecovery_PanicWithNil(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/panic-nil", nil)
 	w := httptest.NewRecorder()
 
-	// panic(nil) in Go 1.21+ is a runtime.PanicNilError, so recovery catches it
+	// Go 1.21+ converts panic(nil) to a runtime.PanicNilError, which
+	// recover() catches. Recovery middleware returns 500.
 	handler.ServeHTTP(w, req)
 
-	// Should either return 200 (if panic(nil) doesn't trigger recover) or 500
-	// In Go 1.21+, panic(nil) is caught by recover()
-	if w.Code != http.StatusOK && w.Code != http.StatusInternalServerError {
-		t.Errorf("expected 200 or 500, got %d", w.Code)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", w.Code)
 	}
 }
