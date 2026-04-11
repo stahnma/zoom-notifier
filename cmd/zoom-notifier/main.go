@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 
 	apispec "github.com/stahnma/zoom-notifier/api"
@@ -251,6 +252,9 @@ SwaggerUIBundle({
 </body>
 </html>`)
 	})
+
+	// Prometheus metrics endpoint
+	r.Handle("/metrics", promhttp.Handler())
 
 	// Mount the generated API router (handles all /api/v1/*, /healthz, /webhook/zoom)
 	r.Mount("/", apiRouter)
