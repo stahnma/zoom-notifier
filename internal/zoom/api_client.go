@@ -93,7 +93,10 @@ func (c *APIClient) GetAccessToken() (string, error) {
 
 	if resp.StatusCode != http.StatusOK {
 		metrics.ZoomTokenRefreshes.WithLabelValues("error").Inc()
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return "", fmt.Errorf("token API error (status %d), failed to read body: %w", resp.StatusCode, readErr)
+		}
 		return "", fmt.Errorf("token API error (status %d): %s", resp.StatusCode, body)
 	}
 
