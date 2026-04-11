@@ -50,6 +50,7 @@ type Store interface {
 	AddParticipant(ctx context.Context, p *Participant) error
 	SetParticipantLeft(ctx context.Context, meetingID string, userName string, leaveTime *time.Time) error
 	GetActiveParticipants(ctx context.Context, meetingID string) ([]*Participant, error)
+	GetActiveParticipantsByMeetings(ctx context.Context, meetingIDs []string) (map[string][]*Participant, error)
 	DeleteParticipantsForMeeting(ctx context.Context, meetingID string) error
 
 	// IRC Config

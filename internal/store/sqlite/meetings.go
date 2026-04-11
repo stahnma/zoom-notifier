@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/stahnma/zoom-notifier/internal/store"
@@ -120,6 +121,39 @@ func (s *SQLiteStore) GetActiveParticipants(ctx context.Context, meetingID strin
 		participants = append(participants, p)
 	}
 	return participants, rows.Err()
+}
+
+func (s *SQLiteStore) GetActiveParticipantsByMeetings(ctx context.Context, meetingIDs []string) (map[string][]*store.Participant, error) {
+	if len(meetingIDs) == 0 {
+		return nil, nil
+	}
+	placeholders := make([]string, len(meetingIDs))
+	args := make([]interface{}, len(meetingIDs))
+	for i, id := range meetingIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	query := fmt.Sprintf(
+		`SELECT id, meeting_id, user_name, email, join_time, leave_time
+		 FROM participants
+		 WHERE meeting_id IN (%s) AND leave_time IS NULL`,
+		strings.Join(placeholders, ","),
+	)
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("get active participants by meetings: %w", err)
+	}
+	defer closeRows(rows)
+
+	result := make(map[string][]*store.Participant)
+	for rows.Next() {
+		p := &store.Participant{}
+		if err := rows.Scan(&p.ID, &p.MeetingID, &p.UserName, &p.Email, &p.JoinTime, &p.LeaveTime); err != nil {
+			return nil, fmt.Errorf("scan participant: %w", err)
+		}
+		result[p.MeetingID] = append(result[p.MeetingID], p)
+	}
+	return result, rows.Err()
 }
 
 func (s *SQLiteStore) DeleteParticipantsForMeeting(ctx context.Context, meetingID string) error {

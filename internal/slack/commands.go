@@ -177,13 +177,19 @@ func (h *CommandHandler) status(ctx context.Context, cmd SlashCommand) (*SlashRe
 		return ephemeral("No active meetings."), nil
 	}
 
+	meetingIDs := make([]string, len(meetings))
+	for i, m := range meetings {
+		meetingIDs[i] = m.MeetingID
+	}
+	participantsByMeeting, err := h.store.GetActiveParticipantsByMeetings(ctx, meetingIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get participants: %w", err)
+	}
+
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "*Active Meetings (%d):*\n", len(meetings))
 	for _, m := range meetings {
-		participants, err := h.store.GetActiveParticipants(ctx, m.MeetingID)
-		if err != nil {
-			continue
-		}
+		participants := participantsByMeeting[m.MeetingID]
 		topic := m.Topic
 		if topic == "" {
 			topic = "(no topic)"
@@ -233,12 +239,18 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 		return ephemeral(fmt.Sprintf("No active meeting found matching `%s`.", topic)), nil
 	}
 
+	matchedIDs := make([]string, len(matched))
+	for i, m := range matched {
+		matchedIDs[i] = m.MeetingID
+	}
+	participantsByMeeting, err := h.store.GetActiveParticipantsByMeetings(ctx, matchedIDs)
+	if err != nil {
+		return nil, fmt.Errorf("get participants: %w", err)
+	}
+
 	var sb strings.Builder
 	for _, m := range matched {
-		participants, err := h.store.GetActiveParticipants(ctx, m.MeetingID)
-		if err != nil {
-			return nil, fmt.Errorf("get participants: %w", err)
-		}
+		participants := participantsByMeeting[m.MeetingID]
 		if len(participants) == 0 {
 			fmt.Fprintf(&sb, "No active participants in *%s*.\n", m.Topic)
 			continue
