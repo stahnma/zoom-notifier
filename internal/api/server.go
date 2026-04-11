@@ -2,15 +2,13 @@ package api
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"github.com/stahnma/zoom-notifier/internal/setup"
 	"github.com/stahnma/zoom-notifier/internal/store"
 	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
@@ -51,11 +49,7 @@ func SetupRouter(server StrictServerInterface, s store.Store, adminKey string) h
 }
 
 func generateAPIKey() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("generate api key: %w", err)
-	}
-	return hex.EncodeToString(b), nil
+	return setup.GenerateAPIKey()
 }
 
 // --- Health ---
