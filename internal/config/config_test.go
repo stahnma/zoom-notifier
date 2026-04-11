@@ -23,6 +23,29 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Log.Level != "info" {
 		t.Errorf("expected default log level info, got %s", cfg.Log.Level)
 	}
+	if cfg.Log.Format != "text" {
+		t.Errorf("expected default log format text, got %s", cfg.Log.Format)
+	}
+}
+
+func TestLoadLogFormatFromTOML(t *testing.T) {
+	dir := t.TempDir()
+	tomlPath := filepath.Join(dir, "config.toml")
+	err := os.WriteFile(tomlPath, []byte(`
+[log]
+format = "json"
+`), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(tomlPath)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.Log.Format != "json" {
+		t.Errorf("expected log format json, got %s", cfg.Log.Format)
+	}
 }
 
 func TestLoadFromTOMLFile(t *testing.T) {

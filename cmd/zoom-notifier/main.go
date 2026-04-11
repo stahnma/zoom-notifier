@@ -85,6 +85,9 @@ func main() {
 		level = log.InfoLevel
 	}
 	log.SetLevel(level)
+	if cfg.Log.Format == "json" {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 
 	// Open SQLite store
 	store, err := sqlite.New(cfg.Database.Path)

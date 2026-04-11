@@ -44,7 +44,8 @@ type AdminConfig struct {
 }
 
 type LogConfig struct {
-	Level string
+	Level  string
+	Format string // "text" (default) or "json"
 }
 
 // Validate checks that all required configuration fields are set.
@@ -84,6 +85,7 @@ func Load(configPath string) (*Config, error) {
 	v.SetDefault("server.host", "localhost")
 	v.SetDefault("database.path", "./zoom-notifier.db")
 	v.SetDefault("log.level", "info")
+	v.SetDefault("log.format", "text")
 
 	// Environment variable bindings
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
@@ -124,6 +126,7 @@ func Load(configPath string) (*Config, error) {
 	cfg.Slack.SigningSecret = v.GetString("slack.signing_secret")
 	cfg.Admin.APIKey = v.GetString("admin.api_key")
 	cfg.Log.Level = v.GetString("log.level")
+	cfg.Log.Format = v.GetString("log.format")
 
 	return cfg, nil
 }
