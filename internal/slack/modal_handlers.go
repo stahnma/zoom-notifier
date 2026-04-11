@@ -44,6 +44,20 @@ func (h *CommandHandler) postConfirmation(ctx context.Context, teamID, channelID
 	}
 }
 
+// modalContext extracts the common preamble for all modal submission handlers:
+// a background context, team/channel IDs from metadata, and a validated view state.
+func modalContext(payload InteractionPayload) (context.Context, string, string, *ViewState, error) {
+	ctx := context.Background()
+	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
+	if teamID == "" {
+		teamID = payload.Team.ID
+	}
+	if payload.View.State == nil {
+		return ctx, "", "", nil, fmt.Errorf("no view state in payload")
+	}
+	return ctx, teamID, channelID, payload.View.State, nil
+}
+
 // RegisterModalHandlers registers all modal submission handlers on the InteractionHandler.
 func (h *CommandHandler) RegisterModalHandlers(ih *InteractionHandler) {
 	ih.RegisterHandler("set_suffix", h.handleSetSuffixSubmission)
@@ -55,23 +69,18 @@ func (h *CommandHandler) RegisterModalHandlers(ih *InteractionHandler) {
 }
 
 func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) error {
-	ctx := context.Background()
-	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
-	if teamID == "" {
-		teamID = payload.Team.ID
-	}
-
-	if payload.View.State == nil {
-		return fmt.Errorf("no view state in payload")
+	ctx, teamID, channelID, state, err := modalContext(payload)
+	if err != nil {
+		return err
 	}
 
 	filterValue := ""
-	if fv, ok := payload.View.State.Values["filter_block"]["filter_select"]; ok && fv.Selected != nil {
+	if fv, ok := state.Values["filter_block"]["filter_select"]; ok && fv.Selected != nil {
 		filterValue = fv.Selected.Value
 	}
 
 	suffixValue := ""
-	if sv, ok := payload.View.State.Values["suffix_block"]["suffix_input"]; ok && sv.Value != nil {
+	if sv, ok := state.Values["suffix_block"]["suffix_input"]; ok && sv.Value != nil {
 		suffixValue = *sv.Value
 	}
 
@@ -118,23 +127,17 @@ func (h *CommandHandler) handleSetSuffixSubmission(payload InteractionPayload) e
 }
 
 func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) error {
-	ctx := context.Background()
-	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
-	if teamID == "" {
-		teamID = payload.Team.ID
+	ctx, teamID, channelID, state, err := modalContext(payload)
+	if err != nil {
+		return err
 	}
-
-	if payload.View.State == nil {
-		return fmt.Errorf("no view state in payload")
-	}
-
 	filterValue := ""
-	if fv, ok := payload.View.State.Values["filter_block"]["filter_select"]; ok && fv.Selected != nil {
+	if fv, ok := state.Values["filter_block"]["filter_select"]; ok && fv.Selected != nil {
 		filterValue = fv.Selected.Value
 	}
 
 	linkValue := "off"
-	if lv, ok := payload.View.State.Values["link_block"]["link_input"]; ok && lv.Selected != nil {
+	if lv, ok := state.Values["link_block"]["link_input"]; ok && lv.Selected != nil {
 		linkValue = lv.Selected.Value
 	}
 	includeLink := linkValue == "on"
@@ -145,9 +148,9 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 		"link":    linkValue,
 	}).Debug("set_link modal submission")
 
-	state := "off"
+	linkState := "off"
 	if includeLink {
-		state = "on"
+		linkState = "on"
 	}
 
 	if filterValue == "" || filterValue == "all" {
@@ -160,9 +163,9 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 		}
 		log.WithFields(log.Fields{
 			"team_id":      teamID,
-			"include_link": state,
+			"include_link": linkState,
 		}).Info("updated tenant default meeting link setting via modal")
-		h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s (default).", state))
+		h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s (default).", linkState))
 		return nil
 	}
 
@@ -180,25 +183,20 @@ func (h *CommandHandler) handleSetLinkSubmission(payload InteractionPayload) err
 	log.WithFields(log.Fields{
 		"team_id":      teamID,
 		"filter":       filter.Pattern,
-		"include_link": state,
+		"include_link": linkState,
 	}).Info("updated filter link override via modal")
-	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s on filter `%s`.", state, filter.Pattern))
+	h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("Meeting links set to %s on filter `%s`.", linkState, filter.Pattern))
 	return nil
 }
 
 func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) error {
-	ctx := context.Background()
-	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
-	if teamID == "" {
-		teamID = payload.Team.ID
-	}
-
-	if payload.View.State == nil {
-		return fmt.Errorf("no view state in payload")
+	ctx, teamID, channelID, state, err := modalContext(payload)
+	if err != nil {
+		return err
 	}
 
 	selectedChannel := ""
-	if cv, ok := payload.View.State.Values["channel_block"]["channel_select"]; ok {
+	if cv, ok := state.Values["channel_block"]["channel_select"]; ok {
 		if cv.SelectedConversation != nil {
 			selectedChannel = *cv.SelectedConversation
 		}
@@ -239,18 +237,13 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 }
 
 func (h *CommandHandler) handleUnsubscribeSubmission(payload InteractionPayload) error {
-	ctx := context.Background()
-	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
-	if teamID == "" {
-		teamID = payload.Team.ID
-	}
-
-	if payload.View.State == nil {
-		return fmt.Errorf("no view state in payload")
+	ctx, teamID, channelID, state, err := modalContext(payload)
+	if err != nil {
+		return err
 	}
 
 	selectedChannel := ""
-	if cv, ok := payload.View.State.Values["channel_block"]["channel_select"]; ok && cv.Selected != nil {
+	if cv, ok := state.Values["channel_block"]["channel_select"]; ok && cv.Selected != nil {
 		selectedChannel = cv.Selected.Value
 	}
 	if selectedChannel == "" {
@@ -285,18 +278,13 @@ func (h *CommandHandler) handleUnsubscribeSubmission(payload InteractionPayload)
 }
 
 func (h *CommandHandler) handleAdminAddSubmission(payload InteractionPayload) error {
-	ctx := context.Background()
-	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
-	if teamID == "" {
-		teamID = payload.Team.ID
-	}
-
-	if payload.View.State == nil {
-		return fmt.Errorf("no view state in payload")
+	ctx, teamID, channelID, state, err := modalContext(payload)
+	if err != nil {
+		return err
 	}
 
 	userID := ""
-	if uv, ok := payload.View.State.Values["user_block"]["user_select"]; ok && uv.SelectedUser != nil {
+	if uv, ok := state.Values["user_block"]["user_select"]; ok && uv.SelectedUser != nil {
 		userID = *uv.SelectedUser
 	}
 	if userID == "" {
@@ -333,18 +321,13 @@ func (h *CommandHandler) handleAdminAddSubmission(payload InteractionPayload) er
 }
 
 func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) error {
-	ctx := context.Background()
-	teamID, channelID := parseMetadata(payload.View.PrivateMetadata)
-	if teamID == "" {
-		teamID = payload.Team.ID
-	}
-
-	if payload.View.State == nil {
-		return fmt.Errorf("no view state in payload")
+	ctx, teamID, channelID, state, err := modalContext(payload)
+	if err != nil {
+		return err
 	}
 
 	pattern := ""
-	if pv, ok := payload.View.State.Values["pattern_block"]["pattern_input"]; ok && pv.Value != nil {
+	if pv, ok := state.Values["pattern_block"]["pattern_input"]; ok && pv.Value != nil {
 		pattern = *pv.Value
 	}
 	if pattern == "" {
@@ -357,13 +340,13 @@ func (h *CommandHandler) handleAddFilterSubmission(payload InteractionPayload) e
 	}
 
 	// Optional suffix override
-	if sv, ok := payload.View.State.Values["suffix_block"]["suffix_input"]; ok && sv.Value != nil && *sv.Value != "" {
+	if sv, ok := state.Values["suffix_block"]["suffix_input"]; ok && sv.Value != nil && *sv.Value != "" {
 		suffix := *sv.Value
 		f.MsgSuffix = &suffix
 	}
 
 	// Optional link override
-	if lv, ok := payload.View.State.Values["link_block"]["link_input"]; ok && lv.Selected != nil {
+	if lv, ok := state.Values["link_block"]["link_input"]; ok && lv.Selected != nil {
 		switch lv.Selected.Value {
 		case "on":
 			v := true
