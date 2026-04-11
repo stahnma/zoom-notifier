@@ -73,41 +73,35 @@ func (s *SQLiteStore) ListFilters(ctx context.Context, tenantID string) ([]*stor
 }
 
 func (s *SQLiteStore) MatchesFilter(ctx context.Context, tenantID string, topic string) (bool, error) {
-	// If no filters exist for this tenant, allow all (return true)
-	var count int
-	err := s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM meeting_filters WHERE tenant_id = ?`, tenantID,
-	).Scan(&count)
+	filter, hasFilters, err := s.CheckFilter(ctx, tenantID, topic)
 	if err != nil {
-		return false, fmt.Errorf("count filters: %w", err)
+		return false, err
 	}
-	if count == 0 {
+	if !hasFilters {
 		return true, nil
 	}
-
-	// Check if topic matches any filter (case-insensitive substring)
-	var matchCount int
-	err = s.db.QueryRowContext(ctx,
-		`SELECT COUNT(*) FROM meeting_filters WHERE tenant_id = ? AND LOWER(?) LIKE '%' || LOWER(pattern) || '%' ESCAPE '\'`,
-		tenantID, escapeLike(topic),
-	).Scan(&matchCount)
-	if err != nil {
-		return false, fmt.Errorf("match filter: %w", err)
-	}
-	return matchCount > 0, nil
+	return filter != nil, nil
 }
 
 func (s *SQLiteStore) GetMatchingFilter(ctx context.Context, tenantID string, topic string) (*store.MeetingFilter, error) {
-	// If no filters exist for this tenant, return nil (no filter applies)
+	filter, _, err := s.CheckFilter(ctx, tenantID, topic)
+	return filter, err
+}
+
+// CheckFilter performs a single-pass filter check: returns the matching filter (if any),
+// whether any filters exist for this tenant, and any error. When hasFilters is false,
+// all meetings are allowed (no filters configured).
+func (s *SQLiteStore) CheckFilter(ctx context.Context, tenantID string, topic string) (filter *store.MeetingFilter, hasFilters bool, err error) {
+	// Count total filters for this tenant
 	var count int
-	err := s.db.QueryRowContext(ctx,
+	err = s.db.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM meeting_filters WHERE tenant_id = ?`, tenantID,
 	).Scan(&count)
 	if err != nil {
-		return nil, fmt.Errorf("count filters: %w", err)
+		return nil, false, fmt.Errorf("count filters: %w", err)
 	}
 	if count == 0 {
-		return nil, nil
+		return nil, false, nil
 	}
 
 	// Return the first matching filter (case-insensitive substring)
@@ -120,10 +114,10 @@ func (s *SQLiteStore) GetMatchingFilter(ctx context.Context, tenantID string, to
 	f := &store.MeetingFilter{}
 	err = row.Scan(&f.ID, &f.TenantID, &f.Pattern, &f.MsgSuffix, &f.IncludeLink)
 	if err == sql.ErrNoRows {
-		return nil, nil
+		return nil, true, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("get matching filter: %w", err)
+		return nil, true, fmt.Errorf("get matching filter: %w", err)
 	}
-	return f, nil
+	return f, true, nil
 }

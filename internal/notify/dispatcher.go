@@ -42,13 +42,13 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 		"topic":      topic,
 	}).Debug("dispatcher received event")
 
-	// Check meeting filters
-	matches, err := d.store.MatchesFilter(ctx, tenantID, topic)
+	// Check meeting filters (single query path: returns matched filter + whether filters exist)
+	matchedFilter, hasFilters, err := d.store.CheckFilter(ctx, tenantID, topic)
 	if err != nil {
 		log.WithError(err).Error("failed to check meeting filters")
 		return
 	}
-	if !matches {
+	if hasFilters && matchedFilter == nil {
 		log.WithFields(log.Fields{
 			"tenant_id": tenantID,
 			"topic":     topic,
@@ -76,13 +76,6 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	msg := formatMessage(payload)
 	if msg == "" {
 		return
-	}
-
-	// Get the matching filter for overrides (separate from the pass/fail check above)
-	matchedFilter, err := d.store.GetMatchingFilter(ctx, tenantID, topic)
-	if err != nil {
-		log.WithError(err).Error("failed to get matching filter")
-		// non-fatal: fall through to use tenant defaults
 	}
 
 	// Get tenant for bot token and defaults

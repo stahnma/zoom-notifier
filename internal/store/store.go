@@ -37,6 +37,7 @@ type Store interface {
 	ListFilters(ctx context.Context, tenantID string) ([]*MeetingFilter, error)
 	MatchesFilter(ctx context.Context, tenantID string, topic string) (bool, error)
 	GetMatchingFilter(ctx context.Context, tenantID string, topic string) (*MeetingFilter, error)
+	CheckFilter(ctx context.Context, tenantID string, topic string) (*MeetingFilter, bool, error)
 
 	// Active Meetings
 	UpsertMeeting(ctx context.Context, m *ActiveMeeting) error
