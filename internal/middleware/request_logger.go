@@ -50,11 +50,18 @@ func RequestLogger(next http.Handler) http.Handler {
 		metrics.HTTPRequestsTotal.WithLabelValues(r.Method, route, statusStr).Inc()
 		metrics.HTTPRequestDuration.WithLabelValues(r.Method, route).Observe(duration.Seconds())
 
-		log.WithFields(log.Fields{
+		fields := log.Fields{
 			"method":   r.Method,
 			"path":     r.URL.Path,
 			"status":   rec.status,
 			"duration": duration.String(),
-		}).Info("http request")
+		}
+		if rec.status >= 500 {
+			log.WithFields(fields).Error("http request")
+		} else if rec.status >= 400 {
+			log.WithFields(fields).Warn("http request")
+		} else {
+			log.WithFields(fields).Debug("http request")
+		}
 	})
 }

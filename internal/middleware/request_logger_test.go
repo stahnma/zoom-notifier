@@ -14,7 +14,7 @@ import (
 func TestRequestLogger_LogsRequestFields(t *testing.T) {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{DisableTimestamp: true})
 	defer log.SetOutput(os.Stderr)
 
@@ -45,7 +45,7 @@ func TestRequestLogger_LogsRequestFields(t *testing.T) {
 func TestRequestLogger_CapturesStatusCode(t *testing.T) {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{DisableTimestamp: true})
 	defer log.SetOutput(os.Stderr)
 
@@ -69,7 +69,7 @@ func TestRequestLogger_CapturesStatusCode(t *testing.T) {
 func TestRequestLogger_DefaultsTo200(t *testing.T) {
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
-	log.SetLevel(log.InfoLevel)
+	log.SetLevel(log.DebugLevel)
 	log.SetFormatter(&log.TextFormatter{DisableTimestamp: true})
 	defer log.SetOutput(os.Stderr)
 
