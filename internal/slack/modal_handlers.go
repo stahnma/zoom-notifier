@@ -218,7 +218,7 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 		return fmt.Errorf("list subscriptions: %w", err)
 	}
 	for _, s := range existing {
-		if s.Target == selectedChannel && s.Type == "slack" {
+		if s.Target == selectedChannel && s.Type == store.SubscriptionTypeSlack {
 			h.postConfirmation(ctx, teamID, channelID, payload.User.ID, fmt.Sprintf("<#%s> is already subscribed.", selectedChannel))
 			return nil
 		}
@@ -226,7 +226,7 @@ func (h *CommandHandler) handleSubscribeSubmission(payload InteractionPayload) e
 
 	sub := &store.Subscription{
 		TenantID: teamID,
-		Type:     "slack",
+		Type:     store.SubscriptionTypeSlack,
 		Target:   selectedChannel,
 		Enabled:  true,
 	}
@@ -268,7 +268,7 @@ func (h *CommandHandler) handleUnsubscribeSubmission(payload InteractionPayload)
 	}
 
 	for _, sub := range subs {
-		if sub.Target == selectedChannel && sub.Type == "slack" {
+		if sub.Target == selectedChannel && sub.Type == store.SubscriptionTypeSlack {
 			if err := h.store.DeleteSubscription(ctx, sub.ID); err != nil {
 				return fmt.Errorf("delete subscription: %w", err)
 			}

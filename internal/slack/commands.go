@@ -284,14 +284,14 @@ func (h *CommandHandler) subscribe(ctx context.Context, cmd SlashCommand, args [
 		return nil, fmt.Errorf("list subscriptions: %w", err)
 	}
 	for _, s := range existing {
-		if s.Target == target && s.Type == "slack" {
+		if s.Target == target && s.Type == store.SubscriptionTypeSlack {
 			return ephemeral(fmt.Sprintf("%s is already subscribed to meeting notifications.", formatChannel(target))), nil
 		}
 	}
 
 	sub := &store.Subscription{
 		TenantID: cmd.TeamID,
-		Type:     "slack",
+		Type:     store.SubscriptionTypeSlack,
 		Target:   target,
 		Enabled:  true,
 	}
@@ -346,7 +346,7 @@ func (h *CommandHandler) unsubscribe(ctx context.Context, cmd SlashCommand, args
 	}
 
 	for _, sub := range subs {
-		if sub.Type != "slack" {
+		if sub.Type != store.SubscriptionTypeSlack {
 			continue
 		}
 
@@ -456,7 +456,7 @@ func (h *CommandHandler) listSubscriptions(ctx context.Context, cmd SlashCommand
 	if botToken != "" {
 		api := slackapi.New(botToken)
 		for _, s := range subs {
-			if s.Type != "slack" {
+			if s.Type != store.SubscriptionTypeSlack {
 				continue
 			}
 			if strings.HasPrefix(s.Target, "C") {
@@ -825,7 +825,7 @@ func (h *CommandHandler) settings(ctx context.Context, cmd SlashCommand) (*Slash
 			}
 
 			for _, s := range subs {
-				if s.Type != "slack" {
+				if s.Type != store.SubscriptionTypeSlack {
 					fmt.Fprintf(&sb, "• %s → %s\n", s.Type, s.Target)
 					continue
 				}

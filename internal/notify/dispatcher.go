@@ -129,22 +129,22 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 		}).Debug("sending notification")
 
 		switch sub.Type {
-		case "slack":
+		case store.SubscriptionTypeSlack:
 			botToken := ""
 			if tenant.BotToken != nil {
 				botToken = *tenant.BotToken
 			}
 			if err := d.slack.Send(ctx, botToken, sub.Target, subMsg); err != nil {
-				metrics.NotificationsSent.WithLabelValues("slack", "error").Inc()
+				metrics.NotificationsSent.WithLabelValues(store.SubscriptionTypeSlack, "error").Inc()
 				log.WithError(err).WithFields(log.Fields{
 					"target":    sub.Target,
 					"tenant_id": tenantID,
 				}).Error("failed to send slack notification")
 			} else {
-				metrics.NotificationsSent.WithLabelValues("slack", "success").Inc()
+				metrics.NotificationsSent.WithLabelValues(store.SubscriptionTypeSlack, "success").Inc()
 			}
 
-		case "irc":
+		case store.SubscriptionTypeIRC:
 			configs, err := d.store.GetIRCConfig(ctx, tenantID)
 			if err != nil || len(configs) == 0 {
 				log.WithError(err).WithField("tenant_id", tenantID).Error("no IRC config found")
@@ -152,14 +152,14 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 			}
 			for _, cfg := range configs {
 				if err := d.irc.Send(ctx, cfg, sub.Target, subMsg); err != nil {
-					metrics.NotificationsSent.WithLabelValues("irc", "error").Inc()
+					metrics.NotificationsSent.WithLabelValues(store.SubscriptionTypeIRC, "error").Inc()
 					log.WithError(err).WithFields(log.Fields{
 						"target":    sub.Target,
 						"server":    cfg.Server,
 						"tenant_id": tenantID,
 					}).Error("failed to send IRC notification")
 				} else {
-					metrics.NotificationsSent.WithLabelValues("irc", "success").Inc()
+					metrics.NotificationsSent.WithLabelValues(store.SubscriptionTypeIRC, "success").Inc()
 				}
 			}
 		}
