@@ -75,6 +75,7 @@ api_key = "your-admin-key"                  # or ZOOMNOTIFIER_ADMIN_KEY
 
 [log]
 level = "info"
+format = "text"  # "text" for dev, "json" for production log aggregation
 ```
 
 ### Run
@@ -196,6 +197,9 @@ Interactive Swagger UI docs are available at `/api/docs` when the server is runn
 The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 
 - `GET /healthz` -- Health check (version, uptime, database status, tenant count)
+- `GET /livez` -- Liveness probe (always 200)
+- `GET /readyz` -- Readiness probe (200 if database connected, 503 otherwise)
+- `GET /metrics` -- Prometheus metrics
 - `POST /webhook/zoom` -- Zoom webhook receiver
 - `GET/POST /api/v1/tenants` -- Tenant management (admin key)
 - `PUT /api/v1/tenants/{id}/defaults` -- Update tenant notification defaults
@@ -214,6 +218,9 @@ The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 | `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
 | `/api/docs` | Swagger UI API documentation |
 | `/healthz` | Health check endpoint |
+| `/livez` | Liveness probe |
+| `/readyz` | Readiness probe |
+| `/metrics` | Prometheus metrics |
 
 ## Running via systemd
 

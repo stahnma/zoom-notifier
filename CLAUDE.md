@@ -98,6 +98,7 @@ All configuration via TOML config file and/or environment variables:
 | `slack.signing_secret` | `SLACK_SIGNING_SECRET` | Slack request signing secret | (required) |
 | `admin.api_key` | `ZOOMNOTIFIER_ADMIN_KEY` | Admin API key for tenant management | (required) |
 | `log.level` | - | Log level (debug/info/warn/error) | info |
+| `log.format` | - | Log format (`text` or `json`) | text |
 
 ## Handled Zoom Events
 
@@ -156,3 +157,6 @@ Aliases: `sub`/`subscribe`, `unsub`/`unsubscribe`, `subs`/`subscriptions`, `admi
 | `/api/docs` | Swagger UI API documentation |
 | `/api/docs/openapi.yaml` | Raw OpenAPI spec (embedded in binary) |
 | `/healthz` | Health check (version, uptime, database status, tenant count) |
+| `/livez` | Liveness probe (always 200 if process is running) |
+| `/readyz` | Readiness probe (200 if database connected, 503 otherwise) |
+| `/metrics` | Prometheus metrics (request counts, latency, webhook/notification stats) |
