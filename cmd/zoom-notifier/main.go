@@ -86,8 +86,8 @@ func main() {
 			<-sigCh
 			log.Info("shutting down setup wizard...")
 			if err := srv.Shutdown(context.Background()); err != nil {
-					log.WithError(err).Warn("setup wizard shutdown error")
-				}
+				log.WithError(err).Warn("setup wizard shutdown error")
+			}
 		}()
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("setup server error: %v", err)
