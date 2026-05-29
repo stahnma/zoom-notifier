@@ -2,6 +2,16 @@
 
 Multi-tenant service that receives Zoom webhook events and dispatches notifications to Slack channels and/or IRC. Includes a native Slack app with slash commands, interactive modals, and a spec-first REST API.
 
+## Screenshots
+
+Join/leave notifications posted to a subscribed Slack channel:
+
+![Zoom join notifications in Slack](docs/output.png)
+
+`/zoom-notifier status` showing active meetings and participants:
+
+![Status command output](docs/status.png)
+
 ## Features
 
 - **Multi-tenant**: Multiple Slack workspaces, each with their own Zoom account, subscriptions, and settings
