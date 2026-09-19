@@ -31,7 +31,7 @@ If you want the app to be discoverable in Slack's app directory:
 
 ### Required
 
-- **Token encryption at rest** — Bot tokens are currently stored in plain text in SQLite. The `database.encryption_key` config field exists but isn't implemented for token encryption yet. For a multi-tenant production service hosting other companies' tokens, encryption at rest is essential.
+- **Token encryption at rest** — Done. Set `database.encryption_key` (or `ZOOMNOTIFIER_ENCRYPTION_KEY`) and bot tokens, API keys, Zoom client secrets, and IRC passwords are encrypted with AES-256-GCM. Existing plaintext rows are migrated on startup. See "Secrets at Rest" in the README for key handling and backup guidance.
 
 ### Recommended
 
