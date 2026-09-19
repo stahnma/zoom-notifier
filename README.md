@@ -229,6 +229,8 @@ The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 | `/slack/install` | Slack OAuth install flow |
 | `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
 | `/api/docs` | Swagger UI API documentation |
+| `/privacy` | Privacy policy (plain English) |
+| `/terms` | Terms of service (plain English) |
 | `/healthz` | Health check endpoint |
 | `/livez` | Liveness probe |
 | `/readyz` | Readiness probe |

@@ -161,6 +161,10 @@ func main() {
 		}
 	})
 
+	// Legal pages (required by Slack for public distribution)
+	r.Get("/privacy", handlePrivacy)
+	r.Get("/terms", handleTerms)
+
 	// Slack OAuth routes (outside generated API)
 	if cfg.Slack.ClientID != "" {
 		redirectURI := fmt.Sprintf("http://%s:%d/slack/callback", cfg.Server.Host, cfg.Server.Port)
