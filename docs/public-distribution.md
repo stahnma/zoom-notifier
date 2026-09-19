@@ -15,8 +15,8 @@ The app is architected for multi-tenant use — each Slack workspace that instal
 3. Under "Distribute App to Other Workspaces", complete the checklist:
    - All required app information fields filled in
    - No hard-coded redirect URLs (zoom-notifier uses config-based URLs, so this is already handled)
-   - Privacy policy URL
-   - Terms of service URL
+   - Privacy policy URL — the server serves one at `https://your-server/privacy`
+   - Terms of service URL — the server serves one at `https://your-server/terms`
 4. Toggle **"Distribute App to Other Workspaces"** on
 
 ### Slack App Directory (Optional)

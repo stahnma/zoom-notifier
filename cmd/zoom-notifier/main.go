@@ -151,6 +151,8 @@ func main() {
     <li><a href="/slack/install">Install Slack App</a></li>
     <li><a href="/api/docs">API Documentation</a></li>
     <li><a href="/healthz">Health Check</a></li>
+    <li><a href="/privacy">Privacy Policy</a></li>
+    <li><a href="/terms">Terms of Service</a></li>
   </ul>
 
   <div class="endpoints">
@@ -166,6 +168,10 @@ func main() {
 </body>
 </html>`, version)
 	})
+
+	// Legal pages (required by Slack for public distribution)
+	r.Get("/privacy", handlePrivacy)
+	r.Get("/terms", handleTerms)
 
 	// Slack OAuth routes (outside generated API)
 	if cfg.Slack.ClientID != "" {

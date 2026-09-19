@@ -155,4 +155,6 @@ Aliases: `sub`/`subscribe`, `unsub`/`unsubscribe`, `subs`/`subscriptions`, `admi
 | `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
 | `/api/docs` | Swagger UI API documentation |
 | `/api/docs/openapi.yaml` | Raw OpenAPI spec (embedded in binary) |
+| `/privacy` | Privacy policy (plain English, needed for Slack distribution) |
+| `/terms` | Terms of service (plain English, needed for Slack distribution) |
 | `/healthz` | Health check (version, uptime, database status, tenant count) |
