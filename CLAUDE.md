@@ -67,14 +67,14 @@ api/
 
 **Slack Interaction Flow:** HTTP POST /slack/interactions → signing secret verification → view_submission routing by callback_id → store operations → confirmation message → 200 OK
 
-**API Flow:** HTTP request → Chi router → oapi-codegen strict handler → auth middleware (AdminKey/TenantKey scopes) → server methods → store
+**API Flow:** HTTP request → Chi router → request validator (spec schema + AdminKey/TenantKey auth) → oapi-codegen strict handler → server methods → store
 
 ## Key Design Decisions
 
 - **Pure Go**: `CGO_ENABLED=0` with `modernc.org/sqlite` — no C compiler needed
 - **Store interface**: `store.Store` interface enables future database swaps
 - **Spec-first API**: OpenAPI 3.0 → oapi-codegen strict server mode → compile-time route/type safety
-- **Security scopes**: Generated code sets `AdminKeyScopes`/`TenantKeyScopes` in context; single `AuthMiddleware` checks both. This relies on `compatibility.enable-auth-scopes-on-context` in `internal/api/oapi-codegen.yaml` (off by default since oapi-codegen 2.8, deprecated in favor of nethttp-middleware request validation) — do not remove the flag without migrating the middleware
+- **Spec-driven auth and validation**: `NewRequestValidator` (`internal/api/middleware.go`) wraps every generated route with `oapi-codegen/nethttp-middleware`, which loads the embedded `openapi.yaml` and validates path params, bodies, and `security` requirements before the handler runs. Auth lives in an `AuthenticationFunc` keyed by scheme name (`AdminKey` → deployment key, `TenantKey` → key of the `{tenantId}` tenant). Adding `security` to an operation in the spec is all that's needed to protect it. `/webhook/zoom` is skipped so Zoom always gets a 200
 - **Multi-tenant**: Tenants created via Slack OAuth install; isolated subscriptions, filters, credentials, and Zoom accounts
 - **Notification settings**: Two-tier model — tenant-wide defaults with per-filter overrides for message suffix and meeting link toggle
 - **Slack modals**: Admin commands (subscribe, filter, set-suffix, set-link, admins add) open interactive modals with proper form UIs; text-based fallback when modals unavailable

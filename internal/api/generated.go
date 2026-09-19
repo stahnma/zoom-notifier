@@ -15,11 +15,6 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-const (
-	AdminKeyScopes  adminKeyContextKey  = "AdminKey.Scopes"
-	TenantKeyScopes tenantKeyContextKey = "TenantKey.Scopes"
-)
-
 // Defines values for CreateSubscriptionRequestType.
 const (
 	CreateSubscriptionRequestTypeIrc   CreateSubscriptionRequestType = "irc"
@@ -240,12 +235,6 @@ type NotFound = ErrorResponse
 
 // Unauthorized defines model for Unauthorized.
 type Unauthorized = ErrorResponse
-
-// adminKeyContextKey is the context key for AdminKey security scheme
-type adminKeyContextKey string
-
-// tenantKeyContextKey is the context key for TenantKey security scheme
-type tenantKeyContextKey string
 
 // PostWebhookZoomJSONBody defines parameters for PostWebhookZoom.
 type PostWebhookZoomJSONBody = map[string]interface{}
@@ -516,12 +505,6 @@ type MiddlewareFunc func(http.Handler) http.Handler
 // ListTenants operation middleware
 func (siw *ServerInterfaceWrapper) ListTenants(w http.ResponseWriter, r *http.Request) {
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, AdminKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListTenants(w, r)
 	}))
@@ -535,12 +518,6 @@ func (siw *ServerInterfaceWrapper) ListTenants(w http.ResponseWriter, r *http.Re
 
 // CreateTenant operation middleware
 func (siw *ServerInterfaceWrapper) CreateTenant(w http.ResponseWriter, r *http.Request) {
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, AdminKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateTenant(w, r)
@@ -568,12 +545,6 @@ func (siw *ServerInterfaceWrapper) DeleteTenant(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteTenant(w, r, tenantId)
 	}))
@@ -599,12 +570,6 @@ func (siw *ServerInterfaceWrapper) GetTenant(w http.ResponseWriter, r *http.Requ
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetTenant(w, r, tenantId)
@@ -632,12 +597,6 @@ func (siw *ServerInterfaceWrapper) ListAdmins(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAdmins(w, r, tenantId)
 	}))
@@ -663,12 +622,6 @@ func (siw *ServerInterfaceWrapper) AddAdmin(w http.ResponseWriter, r *http.Reque
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddAdmin(w, r, tenantId)
@@ -705,12 +658,6 @@ func (siw *ServerInterfaceWrapper) RemoveAdmin(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RemoveAdmin(w, r, tenantId, userId)
 	}))
@@ -736,12 +683,6 @@ func (siw *ServerInterfaceWrapper) PutTenantDefaults(w http.ResponseWriter, r *h
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutTenantDefaults(w, r, tenantId)
@@ -769,12 +710,6 @@ func (siw *ServerInterfaceWrapper) ListFilters(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListFilters(w, r, tenantId)
 	}))
@@ -800,12 +735,6 @@ func (siw *ServerInterfaceWrapper) CreateFilter(w http.ResponseWriter, r *http.R
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateFilter(w, r, tenantId)
@@ -842,12 +771,6 @@ func (siw *ServerInterfaceWrapper) DeleteFilter(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteFilter(w, r, tenantId, filterId)
 	}))
@@ -883,12 +806,6 @@ func (siw *ServerInterfaceWrapper) UpdateFilter(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateFilter(w, r, tenantId, filterId)
 	}))
@@ -914,12 +831,6 @@ func (siw *ServerInterfaceWrapper) GetIRCConfig(w http.ResponseWriter, r *http.R
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetIRCConfig(w, r, tenantId)
@@ -947,12 +858,6 @@ func (siw *ServerInterfaceWrapper) PutIRCConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutIRCConfig(w, r, tenantId)
 	}))
@@ -978,12 +883,6 @@ func (siw *ServerInterfaceWrapper) ListMeetings(w http.ResponseWriter, r *http.R
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListMeetings(w, r, tenantId)
@@ -1020,12 +919,6 @@ func (siw *ServerInterfaceWrapper) ListParticipants(w http.ResponseWriter, r *ht
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListParticipants(w, r, tenantId, meetingId)
 	}))
@@ -1051,12 +944,6 @@ func (siw *ServerInterfaceWrapper) RotateAPIKey(w http.ResponseWriter, r *http.R
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.RotateAPIKey(w, r, tenantId)
@@ -1084,12 +971,6 @@ func (siw *ServerInterfaceWrapper) ListSubscriptions(w http.ResponseWriter, r *h
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListSubscriptions(w, r, tenantId)
 	}))
@@ -1115,12 +996,6 @@ func (siw *ServerInterfaceWrapper) CreateSubscription(w http.ResponseWriter, r *
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateSubscription(w, r, tenantId)
@@ -1157,12 +1032,6 @@ func (siw *ServerInterfaceWrapper) DeleteSubscription(w http.ResponseWriter, r *
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.DeleteSubscription(w, r, tenantId, subscriptionId)
 	}))
@@ -1198,12 +1067,6 @@ func (siw *ServerInterfaceWrapper) UpdateSubscription(w http.ResponseWriter, r *
 		return
 	}
 
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
-
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.UpdateSubscription(w, r, tenantId, subscriptionId)
 	}))
@@ -1229,12 +1092,6 @@ func (siw *ServerInterfaceWrapper) PutZoomCredentials(w http.ResponseWriter, r *
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
 		return
 	}
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, TenantKeyScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PutZoomCredentials(w, r, tenantId)

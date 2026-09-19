@@ -160,7 +160,10 @@ func main() {
 
 	// Create API server
 	apiServer := api.NewServer(store, version, commit, buildDate, zoomHandler, cfg.Zoom.WebhookSecret)
-	apiRouter := api.SetupRouter(apiServer, store, cfg.Admin.APIKey)
+	apiRouter, err := api.SetupRouter(apiServer, store, cfg.Admin.APIKey)
+	if err != nil {
+		log.Fatalf("failed to set up API router: %v", err)
+	}
 
 	// Build main router
 	r := chi.NewRouter()
