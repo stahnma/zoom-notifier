@@ -4,3 +4,9 @@ generate:
   chi-server: true
   models: true
   strict-server: true
+compatibility:
+  # oapi-codegen >= 2.8 stopped emitting AdminKeyScopes/TenantKeyScopes and
+  # the per-operation context.WithValue calls by default. AuthMiddleware in
+  # middleware.go relies on them. Deprecated upstream in favor of
+  # nethttp-middleware request validation (oapi-codegen issue #1524).
+  enable-auth-scopes-on-context: true
