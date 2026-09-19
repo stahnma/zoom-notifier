@@ -1,5 +1,5 @@
 index.html
-zoom-notifier
+/zoom-notifier
 go.sum
 *.creds
 .worktrees/
