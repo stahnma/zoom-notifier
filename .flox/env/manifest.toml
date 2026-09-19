@@ -17,6 +17,7 @@ sqlite-interactive.pkg-path = "sqlite-interactive"
 sqlite-interactive.outputs = "all"
 cloudflared.pkg-path = "cloudflared"
 imagemagick.pkg-path = "imagemagick"
+oapi-codegen.pkg-path = "oapi-codegen"
 # gum.pkg-path = "gum"
 # gum.version = "^0.14.5"
 

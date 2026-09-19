@@ -74,7 +74,7 @@ api/
 - **Pure Go**: `CGO_ENABLED=0` with `modernc.org/sqlite` — no C compiler needed
 - **Store interface**: `store.Store` interface enables future database swaps
 - **Spec-first API**: OpenAPI 3.0 → oapi-codegen strict server mode → compile-time route/type safety
-- **Security scopes**: Generated code sets `AdminKeyScopes`/`TenantKeyScopes` in context; single `AuthMiddleware` checks both
+- **Security scopes**: Generated code sets `AdminKeyScopes`/`TenantKeyScopes` in context; single `AuthMiddleware` checks both. This relies on `compatibility.enable-auth-scopes-on-context` in `internal/api/oapi-codegen.yaml` (off by default since oapi-codegen 2.8, deprecated in favor of nethttp-middleware request validation) — do not remove the flag without migrating the middleware
 - **Multi-tenant**: Tenants created via Slack OAuth install; isolated subscriptions, filters, credentials, and Zoom accounts
 - **Notification settings**: Two-tier model — tenant-wide defaults with per-filter overrides for message suffix and meeting link toggle
 - **Slack modals**: Admin commands (subscribe, filter, set-suffix, set-link, admins add) open interactive modals with proper form UIs; text-based fallback when modals unavailable

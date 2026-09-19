@@ -23,6 +23,9 @@
         "pkg-path": "jq",
         "outputs": "all"
       },
+      "oapi-codegen": {
+        "pkg-path": "oapi-codegen"
+      },
       "sqlite-interactive": {
         "pkg-path": "sqlite-interactive",
         "outputs": "all"
@@ -606,6 +609,93 @@
         "doc": "/nix/store/4nyfj762zipxy8m89nr6qr3pdyib5lc6-jq-1.8.2-doc",
         "man": "/nix/store/i8q5p6696qyq3ljdxmnw8dsvb2bjxp31-jq-1.8.2-man",
         "out": "/nix/store/bkxqspw3p2d70my28z2skx5d84xkxi40-jq-1.8.2"
+      },
+      "system": "x86_64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "oapi-codegen",
+      "broken": false,
+      "derivation": "/nix/store/54cphi69522ba6a430qq3bxcx5r5skkf-oapi-codegen-2.8.0.drv",
+      "description": "Go client and server OpenAPI 3 generator",
+      "install_id": "oapi-codegen",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=b1b875982b17dabde9b4a37f3e229e74913e6db3",
+      "name": "oapi-codegen-2.8.0",
+      "pname": "oapi-codegen",
+      "rev": "b1b875982b17dabde9b4a37f3e229e74913e6db3",
+      "rev_count": 1074753,
+      "rev_date": "2026-09-16T08:07:56Z",
+      "scrape_date": "2026-09-17T05:03:46.456809Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.8.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/x0m3srm3cvxskflzwfcb7ipamgbxk9bs-oapi-codegen-2.8.0"
+      },
+      "system": "aarch64-darwin",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "oapi-codegen",
+      "broken": false,
+      "derivation": "/nix/store/0vcygr02cc3iycf4nl056pd96pabrx68-oapi-codegen-2.8.0.drv",
+      "description": "Go client and server OpenAPI 3 generator",
+      "install_id": "oapi-codegen",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=b1b875982b17dabde9b4a37f3e229e74913e6db3",
+      "name": "oapi-codegen-2.8.0",
+      "pname": "oapi-codegen",
+      "rev": "b1b875982b17dabde9b4a37f3e229e74913e6db3",
+      "rev_count": 1074753,
+      "rev_date": "2026-09-16T08:07:56Z",
+      "scrape_date": "2026-09-17T05:41:02.848970Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.8.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/5mvngilwn5qg4gcn8khwxavg3ymmm4h1-oapi-codegen-2.8.0"
+      },
+      "system": "aarch64-linux",
+      "group": "toplevel",
+      "priority": 5
+    },
+    {
+      "attr_path": "oapi-codegen",
+      "broken": false,
+      "derivation": "/nix/store/7pd66k2a568hal0anssl5jyhbrralgs5-oapi-codegen-2.8.0.drv",
+      "description": "Go client and server OpenAPI 3 generator",
+      "install_id": "oapi-codegen",
+      "license": "Apache-2.0",
+      "locked_url": "https://github.com/flox/nixpkgs?rev=b1b875982b17dabde9b4a37f3e229e74913e6db3",
+      "name": "oapi-codegen-2.8.0",
+      "pname": "oapi-codegen",
+      "rev": "b1b875982b17dabde9b4a37f3e229e74913e6db3",
+      "rev_count": 1074753,
+      "rev_date": "2026-09-16T08:07:56Z",
+      "scrape_date": "2026-09-17T06:22:43.840235Z",
+      "stabilities": [
+        "unstable"
+      ],
+      "unfree": false,
+      "version": "2.8.0",
+      "outputs_to_install": [
+        "out"
+      ],
+      "outputs": {
+        "out": "/nix/store/fji6fndvd0gb4g7438rcdr6hjamkh2z0-oapi-codegen-2.8.0"
       },
       "system": "x86_64-linux",
       "group": "toplevel",
