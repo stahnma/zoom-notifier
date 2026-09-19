@@ -38,7 +38,7 @@ The wizard walks you through:
 1. Setting your server's public URL
 2. Creating a Zoom Server-to-Server OAuth app (Account ID, webhook secret, optional API credentials)
 3. Creating a Slack app (via pre-built manifest link) and entering credentials
-4. Advanced settings (host, port, database path, log level, admin API key)
+4. Advanced settings (host, port, database path, log level, admin API key, database encryption key)
 
 On completion it writes a `config.toml` file. Restart to apply.
 
@@ -56,6 +56,10 @@ url = "https://zoom.example.com"           # public URL for OAuth redirects
 
 [database]
 path = "./zoom-notifier.db"
+# Encrypts Slack tokens, API keys, and Zoom/IRC secrets at rest (AES-256-GCM).
+# Generate with: openssl rand -hex 32   (or ZOOMNOTIFIER_ENCRYPTION_KEY env var)
+# Back it up — without it, stored secrets cannot be recovered.
+encryption_key = "64-hex-chars"
 
 [zoom]
 webhook_secret = "your-zoom-secret-token"   # or ZOOM_SECRET env var
@@ -76,6 +80,16 @@ api_key = "your-admin-key"                  # or ZOOMNOTIFIER_ADMIN_KEY
 [log]
 level = "info"
 ```
+
+### Secrets at Rest
+
+With `database.encryption_key` set, the following columns are encrypted with AES-256-GCM before being written to SQLite: Slack bot tokens, tenant API keys, Zoom client secrets, and IRC passwords. Everything else (workspace names, channel IDs, filters, meeting state) is stored as-is.
+
+- The setup wizard generates a key automatically. For a manual config, run `openssl rand -hex 32`.
+- Adding a key to an existing deployment is safe: on the next start, any plaintext secrets are encrypted in place.
+- Without a key the service still runs but logs a warning at startup and stores secrets in plaintext.
+- **Losing the key loses the secrets.** The service will refuse to read them (and fail loudly) rather than pass garbage to Slack or Zoom. Recovery means every workspace reinstalls the Slack app and re-enters Zoom/IRC credentials. Back up the key separately from the database.
+- Key rotation is not automated yet. To rotate: stop the service, decrypt with the old key and re-encrypt with the new one, then start with the new key.
 
 ### Run
 

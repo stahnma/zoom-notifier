@@ -23,6 +23,11 @@ type ServerConfig struct {
 
 type DatabaseConfig struct {
 	Path string
+	// EncryptionKey is a hex-encoded 32-byte key used to encrypt secrets
+	// (bot tokens, API keys, Zoom client secrets, IRC passwords) at rest.
+	// Empty disables encryption. Losing this key makes stored secrets
+	// unrecoverable.
+	EncryptionKey string
 }
 
 type ZoomConfig struct {
@@ -63,6 +68,7 @@ func Load(configPath string) (*Config, error) {
 	_ = v.BindEnv("slack.client_secret", "SLACK_CLIENT_SECRET")
 	_ = v.BindEnv("slack.signing_secret", "SLACK_SIGNING_SECRET")
 	_ = v.BindEnv("admin.api_key", "ZOOMNOTIFIER_ADMIN_KEY")
+	_ = v.BindEnv("database.encryption_key", "ZOOMNOTIFIER_ENCRYPTION_KEY")
 
 	// Load config file
 	if configPath != "" {
@@ -86,6 +92,7 @@ func Load(configPath string) (*Config, error) {
 	cfg.Server.Host = v.GetString("server.host")
 	cfg.Server.URL = v.GetString("server.url")
 	cfg.Database.Path = v.GetString("database.path")
+	cfg.Database.EncryptionKey = v.GetString("database.encryption_key")
 	cfg.Zoom.WebhookSecret = v.GetString("zoom.webhook_secret")
 	cfg.Zoom.AccountID = v.GetString("zoom.account_id")
 	cfg.Zoom.ClientID = v.GetString("zoom.client_id")

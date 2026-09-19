@@ -8,7 +8,11 @@ import (
 )
 
 func (s *SQLiteStore) UpsertIRCConfig(ctx context.Context, c *store.IRCConfig) error {
-	_, err := s.db.ExecContext(ctx,
+	password, err := s.cipher.Seal(c.Password)
+	if err != nil {
+		return fmt.Errorf("encrypt irc password: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO irc_configs (tenant_id, server, nick, password, use_tls, insecure_tls)
 		 VALUES (?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(tenant_id, server) DO UPDATE SET
@@ -16,7 +20,7 @@ func (s *SQLiteStore) UpsertIRCConfig(ctx context.Context, c *store.IRCConfig) e
 		   password = excluded.password,
 		   use_tls = excluded.use_tls,
 		   insecure_tls = excluded.insecure_tls`,
-		c.TenantID, c.Server, c.Nick, c.Password, c.UseTLS, c.InsecureTLS,
+		c.TenantID, c.Server, c.Nick, password, c.UseTLS, c.InsecureTLS,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert irc config: %w", err)
@@ -39,6 +43,9 @@ func (s *SQLiteStore) GetIRCConfig(ctx context.Context, tenantID string) ([]*sto
 		c := &store.IRCConfig{}
 		if err := rows.Scan(&c.TenantID, &c.Server, &c.Nick, &c.Password, &c.UseTLS, &c.InsecureTLS); err != nil {
 			return nil, fmt.Errorf("scan irc config: %w", err)
+		}
+		if c.Password, err = s.cipher.Open(c.Password); err != nil {
+			return nil, fmt.Errorf("decrypt irc password for tenant %s: %w", tenantID, err)
 		}
 		configs = append(configs, c)
 	}

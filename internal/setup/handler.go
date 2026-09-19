@@ -3,6 +3,7 @@ package setup
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -59,16 +60,26 @@ func NewHandler(configPath string) *Handler {
 		)
 	}
 
-	apiKey, _ := GenerateAPIKey()
+	// Like template.Must above: the wizard cannot function without random
+	// keys, and crypto/rand failing at startup is unrecoverable.
+	apiKey, err := GenerateAPIKey()
+	if err != nil {
+		panic(fmt.Sprintf("setup: generate admin API key: %v", err))
+	}
+	encryptionKey, err := GenerateAPIKey() // 32 random bytes as hex, same shape as an AES-256 key
+	if err != nil {
+		panic(fmt.Sprintf("setup: generate encryption key: %v", err))
+	}
 	return &Handler{
 		configPath: configPath,
 		templates:  templates,
 		data: &SetupData{
-			AdminAPIKey:  apiKey,
-			ServerHost:   "localhost",
-			ServerPort:   8888,
-			DatabasePath: "./zoom-notifier.db",
-			LogLevel:     "info",
+			AdminAPIKey:   apiKey,
+			EncryptionKey: encryptionKey,
+			ServerHost:    "localhost",
+			ServerPort:    8888,
+			DatabasePath:  "./zoom-notifier.db",
+			LogLevel:      "info",
 		},
 	}
 }

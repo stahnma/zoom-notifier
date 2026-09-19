@@ -81,7 +81,7 @@ func main() {
 	log.SetLevel(level)
 
 	// Open SQLite store
-	store, err := sqlite.New(cfg.Database.Path)
+	store, err := sqlite.New(cfg.Database.Path, sqlite.WithEncryptionKey(cfg.Database.EncryptionKey))
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
@@ -92,6 +92,20 @@ func main() {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 	log.Info("database migrations complete")
+
+	// Encrypt secrets at rest. Rows written before a key was configured are
+	// encrypted in place on the first start with a key.
+	if store.EncryptionEnabled() {
+		n, err := store.EncryptLegacySecrets(context.Background())
+		if err != nil {
+			log.Fatalf("failed to encrypt existing secrets: %v", err)
+		}
+		if n > 0 {
+			log.WithField("rows", n).Info("encrypted existing plaintext secrets")
+		}
+	} else {
+		log.Warn("database.encryption_key is not set: Slack tokens, API keys, and Zoom/IRC secrets are stored in plaintext")
+	}
 
 	if *migrateOnly {
 		log.Info("migrations complete, exiting")

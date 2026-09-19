@@ -11,6 +11,7 @@ import (
 type SetupData struct {
 	ServerURL          string
 	AdminAPIKey        string
+	EncryptionKey      string
 	ZoomSecret         string
 	ZoomAccountID      string
 	ZoomClientID       string
@@ -41,6 +42,11 @@ url = "{{.ServerURL | toml}}"
 
 [database]
 path = "{{.DatabasePath | toml}}"
+{{- if .EncryptionKey}}
+# Encrypts Slack tokens, API keys, and Zoom/IRC secrets at rest.
+# Back this up: without it, stored secrets cannot be recovered.
+encryption_key = "{{.EncryptionKey | toml}}"
+{{- end}}
 
 [zoom]
 webhook_secret = "{{.ZoomSecret | toml}}"

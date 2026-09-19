@@ -58,6 +58,7 @@ level = "debug"
 func TestLoadFromEnvVars(t *testing.T) {
 	t.Setenv("ZOOM_SECRET", "testsecret")
 	t.Setenv("ZOOMNOTIFIER_ADMIN_KEY", "testadminkey")
+	t.Setenv("ZOOMNOTIFIER_ENCRYPTION_KEY", "deadbeef")
 
 	cfg, err := Load("")
 	if err != nil {
@@ -68,5 +69,8 @@ func TestLoadFromEnvVars(t *testing.T) {
 	}
 	if cfg.Admin.APIKey != "testadminkey" {
 		t.Errorf("expected admin key testadminkey, got %s", cfg.Admin.APIKey)
+	}
+	if cfg.Database.EncryptionKey != "deadbeef" {
+		t.Errorf("expected encryption key deadbeef, got %s", cfg.Database.EncryptionKey)
 	}
 }

@@ -9,10 +9,18 @@ import (
 )
 
 func (s *SQLiteStore) CreateTenant(ctx context.Context, t *store.Tenant) error {
-	_, err := s.db.ExecContext(ctx,
+	botToken, err := s.cipher.SealPtr(t.BotToken)
+	if err != nil {
+		return fmt.Errorf("encrypt bot token: %w", err)
+	}
+	apiKey, err := s.cipher.Seal(t.APIKey)
+	if err != nil {
+		return fmt.Errorf("encrypt api key: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO tenants (id, team_name, bot_token, api_key, zoom_account_id, default_msg_suffix, default_include_link)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		t.ID, t.TeamName, t.BotToken, t.APIKey, t.ZoomAccountID, t.DefaultMsgSuffix, t.DefaultIncludeLink,
+		t.ID, t.TeamName, botToken, apiKey, t.ZoomAccountID, t.DefaultMsgSuffix, t.DefaultIncludeLink,
 	)
 	if err != nil {
 		return fmt.Errorf("create tenant: %w", err)
@@ -33,7 +41,26 @@ func (s *SQLiteStore) GetTenant(ctx context.Context, id string) (*store.Tenant, 
 	if err != nil {
 		return nil, fmt.Errorf("get tenant: %w", err)
 	}
+	if err := s.decryptTenant(t); err != nil {
+		return nil, err
+	}
 	return t, nil
+}
+
+// decryptTenant replaces the stored (possibly encrypted) secret fields on t
+// with their plaintext values.
+func (s *SQLiteStore) decryptTenant(t *store.Tenant) error {
+	botToken, err := s.cipher.OpenPtr(t.BotToken)
+	if err != nil {
+		return fmt.Errorf("decrypt bot token for tenant %s: %w", t.ID, err)
+	}
+	apiKey, err := s.cipher.Open(t.APIKey)
+	if err != nil {
+		return fmt.Errorf("decrypt api key for tenant %s: %w", t.ID, err)
+	}
+	t.BotToken = botToken
+	t.APIKey = apiKey
+	return nil
 }
 
 func (s *SQLiteStore) GetTenantByZoomAccount(ctx context.Context, zoomAccountID string) ([]*store.Tenant, error) {
@@ -51,6 +78,9 @@ func (s *SQLiteStore) GetTenantByZoomAccount(ctx context.Context, zoomAccountID 
 		t := &store.Tenant{}
 		if err := rows.Scan(&t.ID, &t.TeamName, &t.BotToken, &t.APIKey, &t.InstalledAt, &t.ZoomAccountID, &t.DefaultMsgSuffix, &t.DefaultIncludeLink); err != nil {
 			return nil, fmt.Errorf("scan tenant: %w", err)
+		}
+		if err := s.decryptTenant(t); err != nil {
+			return nil, err
 		}
 		tenants = append(tenants, t)
 	}
@@ -73,15 +103,22 @@ func (s *SQLiteStore) ListTenants(ctx context.Context) ([]*store.Tenant, error) 
 		if err := rows.Scan(&t.ID, &t.TeamName, &t.BotToken, &t.APIKey, &t.InstalledAt, &t.ZoomAccountID, &t.DefaultMsgSuffix, &t.DefaultIncludeLink); err != nil {
 			return nil, fmt.Errorf("scan tenant: %w", err)
 		}
+		if err := s.decryptTenant(t); err != nil {
+			return nil, err
+		}
 		tenants = append(tenants, t)
 	}
 	return tenants, rows.Err()
 }
 
 func (s *SQLiteStore) UpdateTenant(ctx context.Context, t *store.Tenant) error {
-	_, err := s.db.ExecContext(ctx,
+	botToken, err := s.cipher.SealPtr(t.BotToken)
+	if err != nil {
+		return fmt.Errorf("encrypt bot token: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx,
 		`UPDATE tenants SET team_name = ?, bot_token = ?, zoom_account_id = ?, default_msg_suffix = ?, default_include_link = ? WHERE id = ?`,
-		t.TeamName, t.BotToken, t.ZoomAccountID, t.DefaultMsgSuffix, t.DefaultIncludeLink, t.ID,
+		t.TeamName, botToken, t.ZoomAccountID, t.DefaultMsgSuffix, t.DefaultIncludeLink, t.ID,
 	)
 	if err != nil {
 		return fmt.Errorf("update tenant: %w", err)
@@ -98,7 +135,11 @@ func (s *SQLiteStore) DeleteTenant(ctx context.Context, id string) error {
 }
 
 func (s *SQLiteStore) UpdateTenantAPIKey(ctx context.Context, id string, newKey string) error {
-	_, err := s.db.ExecContext(ctx, `UPDATE tenants SET api_key = ? WHERE id = ?`, newKey, id)
+	sealed, err := s.cipher.Seal(newKey)
+	if err != nil {
+		return fmt.Errorf("encrypt api key: %w", err)
+	}
+	_, err = s.db.ExecContext(ctx, `UPDATE tenants SET api_key = ? WHERE id = ?`, sealed, id)
 	if err != nil {
 		return fmt.Errorf("update tenant api key: %w", err)
 	}

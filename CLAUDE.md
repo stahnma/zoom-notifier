@@ -47,8 +47,9 @@ Multi-tenant Go service that receives Zoom webhook events and dispatches notific
 cmd/zoom-notifier/main.go    # Entry point: config, wiring, startup, graceful shutdown, landing page
 internal/
   config/                     # Viper-based config (TOML + env vars + defaults)
+  secrets/                    # AES-256-GCM cipher for secret columns (enc:v1: prefix, legacy plaintext passthrough)
   store/                      # Store interface (types.go, store.go)
-    sqlite/                   # SQLite implementation with golang-migrate migrations
+    sqlite/                   # SQLite implementation with golang-migrate migrations; encrypts secret columns via secrets.Cipher
   zoom/                       # Webhook handler, CRC validation, Zoom REST API client
   setup/                      # Web-based first-run setup wizard (embedded templates, config writer)
   slack/                      # Slack sender, OAuth install flow, slash commands, modals, interactions, tenant setup
@@ -78,6 +79,7 @@ api/
 - **Notification settings**: Two-tier model — tenant-wide defaults with per-filter overrides for message suffix and meeting link toggle
 - **Slack modals**: Admin commands (subscribe, filter, set-suffix, set-link, admins add) open interactive modals with proper form UIs; text-based fallback when modals unavailable
 - **Single Zoom app**: Server-to-Server OAuth app handles both webhooks and API access (no separate Webhook Only app needed)
+- **Secrets at rest**: SQLCipher is unavailable with the pure-Go driver, so `bot_token`, `api_key`, `client_secret`, and IRC `password` are encrypted per column in the store layer. Ciphertexts carry an `enc:v1:` prefix; unprefixed values are legacy plaintext and are encrypted in place by `EncryptLegacySecrets` at startup. The `secretColumns` list in `sqlite.go` must stay in sync with the store methods.
 
 ## Configuration
 
@@ -89,6 +91,7 @@ All configuration via TOML config file and/or environment variables:
 | `server.host` | - | HTTP listen host | localhost |
 | `server.url` | - | Public URL (for OAuth redirects, setup links) | (recommended) |
 | `database.path` | - | SQLite database path | ./zoom-notifier.db |
+| `database.encryption_key` | `ZOOMNOTIFIER_ENCRYPTION_KEY` | Hex 32-byte key; encrypts bot tokens, API keys, Zoom/IRC secrets at rest | (recommended) |
 | `zoom.webhook_secret` | `ZOOM_SECRET` | Zoom CRC validation token (Secret Token) | (required) |
 | `zoom.account_id` | - | Zoom Account ID (links webhooks to tenant) | (required) |
 | `zoom.client_id` | - | Zoom S2S OAuth Client ID (for meeting links) | (optional) |
