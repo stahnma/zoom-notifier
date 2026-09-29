@@ -111,7 +111,7 @@ func main() {
 	}
 
 	// Open SQLite store
-	store, err := sqlite.New(cfg.Database.Path)
+	store, err := sqlite.New(cfg.Database.Path, sqlite.WithEncryptionKey(cfg.Database.EncryptionKey))
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
@@ -126,6 +126,20 @@ func main() {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 	log.Info("database migrations complete")
+
+	// Encrypt secrets at rest. Rows written before a key was configured are
+	// encrypted in place on the first start with a key.
+	if store.EncryptionEnabled() {
+		n, err := store.EncryptLegacySecrets(context.Background())
+		if err != nil {
+			log.Fatalf("failed to encrypt existing secrets: %v", err)
+		}
+		if n > 0 {
+			log.WithField("rows", n).Info("encrypted existing plaintext secrets")
+		}
+	} else {
+		log.Warn("database.encryption_key is not set: Slack tokens, API keys, and Zoom/IRC secrets are stored in plaintext")
+	}
 
 	if *migrateOnly {
 		log.Info("migrations complete, exiting")
@@ -146,7 +160,10 @@ func main() {
 
 	// Create API server
 	apiServer := api.NewServer(store, version, commit, buildDate, zoomHandler, cfg.Zoom.WebhookSecret)
-	apiRouter := api.SetupRouter(apiServer, store, cfg.Admin.APIKey)
+	apiRouter, err := api.SetupRouter(apiServer, store, cfg.Admin.APIKey)
+	if err != nil {
+		log.Fatalf("failed to set up API router: %v", err)
+	}
 
 	// Build main router
 	r := chi.NewRouter()
@@ -160,6 +177,10 @@ func main() {
 			log.WithError(err).Warn("failed to write landing page")
 		}
 	})
+
+	// Legal pages (required by Slack for public distribution)
+	r.Get("/privacy", handlePrivacy)
+	r.Get("/terms", handleTerms)
 
 	// Slack OAuth routes (outside generated API)
 	if cfg.Slack.ClientID != "" {

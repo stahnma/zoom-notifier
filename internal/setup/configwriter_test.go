@@ -41,6 +41,7 @@ func TestWriteConfig_ContainsExpectedValues(t *testing.T) {
 	data := &SetupData{
 		ServerURL:          "https://example.com",
 		AdminAPIKey:        "admin-key-123",
+		EncryptionKey:      "enc-key-789",
 		ZoomSecret:         "zoom-secret-456",
 		SlackClientID:      "slack-client-id",
 		SlackClientSecret:  "slack-client-secret",
@@ -71,6 +72,7 @@ func TestWriteConfig_ContainsExpectedValues(t *testing.T) {
 		`client_secret = "slack-client-secret"`,
 		`signing_secret = "slack-signing-secret"`,
 		`api_key = "admin-key-123"`,
+		`encryption_key = "enc-key-789"`,
 		`level = "debug"`,
 		`[server]`,
 		`[database]`,

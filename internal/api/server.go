@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -39,13 +40,15 @@ func NewServer(s store.Store, version, commit, buildDate string, zoomHandler *zo
 }
 
 // SetupRouter creates an http.Handler with the generated routes and auth middleware.
-func SetupRouter(server StrictServerInterface, s store.Store, adminKey string) http.Handler {
+func SetupRouter(server StrictServerInterface, s store.Store, adminKey string) (http.Handler, error) {
+	validator, err := NewRequestValidator(adminKey, s)
+	if err != nil {
+		return nil, fmt.Errorf("setup request validator: %w", err)
+	}
 	strictHandler := NewStrictHandler(server, nil)
 	return HandlerWithOptions(strictHandler, ChiServerOptions{
-		Middlewares: []MiddlewareFunc{
-			AuthMiddleware(adminKey, s),
-		},
-	})
+		Middlewares: []MiddlewareFunc{validator},
+	}), nil
 }
 
 func generateAPIKey() (string, error) {

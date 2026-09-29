@@ -15,8 +15,8 @@ The app is architected for multi-tenant use — each Slack workspace that instal
 3. Under "Distribute App to Other Workspaces", complete the checklist:
    - All required app information fields filled in
    - No hard-coded redirect URLs (zoom-notifier uses config-based URLs, so this is already handled)
-   - Privacy policy URL
-   - Terms of service URL
+   - Privacy policy URL — the server serves one at `https://your-server/privacy`
+   - Terms of service URL — the server serves one at `https://your-server/terms`
 4. Toggle **"Distribute App to Other Workspaces"** on
 
 ### Slack App Directory (Optional)
@@ -31,7 +31,7 @@ If you want the app to be discoverable in Slack's app directory:
 
 ### Required
 
-- **Token encryption at rest** — Bot tokens are currently stored in plain text in SQLite. The `database.encryption_key` config field exists but isn't implemented for token encryption yet. For a multi-tenant production service hosting other companies' tokens, encryption at rest is essential.
+- **Token encryption at rest** — Done. Set `database.encryption_key` (or `ZOOMNOTIFIER_ENCRYPTION_KEY`) and bot tokens, API keys, Zoom client secrets, and IRC passwords are encrypted with AES-256-GCM. Existing plaintext rows are migrated on startup. See "Secrets at Rest" in the README for key handling and backup guidance.
 
 ### Recommended
 

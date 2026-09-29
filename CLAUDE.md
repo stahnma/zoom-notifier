@@ -47,8 +47,9 @@ Multi-tenant Go service that receives Zoom webhook events and dispatches notific
 cmd/zoom-notifier/main.go    # Entry point: config, wiring, startup, graceful shutdown, landing page
 internal/
   config/                     # Viper-based config (TOML + env vars + defaults)
+  secrets/                    # AES-256-GCM cipher for secret columns (enc:v1: prefix, legacy plaintext passthrough)
   store/                      # Store interface (types.go, store.go)
-    sqlite/                   # SQLite implementation with golang-migrate migrations
+    sqlite/                   # SQLite implementation with golang-migrate migrations; encrypts secret columns via secrets.Cipher
   zoom/                       # Webhook handler, CRC validation, Zoom REST API client
   setup/                      # Web-based first-run setup wizard (embedded templates, config writer)
   slack/                      # Slack sender, OAuth install flow, slash commands, modals, interactions, tenant setup
@@ -66,19 +67,20 @@ api/
 
 **Slack Interaction Flow:** HTTP POST /slack/interactions → signing secret verification → view_submission routing by callback_id → store operations → confirmation message → 200 OK
 
-**API Flow:** HTTP request → Chi router → oapi-codegen strict handler → auth middleware (AdminKey/TenantKey scopes) → server methods → store
+**API Flow:** HTTP request → Chi router → request validator (spec schema + AdminKey/TenantKey auth) → oapi-codegen strict handler → server methods → store
 
 ## Key Design Decisions
 
 - **Pure Go**: `CGO_ENABLED=0` with `modernc.org/sqlite` — no C compiler needed
 - **Store interface**: `store.Store` interface enables future database swaps
 - **Spec-first API**: OpenAPI 3.0 → oapi-codegen strict server mode → compile-time route/type safety
-- **Security scopes**: Generated code sets `AdminKeyScopes`/`TenantKeyScopes` in context; single `AuthMiddleware` checks both
+- **Spec-driven auth and validation**: `NewRequestValidator` (`internal/api/middleware.go`) wraps every generated route with `oapi-codegen/nethttp-middleware`, which loads the embedded `openapi.yaml` and validates path params, bodies, and `security` requirements before the handler runs. Auth lives in an `AuthenticationFunc` keyed by scheme name (`AdminKey` → deployment key, `TenantKey` → key of the `{tenantId}` tenant). Adding `security` to an operation in the spec is all that's needed to protect it. `/webhook/zoom` is skipped so Zoom always gets a 200
 - **Multi-tenant**: Tenants created via Slack OAuth install; isolated subscriptions, filters, credentials, and Zoom accounts
 - **Notification settings**: Two-tier model — tenant-wide defaults with per-filter overrides for message suffix and meeting link toggle
 - **Slack modals**: Admin commands (subscribe, filter, set-suffix, set-link, admins add) open interactive modals with proper form UIs; text-based fallback when modals unavailable
 - **Single Zoom app**: Server-to-Server OAuth app handles both webhooks and API access (no separate Webhook Only app needed)
 - **Rate limiting**: `/webhook/zoom` is rate-limited per IP via tollbooth (10 req/s sustained, burst of 50 for meeting-end scenarios)
+- **Secrets at rest**: SQLCipher is unavailable with the pure-Go driver, so `bot_token`, `api_key`, `client_secret`, and IRC `password` are encrypted per column in the store layer. Ciphertexts carry an `enc:v1:` prefix; unprefixed values are legacy plaintext and are encrypted in place by `EncryptLegacySecrets` at startup. The `secretColumns` list in `sqlite.go` must stay in sync with the store methods.
 
 ## Configuration
 
@@ -90,6 +92,7 @@ All configuration via TOML config file and/or environment variables:
 | `server.host` | - | HTTP listen host | localhost |
 | `server.url` | - | Public URL (for OAuth redirects, setup links) | (recommended) |
 | `database.path` | - | SQLite database path | ./zoom-notifier.db |
+| `database.encryption_key` | `ZOOMNOTIFIER_ENCRYPTION_KEY` | Hex 32-byte key; encrypts bot tokens, API keys, Zoom/IRC secrets at rest | (recommended) |
 | `zoom.webhook_secret` | `ZOOM_SECRET` | Zoom CRC validation token (Secret Token) | (required) |
 | `zoom.account_id` | - | Zoom Account ID (links webhooks to tenant) | (required) |
 | `zoom.client_id` | - | Zoom S2S OAuth Client ID (for meeting links) | (optional) |
@@ -157,6 +160,8 @@ Aliases: `sub`/`subscribe`, `unsub`/`unsubscribe`, `subs`/`subscriptions`, `admi
 | `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
 | `/api/docs` | Swagger UI API documentation |
 | `/api/docs/openapi.yaml` | Raw OpenAPI spec (embedded in binary) |
+| `/privacy` | Privacy policy (plain English, needed for Slack distribution) |
+| `/terms` | Terms of service (plain English, needed for Slack distribution) |
 | `/healthz` | Health check (version, uptime, database status, tenant count) |
 | `/livez` | Liveness probe (always 200 if process is running) |
 | `/readyz` | Readiness probe (200 if database connected, 503 otherwise) |

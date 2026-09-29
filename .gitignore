@@ -1,6 +1,5 @@
 index.html
-zoom-notifier
-go.sum
+/zoom-notifier
 *.creds
 .worktrees/
 coverage.out
