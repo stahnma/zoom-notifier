@@ -79,6 +79,7 @@ api/
 - **Notification settings**: Two-tier model — tenant-wide defaults with per-filter overrides for message suffix and meeting link toggle
 - **Slack modals**: Admin commands (subscribe, filter, set-suffix, set-link, admins add) open interactive modals with proper form UIs; text-based fallback when modals unavailable
 - **Single Zoom app**: Server-to-Server OAuth app handles both webhooks and API access (no separate Webhook Only app needed)
+- **Webhook signatures**: `/webhook/zoom` (and the setup wizard's CRC endpoint) verify `x-zm-signature` (`v0=HMAC-SHA256(secret, "v0:{ts}:{raw body}")`) and a ±5 min `x-zm-request-timestamp` before decoding, via `zoom.VerifySignature`. This includes `endpoint.url_validation`: an unsigned CRC handshake would be a signing oracle. The strict-handler `PostWebhookZoom` in `internal/api/server.go` is intentionally a no-op (it only sees a re-encoded body)
 - **Rate limiting**: `/webhook/zoom` is rate-limited per IP via tollbooth (10 req/s sustained, burst of 50 for meeting-end scenarios)
 - **Secrets at rest**: SQLCipher is unavailable with the pure-Go driver, so `bot_token`, `api_key`, `client_secret`, and IRC `password` are encrypted per column in the store layer. Ciphertexts carry an `enc:v1:` prefix; unprefixed values are legacy plaintext and are encrypted in place by `EncryptLegacySecrets` at startup. The `secretColumns` list in `sqlite.go` must stay in sync with the store methods.
 

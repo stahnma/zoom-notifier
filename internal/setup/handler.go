@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	log "github.com/sirupsen/logrus"
@@ -260,8 +262,20 @@ func (h *Handler) handleWebhookZoomCRC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, zoom.MaxWebhookBodyBytes))
+	if err != nil {
+		log.WithError(err).Warn("failed to read webhook body during setup")
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		return
+	}
+	if err := zoom.VerifySignature(h.data.ZoomSecret, r.Header, body, time.Now()); err != nil {
+		log.WithError(err).Warn("rejected zoom webhook during setup")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	var payload zoom.WebhookPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.Unmarshal(body, &payload); err != nil {
 		w.WriteHeader(http.StatusOK)
 		return
 	}

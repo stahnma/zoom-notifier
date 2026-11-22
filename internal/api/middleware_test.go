@@ -158,7 +158,11 @@ func TestWebhookSkipsValidation(t *testing.T) {
 	}
 }
 
-func TestWebhookCRCStillWorks(t *testing.T) {
+// TestWebhookStrictHandlerDoesNotAnswerCRC guards against the strict API
+// handler becoming a live webhook path. It cannot verify x-zm-signature (it
+// only sees a re-encoded body), so it must never compute a CRC response:
+// doing so would hand out HMACs of attacker-chosen input.
+func TestWebhookStrictHandlerDoesNotAnswerCRC(t *testing.T) {
 	router, _ := setupTestRouter(t)
 
 	body := `{"event":"endpoint.url_validation","payload":{"plainToken":"abc123"}}`
@@ -170,14 +174,7 @@ func TestWebhookCRCStillWorks(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
-	var resp struct {
-		PlainToken     string `json:"plainToken"`
-		EncryptedToken string `json:"encryptedToken"`
-	}
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatal(err)
-	}
-	if resp.PlainToken != "abc123" || resp.EncryptedToken == "" {
-		t.Errorf("unexpected CRC response: %+v", resp)
+	if strings.Contains(w.Body.String(), "encryptedToken") {
+		t.Errorf("strict handler must not answer CRC, got body: %s", w.Body.String())
 	}
 }

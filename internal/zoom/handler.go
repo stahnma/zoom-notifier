@@ -3,6 +3,7 @@ package zoom
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"time"
 
@@ -26,8 +27,25 @@ func NewHandler(s store.Store, webhookSecret string, dispatch Dispatcher) *Handl
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxWebhookBodyBytes))
+	if err != nil {
+		log.WithError(err).Warn("failed to read webhook body")
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	// Every request, including endpoint.url_validation, must carry a valid
+	// Zoom signature. An unsigned CRC handshake would be a signing oracle:
+	// sending plainToken "v0:{ts}:{body}" returns a valid signature for body.
+	if err := VerifySignature(h.webhookSecret, r.Header, body, time.Now()); err != nil {
+		metrics.WebhooksRejected.Inc()
+		log.WithError(err).WithField("remote_addr", r.RemoteAddr).Warn("rejected zoom webhook")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
 	var payload WebhookPayload
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+	if err := json.Unmarshal(body, &payload); err != nil {
 		log.WithError(err).Error("failed to decode webhook payload")
 		w.WriteHeader(http.StatusOK) // don't leak errors to Zoom
 		return

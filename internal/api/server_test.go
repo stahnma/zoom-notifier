@@ -31,7 +31,7 @@ func setupTestRouter(t *testing.T) (http.Handler, *sqlite.SQLiteStore) {
 		}
 	})
 
-	server := NewServer(s, "test-version", "abc123", "2026-01-01", nil, "test-webhook-secret")
+	server := NewServer(s, "test-version", "abc123", "2026-01-01")
 	router, err := SetupRouter(server, s, testAdminKey)
 	if err != nil {
 		t.Fatalf("failed to set up router: %v", err)
