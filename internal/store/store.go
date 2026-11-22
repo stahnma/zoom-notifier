@@ -40,26 +40,31 @@ type Store interface {
 	GetMatchingFilter(ctx context.Context, tenantID string, topic string) (*MeetingFilter, error)
 	CheckFilter(ctx context.Context, tenantID string, topic string) (*MeetingFilter, bool, error)
 
-	// Active Meetings
+	// Active Meetings (keyed by Zoom account, shared by all tenants linked to it)
 	UpsertMeeting(ctx context.Context, m *ActiveMeeting) error
-	GetMeeting(ctx context.Context, meetingID string) (*ActiveMeeting, error)
+	GetMeeting(ctx context.Context, zoomAccountID string, meetingID string) (*ActiveMeeting, error)
+	// ListActiveMeetings returns the active meetings of the tenant's linked Zoom account.
 	ListActiveMeetings(ctx context.Context, tenantID string) ([]*ActiveMeeting, error)
-	DeleteMeeting(ctx context.Context, meetingID string) error
+	DeleteMeeting(ctx context.Context, zoomAccountID string, meetingID string) error
 
 	// Participants
 	AddParticipant(ctx context.Context, p *Participant) error
-	SetParticipantLeft(ctx context.Context, meetingID string, userName string, leaveTime *time.Time) error
-	GetActiveParticipants(ctx context.Context, meetingID string) ([]*Participant, error)
-	GetActiveParticipantsByMeetings(ctx context.Context, meetingIDs []string) (map[string][]*Participant, error)
-	DeleteParticipantsForMeeting(ctx context.Context, meetingID string) error
+	SetParticipantLeft(ctx context.Context, zoomAccountID string, meetingID string, userName string, leaveTime *time.Time) error
+	GetActiveParticipants(ctx context.Context, zoomAccountID string, meetingID string) ([]*Participant, error)
+	GetActiveParticipantsByMeetings(ctx context.Context, zoomAccountID string, meetingIDs []string) (map[string][]*Participant, error)
+	DeleteParticipantsForMeeting(ctx context.Context, zoomAccountID string, meetingID string) error
 
 	// IRC Config
 	UpsertIRCConfig(ctx context.Context, c *IRCConfig) error
 	GetIRCConfig(ctx context.Context, tenantID string) ([]*IRCConfig, error)
 
-	// Zoom Credentials
-	UpsertZoomCredentials(ctx context.Context, z *ZoomCredentials) error
-	GetZoomCredentials(ctx context.Context, tenantID string) (*ZoomCredentials, error)
+	// Zoom Accounts
+	UpsertZoomAccount(ctx context.Context, a *ZoomAccount) error
+	// EnsureZoomAccount creates an empty account row if none exists.
+	EnsureZoomAccount(ctx context.Context, accountID string) error
+	GetZoomAccount(ctx context.Context, accountID string) (*ZoomAccount, error)
+	ListZoomAccounts(ctx context.Context) ([]*ZoomAccount, error)
+	DeleteZoomAccount(ctx context.Context, accountID string) error
 
 	// Health
 	Ping(ctx context.Context) error

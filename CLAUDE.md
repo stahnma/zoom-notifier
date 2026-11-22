@@ -61,7 +61,7 @@ api/
   embed.go                    # Embeds openapi.yaml into the binary
 ```
 
-**Flow:** Zoom POST → webhook handler → tenant resolution (by Zoom Account ID) → meeting state → dispatcher → filter match → resolve suffix/link settings (filter override → tenant default) → fetch meeting join link (if enabled) → matching subscriptions → Slack/IRC backends
+**Flow:** Zoom POST → signature check (account's webhook secret, else global) → tenant resolution (all tenants linked to the Zoom Account ID) → meeting state (once, per account) → dispatcher (per tenant) → filter match → resolve suffix/link settings (filter override → tenant default) → fetch meeting join link (if enabled) → matching subscriptions → Slack/IRC backends
 
 **Slack App Flow:** HTTP POST /slack/commands → signing secret verification → slash command router → modal opening (if trigger_id present) or text response → store operations → JSON response
 
@@ -75,13 +75,14 @@ api/
 - **Store interface**: `store.Store` interface enables future database swaps
 - **Spec-first API**: OpenAPI 3.0 → oapi-codegen strict server mode → compile-time route/type safety
 - **Spec-driven auth and validation**: `NewRequestValidator` (`internal/api/middleware.go`) wraps every generated route with `oapi-codegen/nethttp-middleware`, which loads the embedded `openapi.yaml` and validates path params, bodies, and `security` requirements before the handler runs. Auth lives in an `AuthenticationFunc` keyed by scheme name (`AdminKey` → deployment key, `TenantKey` → key of the `{tenantId}` tenant). Adding `security` to an operation in the spec is all that's needed to protect it. `/webhook/zoom` is skipped so Zoom always gets a 200
-- **Multi-tenant**: Tenants created via Slack OAuth install; isolated subscriptions, filters, credentials, and Zoom accounts
+- **Multi-tenant**: Tenants created via Slack OAuth install (or the admin API for IRC-only tenants); isolated subscriptions, filters, and settings
+- **Zoom accounts**: `zoom_accounts` rows hold each account's webhook secret and S2S credentials. A tenant links to one account (`tenants.zoom_account_id`); many tenants may share one. Meeting/participant state is keyed by `(zoom_account_id, meeting_id)` so all of an account's tenants see the same meetings. Shared accounts and webhook secrets are operator-managed (AdminKey `/api/v1/zoom-accounts`, `PUT /tenants/{id}/zoom-account`); tenant self-service (`PUT /tenants/{id}/zoom`, `/tenant/setup`) goes through `store.SelfServiceZoomAccount`, which refuses operator-managed accounts
 - **Notification settings**: Two-tier model — tenant-wide defaults with per-filter overrides for message suffix and meeting link toggle
 - **Slack modals**: Admin commands (subscribe, filter, set-suffix, set-link, admins add) open interactive modals with proper form UIs; text-based fallback when modals unavailable
 - **Single Zoom app**: Server-to-Server OAuth app handles both webhooks and API access (no separate Webhook Only app needed)
-- **Webhook signatures**: `/webhook/zoom` (and the setup wizard's CRC endpoint) verify `x-zm-signature` (`v0=HMAC-SHA256(secret, "v0:{ts}:{raw body}")`) and a ±5 min `x-zm-request-timestamp` before decoding, via `zoom.VerifySignature`. This includes `endpoint.url_validation`: an unsigned CRC handshake would be a signing oracle. The strict-handler `PostWebhookZoom` in `internal/api/server.go` is intentionally a no-op (it only sees a re-encoded body)
+- **Webhook signatures**: `/webhook/zoom` (and the setup wizard's CRC endpoint) verify `x-zm-signature` (`v0=HMAC-SHA256(secret, "v0:{ts}:{raw body}")`) and a ±5 min `x-zm-request-timestamp` before acting on the payload, via `zoom.VerifySignature`. Events use their account's webhook secret, or the global `zoom.webhook_secret` only if the account has none; CRC requests (no account ID) are tried against every configured secret and answered with the one that verified. This includes `endpoint.url_validation`: an unsigned CRC handshake would be a signing oracle. The strict-handler `PostWebhookZoom` in `internal/api/server.go` is intentionally a no-op (it only sees a re-encoded body)
 - **Rate limiting**: `/webhook/zoom` is rate-limited per IP via tollbooth (10 req/s sustained, burst of 50 for meeting-end scenarios)
-- **Secrets at rest**: SQLCipher is unavailable with the pure-Go driver, so `bot_token`, `api_key`, `client_secret`, and IRC `password` are encrypted per column in the store layer. Ciphertexts carry an `enc:v1:` prefix; unprefixed values are legacy plaintext and are encrypted in place by `EncryptLegacySecrets` at startup. The `secretColumns` list in `sqlite.go` must stay in sync with the store methods.
+- **Secrets at rest**: SQLCipher is unavailable with the pure-Go driver, so `bot_token`, `api_key`, Zoom `webhook_secret`/`client_secret`, and IRC `password` are encrypted per column in the store layer. Ciphertexts carry an `enc:v1:` prefix; unprefixed values are legacy plaintext and are encrypted in place by `EncryptLegacySecrets` at startup. The `secretColumns` list in `sqlite.go` must stay in sync with the store methods.
 
 ## Configuration
 
@@ -94,7 +95,7 @@ All configuration via TOML config file and/or environment variables:
 | `server.url` | - | Public URL (for OAuth redirects, setup links) | (recommended) |
 | `database.path` | - | SQLite database path | ./zoom-notifier.db |
 | `database.encryption_key` | `ZOOMNOTIFIER_ENCRYPTION_KEY` | Hex 32-byte key; encrypts bot tokens, API keys, Zoom/IRC secrets at rest | (recommended) |
-| `zoom.webhook_secret` | `ZOOM_SECRET` | Zoom CRC validation token (Secret Token) | (required) |
+| `zoom.webhook_secret` | `ZOOM_SECRET` | Zoom Secret Token; verifies webhooks for accounts without their own webhook secret | (required) |
 | `zoom.account_id` | - | Zoom Account ID (links webhooks to tenant) | (required) |
 | `zoom.client_id` | - | Zoom S2S OAuth Client ID (for meeting links) | (optional) |
 | `zoom.client_secret` | - | Zoom S2S OAuth Client Secret | (optional) |
@@ -158,7 +159,7 @@ Aliases: `sub`/`subscribe`, `unsub`/`unsubscribe`, `subs`/`subscriptions`, `admi
 | `/` | Landing page (version, links, endpoints) |
 | `/setup` | First-run setup wizard (only in setup mode) |
 | `/slack/install` | Slack OAuth install flow |
-| `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
+| `/tenant/setup?key=...` | Tenant self-service Zoom account setup |
 | `/api/docs` | Swagger UI API documentation |
 | `/api/docs/openapi.yaml` | Raw OpenAPI spec (embedded in binary) |
 | `/privacy` | Privacy policy (plain English, needed for Slack distribution) |

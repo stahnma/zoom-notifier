@@ -31,13 +31,18 @@ type Dispatcher struct {
 	zoomAPIURL   string
 
 	mu          sync.Mutex
-	zoomClients map[string]cachedZoomClient // keyed by tenant ID
+	zoomClients map[string]cachedZoomClient // keyed by Zoom account ID
+}
+
+// zoomAPICreds are the fields a Zoom API client is built from.
+type zoomAPICreds struct {
+	accountID, clientID, clientSecret string
 }
 
 // cachedZoomClient pairs a Zoom API client with the credentials it was built
 // from, so a credential change in the store is detected and the client rebuilt.
 type cachedZoomClient struct {
-	creds  store.ZoomCredentials
+	creds  zoomAPICreds
 	client *zoom.APIClient
 }
 
@@ -122,7 +127,7 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	// Fetch meeting link if enabled
 	var meetingLink string
 	if includeLink {
-		meetingLink = d.getMeetingLink(ctx, tenantID, meetingID)
+		meetingLink = d.getMeetingLink(ctx, tenant.ZoomAccountID, meetingID)
 	}
 
 	for _, sub := range subs {
@@ -181,58 +186,63 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	}
 }
 
-// getOrCreateZoomClient returns the cached Zoom API client for the tenant,
+// getOrCreateZoomClient returns the cached Zoom API client for the account,
 // rebuilding it when creds differ from those the cached client was built with.
-// Reusing a client across calls keeps its OAuth token cached; rebuilding on
-// change ensures rotated or corrected credentials take effect without a restart.
-func (d *Dispatcher) getOrCreateZoomClient(tenantID string, creds *store.ZoomCredentials) *zoom.APIClient {
+// Reusing a client across calls (and across the account's tenants) keeps its
+// OAuth token cached; rebuilding on change ensures rotated or corrected
+// credentials take effect without a restart.
+func (d *Dispatcher) getOrCreateZoomClient(creds zoomAPICreds) *zoom.APIClient {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if cached, ok := d.zoomClients[tenantID]; ok && cached.creds == *creds {
+	if cached, ok := d.zoomClients[creds.accountID]; ok && cached.creds == creds {
 		return cached.client
 	}
 
-	client := zoom.NewAPIClient(d.zoomOAuthURL, d.zoomAPIURL, creds.ClientID, creds.ClientSecret, creds.AccountID)
-	d.zoomClients[tenantID] = cachedZoomClient{creds: *creds, client: client}
+	client := zoom.NewAPIClient(d.zoomOAuthURL, d.zoomAPIURL, creds.clientID, creds.clientSecret, creds.accountID)
+	d.zoomClients[creds.accountID] = cachedZoomClient{creds: creds, client: client}
 	return client
 }
 
-// forgetZoomClient removes the cached Zoom API client for the tenant, if any.
-func (d *Dispatcher) forgetZoomClient(tenantID string) {
+// forgetZoomClient removes the cached Zoom API client for the account, if any.
+func (d *Dispatcher) forgetZoomClient(accountID string) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	delete(d.zoomClients, tenantID)
+	delete(d.zoomClients, accountID)
 }
 
-// getMeetingLink fetches the join URL for a meeting using the tenant's Zoom API credentials.
-func (d *Dispatcher) getMeetingLink(ctx context.Context, tenantID string, meetingID string) string {
-	creds, err := d.store.GetZoomCredentials(ctx, tenantID)
-	if err != nil {
-		log.WithError(err).WithField("tenant_id", tenantID).Warn("failed to load zoom API credentials, skipping meeting link")
+// getMeetingLink fetches the join URL for a meeting using the Zoom account's
+// API credentials. It returns "" when the account has none or the lookup fails.
+func (d *Dispatcher) getMeetingLink(ctx context.Context, zoomAccountID string, meetingID string) string {
+	fields := log.Fields{"account_id": zoomAccountID, "meeting_id": meetingID}
+	if zoomAccountID == "" {
+		log.WithFields(fields).Debug("tenant has no zoom account, skipping meeting link")
 		return ""
 	}
-	if creds == nil {
-		// Credentials removed (or tenant deleted): drop any cached client.
-		d.forgetZoomClient(tenantID)
-		log.WithField("tenant_id", tenantID).Debug("no zoom API credentials configured, skipping meeting link")
+	account, err := d.store.GetZoomAccount(ctx, zoomAccountID)
+	if err != nil {
+		log.WithError(err).WithFields(fields).Warn("failed to load zoom account, skipping meeting link")
+		return ""
+	}
+	if account == nil || !account.HasAPICredentials() {
+		// Credentials removed (or account deleted): drop any cached client.
+		d.forgetZoomClient(zoomAccountID)
+		log.WithFields(fields).Debug("no zoom API credentials configured, skipping meeting link")
 		return ""
 	}
 
-	client := d.getOrCreateZoomClient(tenantID, creds)
+	client := d.getOrCreateZoomClient(zoomAPICreds{
+		accountID:    account.AccountID,
+		clientID:     account.ClientID,
+		clientSecret: account.ClientSecret,
+	})
 	link, err := client.GetMeetingJoinLink(meetingID)
 	if err != nil {
-		log.WithError(err).WithFields(log.Fields{
-			"tenant_id":  tenantID,
-			"meeting_id": meetingID,
-		}).Warn("failed to fetch meeting join link")
+		log.WithError(err).WithFields(fields).Warn("failed to fetch meeting join link")
 		return ""
 	}
 
-	log.WithFields(log.Fields{
-		"tenant_id":  tenantID,
-		"meeting_id": meetingID,
-	}).Debug("fetched meeting join link")
+	log.WithFields(fields).Debug("fetched meeting join link")
 	return link
 }
 

@@ -3,6 +3,8 @@ package zoom
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -17,13 +19,15 @@ import (
 type Dispatcher func(tenantID string, event string, payload WebhookPayload)
 
 type Handler struct {
-	store         store.Store
-	webhookSecret string
-	dispatch      Dispatcher
+	store store.Store
+	// fallbackSecret (the global zoom.webhook_secret) verifies webhooks for
+	// accounts that have no per-account webhook secret configured.
+	fallbackSecret string
+	dispatch       Dispatcher
 }
 
-func NewHandler(s store.Store, webhookSecret string, dispatch Dispatcher) *Handler {
-	return &Handler{store: s, webhookSecret: webhookSecret, dispatch: dispatch}
+func NewHandler(s store.Store, fallbackSecret string, dispatch Dispatcher) *Handler {
+	return &Handler{store: s, fallbackSecret: fallbackSecret, dispatch: dispatch}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -34,26 +38,45 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Decoding before verification is safe: nothing in the payload is acted
+	// on until the signature checks out. The account ID only selects which
+	// secret to verify with, and a forged one selects a secret the sender
+	// does not have.
+	var payload WebhookPayload
+	decodeErr := json.Unmarshal(body, &payload)
+
+	candidates, err := h.candidateSecrets(r.Context(), payload, decodeErr == nil)
+	if err != nil {
+		log.WithError(err).Error("failed to load zoom webhook secrets")
+		w.WriteHeader(http.StatusInternalServerError) // Zoom retries on non-2xx
+		return
+	}
+
 	// Every request, including endpoint.url_validation, must carry a valid
 	// Zoom signature. An unsigned CRC handshake would be a signing oracle:
 	// sending plainToken "v0:{ts}:{body}" returns a valid signature for body.
-	if err := VerifySignature(h.webhookSecret, r.Header, body, time.Now()); err != nil {
+	secret, err := verifyWithAny(candidates, r.Header, body, time.Now())
+	if err != nil {
 		metrics.WebhooksRejected.Inc()
-		log.WithError(err).WithField("remote_addr", r.RemoteAddr).Warn("rejected zoom webhook")
+		log.WithError(err).WithFields(log.Fields{
+			"remote_addr": r.RemoteAddr,
+			"account_id":  payload.Payload.AccountID,
+			"event":       payload.Event,
+		}).Warn("rejected zoom webhook")
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
 
-	var payload WebhookPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		log.WithError(err).Error("failed to decode webhook payload")
+	if decodeErr != nil {
+		log.WithError(decodeErr).Error("failed to decode webhook payload")
 		w.WriteHeader(http.StatusOK) // don't leak errors to Zoom
 		return
 	}
 
-	// Handle CRC validation (no tenant resolution needed)
+	// Answer the CRC with the secret that verified the request, i.e. the
+	// secret of the Zoom app that sent it.
 	if payload.Event == EventURLValidation {
-		resp, err := ValidateCRC(payload, h.webhookSecret)
+		resp, err := ValidateCRC(payload, secret)
 		if err != nil {
 			log.WithError(err).Error("CRC validation failed")
 			w.WriteHeader(http.StatusBadRequest)
@@ -72,8 +95,81 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// ProcessWebhook handles tenant resolution and event processing for a parsed payload.
-// It is used by both the direct HTTP handler and the API server's strict handler.
+// candidateSecrets returns the webhook secrets a request may be signed with.
+//
+//   - Events carry payload.account_id: use that account's webhook secret, or
+//     the global fallback if the account has none. The fallback is NOT also
+//     accepted for accounts with their own secret, so whoever holds one Zoom
+//     app's secret cannot forge events for another account.
+//   - endpoint.url_validation carries no account ID, so every configured
+//     secret is a candidate; the one that verifies identifies the Zoom app.
+//   - An undecodable body can only be checked against the fallback.
+func (h *Handler) candidateSecrets(ctx context.Context, payload WebhookPayload, decoded bool) ([]string, error) {
+	var secrets []string
+	add := func(s string) {
+		if s == "" {
+			return
+		}
+		for _, existing := range secrets {
+			if existing == s {
+				return
+			}
+		}
+		secrets = append(secrets, s)
+	}
+
+	switch {
+	case !decoded:
+		add(h.fallbackSecret)
+
+	case payload.Event == EventURLValidation:
+		accounts, err := h.store.ListZoomAccounts(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list zoom accounts: %w", err)
+		}
+		for _, a := range accounts {
+			add(a.WebhookSecret)
+		}
+		add(h.fallbackSecret)
+
+	default:
+		account, err := h.store.GetZoomAccount(ctx, payload.Payload.AccountID)
+		if err != nil {
+			return nil, fmt.Errorf("get zoom account: %w", err)
+		}
+		if account != nil && account.WebhookSecret != "" {
+			add(account.WebhookSecret)
+		} else {
+			add(h.fallbackSecret)
+		}
+	}
+	return secrets, nil
+}
+
+// verifyWithAny returns the first secret that verifies the request.
+func verifyWithAny(secrets []string, header http.Header, body []byte, now time.Time) (string, error) {
+	if len(secrets) == 0 {
+		return "", errors.New("no zoom webhook secret configured for this account")
+	}
+	var lastErr error
+	for _, secret := range secrets {
+		err := VerifySignature(secret, header, body, now)
+		if err == nil {
+			return secret, nil
+		}
+		// Header and timestamp problems are the same for every secret.
+		if errors.Is(err, ErrMissingSignature) || errors.Is(err, ErrStaleTimestamp) {
+			return "", err
+		}
+		lastErr = err
+	}
+	return "", lastErr
+}
+
+// ProcessWebhook records meeting state for the payload's Zoom account and
+// dispatches notifications to every tenant linked to that account. State is
+// written once per webhook (it is shared by the account's tenants); only
+// dispatch fans out per tenant.
 func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 	accountID := payload.Payload.AccountID
 	tenants, err := h.store.GetTenantByZoomAccount(ctx, accountID)
@@ -97,92 +193,84 @@ func (h *Handler) ProcessWebhook(ctx context.Context, payload WebhookPayload) {
 		"tenants":    len(tenants),
 	}).Debug("processing webhook event")
 
+	if !h.recordState(ctx, accountID, payload) {
+		return
+	}
+
+	if h.dispatch == nil {
+		return
+	}
 	for _, tenant := range tenants {
-		switch payload.Event {
-		case EventMeetingStarted:
-			log.WithFields(log.Fields{
-				"meeting_id": obj.ID,
-				"topic":      obj.Topic,
-				"tenant_id":  tenant.ID,
-			}).Debug("meeting started")
-			meeting := &store.ActiveMeeting{
-				MeetingID: obj.ID,
-				TenantID:  tenant.ID,
-				Topic:     obj.Topic,
-				HostID:    obj.HostID,
-				StartTime: obj.StartTime,
-			}
-			if err := h.store.UpsertMeeting(ctx, meeting); err != nil {
-				log.WithError(err).Error("failed to upsert meeting on start")
-			}
+		h.dispatch(tenant.ID, payload.Event, payload)
+	}
+}
 
-		case EventMeetingEnded:
-			log.WithFields(log.Fields{
-				"meeting_id": obj.ID,
-				"topic":      obj.Topic,
-				"tenant_id":  tenant.ID,
-			}).Debug("meeting ended")
-			if err := h.store.DeleteParticipantsForMeeting(ctx, obj.ID); err != nil {
-				log.WithError(err).Error("failed to delete participants on meeting end")
-			}
-			if err := h.store.DeleteMeeting(ctx, obj.ID); err != nil {
-				log.WithError(err).Error("failed to delete meeting on end")
-			}
+// recordState applies the event to the account's meeting state and reports
+// whether the event should be dispatched as a notification.
+func (h *Handler) recordState(ctx context.Context, accountID string, payload WebhookPayload) bool {
+	obj := payload.Payload.Object
+	fields := log.Fields{"meeting_id": obj.ID, "topic": obj.Topic, "account_id": accountID}
 
-		case EventParticipantJoined:
-			log.WithFields(log.Fields{
-				"meeting_id": obj.ID,
-				"topic":      obj.Topic,
-				"user":       obj.Participant.UserName,
-				"tenant_id":  tenant.ID,
-			}).Debug("participant joined")
-			// Ensure meeting exists
-			meeting := &store.ActiveMeeting{
-				MeetingID: obj.ID,
-				TenantID:  tenant.ID,
-				Topic:     obj.Topic,
-				HostID:    obj.HostID,
-				StartTime: obj.StartTime,
-			}
-			if err := h.store.UpsertMeeting(ctx, meeting); err != nil {
-				log.WithError(err).Error("failed to upsert meeting on join")
-			}
-
-			p := &store.Participant{
-				MeetingID: obj.ID,
-				UserName:  obj.Participant.UserName,
-				Email:     obj.Participant.Email,
-				JoinTime:  obj.Participant.JoinTime,
-			}
-			if err := h.store.AddParticipant(ctx, p); err != nil {
-				log.WithError(err).Error("failed to add participant")
-			}
-
-			if h.dispatch != nil {
-				h.dispatch(tenant.ID, payload.Event, payload)
-			}
-
-		case EventParticipantLeft:
-			log.WithFields(log.Fields{
-				"meeting_id": obj.ID,
-				"topic":      obj.Topic,
-				"user":       obj.Participant.UserName,
-				"tenant_id":  tenant.ID,
-			}).Debug("participant left")
-			leaveTime := time.Now()
-			if !obj.Participant.LeaveTime.IsZero() {
-				leaveTime = obj.Participant.LeaveTime
-			}
-			if err := h.store.SetParticipantLeft(ctx, obj.ID, obj.Participant.UserName, &leaveTime); err != nil {
-				log.WithError(err).Error("failed to set participant left")
-			}
-
-			if h.dispatch != nil {
-				h.dispatch(tenant.ID, payload.Event, payload)
-			}
-
-		default:
-			log.WithField("event", payload.Event).Debug("ignoring unhandled event")
+	switch payload.Event {
+	case EventMeetingStarted:
+		log.WithFields(fields).Debug("meeting started")
+		if err := h.store.UpsertMeeting(ctx, meetingFromPayload(accountID, payload)); err != nil {
+			log.WithError(err).Error("failed to upsert meeting on start")
 		}
+		return false
+
+	case EventMeetingEnded:
+		log.WithFields(fields).Debug("meeting ended")
+		if err := h.store.DeleteParticipantsForMeeting(ctx, accountID, obj.ID); err != nil {
+			log.WithError(err).Error("failed to delete participants on meeting end")
+		}
+		if err := h.store.DeleteMeeting(ctx, accountID, obj.ID); err != nil {
+			log.WithError(err).Error("failed to delete meeting on end")
+		}
+		return false
+
+	case EventParticipantJoined:
+		log.WithFields(fields).WithField("user", obj.Participant.UserName).Debug("participant joined")
+		// Ensure meeting exists (we may have missed meeting.started).
+		if err := h.store.UpsertMeeting(ctx, meetingFromPayload(accountID, payload)); err != nil {
+			log.WithError(err).Error("failed to upsert meeting on join")
+		}
+		p := &store.Participant{
+			ZoomAccountID: accountID,
+			MeetingID:     obj.ID,
+			UserName:      obj.Participant.UserName,
+			Email:         obj.Participant.Email,
+			JoinTime:      obj.Participant.JoinTime,
+		}
+		if err := h.store.AddParticipant(ctx, p); err != nil {
+			log.WithError(err).Error("failed to add participant")
+		}
+		return true
+
+	case EventParticipantLeft:
+		log.WithFields(fields).WithField("user", obj.Participant.UserName).Debug("participant left")
+		leaveTime := time.Now()
+		if !obj.Participant.LeaveTime.IsZero() {
+			leaveTime = obj.Participant.LeaveTime
+		}
+		if err := h.store.SetParticipantLeft(ctx, accountID, obj.ID, obj.Participant.UserName, &leaveTime); err != nil {
+			log.WithError(err).Error("failed to set participant left")
+		}
+		return true
+
+	default:
+		log.WithField("event", payload.Event).Debug("ignoring unhandled event")
+		return false
+	}
+}
+
+func meetingFromPayload(accountID string, payload WebhookPayload) *store.ActiveMeeting {
+	obj := payload.Payload.Object
+	return &store.ActiveMeeting{
+		ZoomAccountID: accountID,
+		MeetingID:     obj.ID,
+		Topic:         obj.Topic,
+		HostID:        obj.HostID,
+		StartTime:     obj.StartTime,
 	}
 }

@@ -15,10 +15,11 @@ func setupCommandHandler(t *testing.T) (*CommandHandler, store.Store) {
 
 	// Create a test tenant
 	tenant := &store.Tenant{
-		ID:          "T-CMD",
-		TeamName:    "Command Test",
-		APIKey:      "test-api-key",
-		InstalledAt: time.Now(),
+		ID:            "T-CMD",
+		TeamName:      "Command Test",
+		APIKey:        "test-api-key",
+		InstalledAt:   time.Now(),
+		ZoomAccountID: "Z-CMD",
 	}
 	if err := s.CreateTenant(context.Background(), tenant); err != nil {
 		t.Fatalf("create tenant: %v", err)
@@ -132,17 +133,18 @@ func TestCommandStatusWithMeetings(t *testing.T) {
 
 	// Create a meeting with a participant
 	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{
-		MeetingID: "m1",
-		TenantID:  "T-CMD",
-		Topic:     "Standup",
-		StartTime: time.Now(),
+		MeetingID:     "m1",
+		ZoomAccountID: "Z-CMD",
+		Topic:         "Standup",
+		StartTime:     time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AddParticipant(ctx, &store.Participant{
-		MeetingID: "m1",
-		UserName:  "Alice",
-		JoinTime:  time.Now(),
+		ZoomAccountID: "Z-CMD",
+		MeetingID:     "m1",
+		UserName:      "Alice",
+		JoinTime:      time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -161,25 +163,57 @@ func TestCommandStatusWithMeetings(t *testing.T) {
 	}
 }
 
+// Two workspaces linked to the same Zoom account get identical status output.
+func TestCommandStatusSharedAccount(t *testing.T) {
+	h, s := setupCommandHandler(t)
+	ctx := context.Background()
+	if err := s.CreateTenant(ctx, &store.Tenant{
+		ID: "T-OTHER", TeamName: "Other Workspace", APIKey: "other-key", ZoomAccountID: "Z-CMD",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{ZoomAccountID: "Z-CMD", MeetingID: "m1", Topic: "Standup", StartTime: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddParticipant(ctx, &store.Participant{ZoomAccountID: "Z-CMD", MeetingID: "m1", UserName: "Alice", JoinTime: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+
+	var outputs []string
+	for _, team := range []string{"T-CMD", "T-OTHER"} {
+		resp, err := h.Handle(ctx, SlashCommand{TeamID: team, UserID: "U-ANYONE", Text: "status"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		outputs = append(outputs, resp.Text)
+	}
+	if outputs[0] != outputs[1] {
+		t.Errorf("expected identical status in both workspaces:\n%s\n---\n%s", outputs[0], outputs[1])
+	}
+	if !strings.Contains(outputs[0], "1 participant") || !strings.Contains(outputs[0], "Alice") {
+		t.Errorf("unexpected status: %s", outputs[0])
+	}
+}
+
 func TestCommandWhois(t *testing.T) {
 	h, s := setupCommandHandler(t)
 	ctx := context.Background()
 
 	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{
-		MeetingID: "m2",
-		TenantID:  "T-CMD",
-		Topic:     "Retro",
-		StartTime: time.Now(),
+		MeetingID:     "m2",
+		ZoomAccountID: "Z-CMD",
+		Topic:         "Retro",
+		StartTime:     time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AddParticipant(ctx, &store.Participant{
-		MeetingID: "m2", UserName: "Bob", JoinTime: time.Now(),
+		ZoomAccountID: "Z-CMD", MeetingID: "m2", UserName: "Bob", JoinTime: time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.AddParticipant(ctx, &store.Participant{
-		MeetingID: "m2", UserName: "Carol", JoinTime: time.Now(),
+		ZoomAccountID: "Z-CMD", MeetingID: "m2", UserName: "Carol", JoinTime: time.Now(),
 	}); err != nil {
 		t.Fatal(err)
 	}

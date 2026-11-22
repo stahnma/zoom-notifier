@@ -143,13 +143,22 @@ func TestZoomAndIRCSecretsEncryptedAtRest(t *testing.T) {
 	ctx := context.Background()
 	createTestTenant(t, s, "T1")
 
-	if err := s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{TenantID: "T1", ClientID: "cid", ClientSecret: "zoom-secret", AccountID: "acct"}); err != nil {
-		t.Fatalf("upsert zoom creds: %v", err)
+	if err := s.UpsertZoomAccount(ctx, &store.ZoomAccount{AccountID: "acct", WebhookSecret: "wh-secret", ClientID: "cid", ClientSecret: "zoom-secret"}); err != nil {
+		t.Fatalf("upsert zoom account: %v", err)
 	}
-	assertEncrypted(t, "client_secret", rawColumn(t, s, `SELECT client_secret FROM zoom_credentials WHERE tenant_id = 'T1'`), "zoom-secret")
-	z, err := s.GetZoomCredentials(ctx, "T1")
-	if err != nil || z.ClientSecret != "zoom-secret" || z.ClientID != "cid" {
-		t.Errorf("GetZoomCredentials = %+v, %v", z, err)
+	assertEncrypted(t, "client_secret", rawColumn(t, s, `SELECT client_secret FROM zoom_accounts WHERE account_id = 'acct'`), "zoom-secret")
+	assertEncrypted(t, "webhook_secret", rawColumn(t, s, `SELECT webhook_secret FROM zoom_accounts WHERE account_id = 'acct'`), "wh-secret")
+	z, err := s.GetZoomAccount(ctx, "acct")
+	if err != nil || z.ClientSecret != "zoom-secret" || z.WebhookSecret != "wh-secret" || z.ClientID != "cid" {
+		t.Errorf("GetZoomAccount = %+v, %v", z, err)
+	}
+
+	// Empty secrets stay empty rather than becoming encrypted blobs.
+	if err := s.EnsureZoomAccount(ctx, "empty"); err != nil {
+		t.Fatal(err)
+	}
+	if raw := rawColumn(t, s, `SELECT webhook_secret FROM zoom_accounts WHERE account_id = 'empty'`); raw != "" {
+		t.Errorf("expected empty webhook secret stored as empty, got %q", raw)
 	}
 
 	if err := s.UpsertIRCConfig(ctx, &store.IRCConfig{TenantID: "T1", Server: "irc.example.com:6697", Nick: "bot", Password: "irc-pass", UseTLS: true}); err != nil {
@@ -183,7 +192,7 @@ func TestEncryptLegacySecrets(t *testing.T) {
 	}
 	mustExec(`INSERT INTO tenants (id, team_name, bot_token, api_key, zoom_account_id) VALUES ('OLD', 'Old', 'xoxb-legacy', 'legacy-key', '')`)
 	mustExec(`INSERT INTO tenants (id, team_name, bot_token, api_key, zoom_account_id) VALUES ('IRCONLY', 'IRC', NULL, 'irc-key', '')`)
-	mustExec(`INSERT INTO zoom_credentials (tenant_id, client_id, client_secret, account_id) VALUES ('OLD', 'cid', 'legacy-zoom-secret', 'acct')`)
+	mustExec(`INSERT INTO zoom_accounts (account_id, webhook_secret, client_id, client_secret) VALUES ('acct', 'legacy-wh-secret', 'cid', 'legacy-zoom-secret')`)
 	mustExec(`INSERT INTO irc_configs (tenant_id, server, nick, password, use_tls) VALUES ('OLD', 'irc.a', 'n', 'legacy-irc-pass', 1)`)
 	mustExec(`INSERT INTO irc_configs (tenant_id, server, nick, password, use_tls) VALUES ('OLD', 'irc.b', 'n', '', 1)`)
 
@@ -197,15 +206,16 @@ func TestEncryptLegacySecrets(t *testing.T) {
 	if err != nil {
 		t.Fatalf("EncryptLegacySecrets: %v", err)
 	}
-	// bot_token(OLD), api_key(OLD), api_key(IRCONLY), client_secret, password(irc.a) = 5
-	if n != 5 {
-		t.Errorf("updated %d rows, want 5", n)
+	// bot_token(OLD), api_key(OLD), api_key(IRCONLY), webhook_secret, client_secret, password(irc.a) = 6
+	if n != 6 {
+		t.Errorf("updated %d rows, want 6", n)
 	}
 
 	assertEncrypted(t, "bot_token", rawColumn(t, s, `SELECT bot_token FROM tenants WHERE id = 'OLD'`), "xoxb-legacy")
 	assertEncrypted(t, "api_key", rawColumn(t, s, `SELECT api_key FROM tenants WHERE id = 'OLD'`), "legacy-key")
 	assertEncrypted(t, "api_key IRCONLY", rawColumn(t, s, `SELECT api_key FROM tenants WHERE id = 'IRCONLY'`), "irc-key")
-	assertEncrypted(t, "client_secret", rawColumn(t, s, `SELECT client_secret FROM zoom_credentials WHERE tenant_id = 'OLD'`), "legacy-zoom-secret")
+	assertEncrypted(t, "client_secret", rawColumn(t, s, `SELECT client_secret FROM zoom_accounts WHERE account_id = 'acct'`), "legacy-zoom-secret")
+	assertEncrypted(t, "webhook_secret", rawColumn(t, s, `SELECT webhook_secret FROM zoom_accounts WHERE account_id = 'acct'`), "legacy-wh-secret")
 	assertEncrypted(t, "password", rawColumn(t, s, `SELECT password FROM irc_configs WHERE server = 'irc.a'`), "legacy-irc-pass")
 	if raw := rawColumn(t, s, `SELECT password FROM irc_configs WHERE server = 'irc.b'`); raw != "" {
 		t.Errorf("empty password should be left alone, got %q", raw)
@@ -216,8 +226,8 @@ func TestEncryptLegacySecrets(t *testing.T) {
 	if err != nil || *tenant.BotToken != "xoxb-legacy" || tenant.APIKey != "legacy-key" {
 		t.Errorf("post-migration read: %+v, %v", tenant, err)
 	}
-	z, err := s.GetZoomCredentials(ctx, "OLD")
-	if err != nil || z.ClientSecret != "legacy-zoom-secret" {
+	z, err := s.GetZoomAccount(ctx, "acct")
+	if err != nil || z.ClientSecret != "legacy-zoom-secret" || z.WebhookSecret != "legacy-wh-secret" {
 		t.Errorf("post-migration zoom: %+v, %v", z, err)
 	}
 	cfgs, err := s.GetIRCConfig(ctx, "OLD")

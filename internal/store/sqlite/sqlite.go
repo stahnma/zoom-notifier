@@ -32,7 +32,7 @@ type SQLiteStore struct {
 type Option func(*SQLiteStore) error
 
 // WithEncryptionKey enables AES-256-GCM encryption of secret columns
-// (bot tokens, API keys, Zoom client secrets, IRC passwords) using a
+// (bot tokens, API keys, Zoom webhook and client secrets, IRC passwords) using a
 // hex-encoded 32-byte key. An empty key leaves encryption disabled.
 func WithEncryptionKey(hexKey string) Option {
 	return func(s *SQLiteStore) error {
@@ -121,7 +121,8 @@ type secretColumn struct {
 var secretColumns = []secretColumn{
 	{"tenants", "bot_token", "id"},
 	{"tenants", "api_key", "id"},
-	{"zoom_credentials", "client_secret", "tenant_id"},
+	{"zoom_accounts", "webhook_secret", "account_id"},
+	{"zoom_accounts", "client_secret", "account_id"},
 	{"irc_configs", "password", "rowid"},
 }
 

@@ -42,22 +42,24 @@ type MeetingFilter struct {
 	IncludeLink *bool   // nullable override
 }
 
+// ActiveMeeting is per Zoom account: every tenant linked to the account sees it.
 type ActiveMeeting struct {
-	MeetingID string
-	TenantID  string
-	Topic     string
-	HostID    string
-	StartTime time.Time
-	JoinURL   string
+	ZoomAccountID string
+	MeetingID     string
+	Topic         string
+	HostID        string
+	StartTime     time.Time
+	JoinURL       string
 }
 
 type Participant struct {
-	ID        int64
-	MeetingID string
-	UserName  string
-	Email     string
-	JoinTime  time.Time
-	LeaveTime *time.Time // NULL = still in meeting
+	ID            int64
+	ZoomAccountID string
+	MeetingID     string
+	UserName      string
+	Email         string
+	JoinTime      time.Time
+	LeaveTime     *time.Time // NULL = still in meeting
 }
 
 type IRCConfig struct {
@@ -69,9 +71,17 @@ type IRCConfig struct {
 	InsecureTLS bool // skip TLS certificate verification (operator opt-in)
 }
 
-type ZoomCredentials struct {
-	TenantID     string
-	ClientID     string
-	ClientSecret string
-	AccountID    string
+// ZoomAccount is a Zoom account (one Server-to-Server OAuth app) that delivers
+// webhooks. Many tenants may link to one account via Tenant.ZoomAccountID.
+type ZoomAccount struct {
+	AccountID     string
+	WebhookSecret string // encrypted at rest; empty = fall back to global zoom.webhook_secret
+	ClientID      string
+	ClientSecret  string // encrypted at rest
+	CreatedAt     time.Time
+}
+
+// HasAPICredentials reports whether the account can call the Zoom REST API.
+func (a *ZoomAccount) HasAPICredentials() bool {
+	return a.ClientID != "" && a.ClientSecret != ""
 }

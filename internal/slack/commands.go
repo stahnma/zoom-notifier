@@ -181,7 +181,8 @@ func (h *CommandHandler) status(ctx context.Context, cmd SlashCommand) (*SlashRe
 	for i, m := range meetings {
 		meetingIDs[i] = m.MeetingID
 	}
-	participantsByMeeting, err := h.store.GetActiveParticipantsByMeetings(ctx, meetingIDs)
+	// All of a tenant's meetings belong to its one linked Zoom account.
+	participantsByMeeting, err := h.store.GetActiveParticipantsByMeetings(ctx, meetings[0].ZoomAccountID, meetingIDs)
 	if err != nil {
 		return nil, fmt.Errorf("get participants: %w", err)
 	}
@@ -243,7 +244,7 @@ func (h *CommandHandler) whois(ctx context.Context, cmd SlashCommand, args []str
 	for i, m := range matched {
 		matchedIDs[i] = m.MeetingID
 	}
-	participantsByMeeting, err := h.store.GetActiveParticipantsByMeetings(ctx, matchedIDs)
+	participantsByMeeting, err := h.store.GetActiveParticipantsByMeetings(ctx, matched[0].ZoomAccountID, matchedIDs)
 	if err != nil {
 		return nil, fmt.Errorf("get participants: %w", err)
 	}

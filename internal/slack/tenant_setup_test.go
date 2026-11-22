@@ -118,8 +118,8 @@ func TestTenantSetupPOSTWithCredentials(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
 	}
 
-	// Verify zoom credentials were saved
-	creds, err := s.GetZoomCredentials(context.Background(), "T-SETUP")
+	// Verify zoom credentials were saved on the account
+	creds, err := s.GetZoomAccount(context.Background(), "abc123")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,5 +150,85 @@ func TestTenantSetupPOSTMissingAccountID(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "required") {
 		t.Error("expected error about required account ID")
+	}
+}
+
+func postTenantSetup(t *testing.T, handler http.Handler, form url.Values) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/tenant/setup?key=valid-api-key", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	return w
+}
+
+func TestTenantSetupGETDoesNotRenderClientSecret(t *testing.T) {
+	handler, _ := setupTenantSetupTest(t)
+	postTenantSetup(t, handler, url.Values{
+		"zoom_account_id":    {"abc123"},
+		"zoom_client_id":     {"client-id-val"},
+		"zoom_client_secret": {"super-secret-value"},
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/tenant/setup?key=valid-api-key", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if strings.Contains(w.Body.String(), "super-secret-value") {
+		t.Error("client secret must not be rendered into the page")
+	}
+	if !strings.Contains(w.Body.String(), "client-id-val") {
+		t.Error("expected client ID to be pre-filled")
+	}
+}
+
+func TestTenantSetupBlankSecretKeepsExisting(t *testing.T) {
+	handler, s := setupTenantSetupTest(t)
+	postTenantSetup(t, handler, url.Values{
+		"zoom_account_id": {"abc123"}, "zoom_client_id": {"cid"}, "zoom_client_secret": {"original"},
+	})
+	postTenantSetup(t, handler, url.Values{
+		"zoom_account_id": {"abc123"}, "zoom_client_id": {"cid2"}, "zoom_client_secret": {""},
+	})
+	a, err := s.GetZoomAccount(context.Background(), "abc123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.ClientID != "cid2" || a.ClientSecret != "original" {
+		t.Errorf("expected client ID updated and secret kept, got %+v", a)
+	}
+}
+
+func TestTenantSetupRefusesSharedAccount(t *testing.T) {
+	handler, s := setupTenantSetupTest(t)
+	ctx := context.Background()
+	if err := s.CreateTenant(ctx, &store.Tenant{ID: "T-OWNER", APIKey: "owner-key", ZoomAccountID: "owned-acct"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertZoomAccount(ctx, &store.ZoomAccount{AccountID: "owned-acct", ClientID: "owner-cid", ClientSecret: "owner-secret"}); err != nil {
+		t.Fatal(err)
+	}
+
+	w := postTenantSetup(t, handler, url.Values{
+		"zoom_account_id": {"owned-acct"}, "zoom_client_id": {"evil"}, "zoom_client_secret": {"evil"},
+	})
+	if !strings.Contains(w.Body.String(), "managed by the operator") {
+		t.Errorf("expected managed-account error, got: %s", w.Body.String())
+	}
+	tenant, err := s.GetTenant(ctx, "T-SETUP")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tenant.ZoomAccountID == "owned-acct" {
+		t.Error("tenant must not be linked to another tenant's account")
+	}
+	a, err := s.GetZoomAccount(ctx, "owned-acct")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.ClientID != "owner-cid" || a.ClientSecret != "owner-secret" {
+		t.Errorf("owner's credentials must be untouched, got %+v", a)
 	}
 }

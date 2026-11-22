@@ -14,7 +14,7 @@ Join/leave notifications posted to a subscribed Slack channel:
 
 ## Features
 
-- **Multi-tenant**: Multiple Slack workspaces, each with their own Zoom account, subscriptions, and settings
+- **Multi-tenant**: Multiple Slack workspaces (and IRC-only tenants), each with their own subscriptions and settings. A tenant links to one Zoom account; several tenants may share an account and see the same meetings
 - **Slack App**: OAuth install flow, slash commands with signing secret verification, interactive modals for admin tasks
 - **Meeting Links**: Optional clickable join links with passcodes via Zoom Server-to-Server OAuth API
 - **Meeting Filters**: Only notify on matching meeting topics (case-insensitive substring match)
@@ -178,14 +178,43 @@ Commands with modals also accept text arguments as a fallback (e.g. `/zoom-notif
 
 Short aliases: `sub`, `unsub`, `subs`, `admin`/`admins`.
 
-## Per-Tenant Zoom Setup
+## Zoom Account Setup
 
-Each Slack workspace configures its own Zoom account. After installing the Slack app:
+Zoom accounts are records of their own: each holds the account's webhook
+secret and (optionally) its Server-to-Server OAuth credentials for meeting
+links. Tenants link to an account; meeting state belongs to the account, so
+every tenant linked to it sees the same `status` and `whois`, and each gets
+its notifications.
+
+### Self-service (one workspace, its own Zoom account)
 
 1. An admin runs `/zoom-notifier setup` in Slack
 2. This returns a private link to a web-based setup form
 3. The form collects: Zoom Account ID (required), Client ID and Client Secret (optional, for meeting links)
 4. Save -- the workspace is now connected to its Zoom account
+
+Self-service is refused for accounts the operator manages: accounts linked to
+another tenant, or with their own webhook secret.
+
+### Operator-managed (shared or additional Zoom accounts)
+
+With the admin API key:
+
+```bash
+# Create the account. webhook_secret is the Secret Token of that Zoom app;
+# without one, the global zoom.webhook_secret is used.
+curl -X PUT "$URL/api/v1/zoom-accounts/$ZOOM_ACCOUNT_ID" -H "Authorization: Bearer $ADMIN_KEY" \
+  -H 'Content-Type: application/json' \
+  -d '{"webhook_secret":"...","client_id":"...","client_secret":"..."}'
+
+# Link each tenant (Slack workspace or IRC-only tenant) to it
+curl -X PUT "$URL/api/v1/tenants/$TENANT_ID/zoom-account" -H "Authorization: Bearer $ADMIN_KEY" \
+  -H 'Content-Type: application/json' -d "{\"zoom_account_id\":\"$ZOOM_ACCOUNT_ID\"}"
+```
+
+Then point the Zoom app's event subscription at `https://<server>/webhook/zoom`.
+All Zoom apps share that one URL: events are verified with their account's
+secret, and URL validation is answered with whichever configured secret signed it.
 
 ## Notification Settings
 
@@ -241,7 +270,7 @@ The REST API is defined in `api/openapi.yaml` (OpenAPI 3.0). Key endpoints:
 | `/` | Landing page with links |
 | `/setup` | First-run setup wizard (only when unconfigured) |
 | `/slack/install` | Slack OAuth install flow |
-| `/tenant/setup?key=...` | Per-tenant Zoom credential setup |
+| `/tenant/setup?key=...` | Tenant self-service Zoom account setup |
 | `/api/docs` | Swagger UI API documentation |
 | `/privacy` | Privacy policy (plain English) |
 | `/terms` | Terms of service (plain English) |

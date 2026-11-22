@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -38,7 +39,7 @@ func setupHandlerTest(t *testing.T) (*sqlite.SQLiteStore, *Handler) {
 	if err := s.CreateTenant(ctx, &store.Tenant{
 		ID:            "T1",
 		APIKey:        "key-1",
-		ZoomAccountID: "uUpLA0YDRhWZvYIu_JxPpg",
+		ZoomAccountID: testAccount,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -47,16 +48,25 @@ func setupHandlerTest(t *testing.T) (*sqlite.SQLiteStore, *Handler) {
 	return s, handler
 }
 
-const testSecret = "test-secret"
+const (
+	testSecret  = "test-secret"
+	testAccount = "uUpLA0YDRhWZvYIu_JxPpg" // account_id in most examples/zoom payloads
+)
 
-// signedRequest builds a webhook request signed the way Zoom signs it.
+// signedRequest builds a webhook request signed the way Zoom signs it, with
+// the global test secret.
 func signedRequest(t *testing.T, body []byte) *http.Request {
+	t.Helper()
+	return signedRequestWith(t, testSecret, body)
+}
+
+func signedRequestWith(t *testing.T, secret string, body []byte) *http.Request {
 	t.Helper()
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
 	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set(HeaderTimestamp, ts)
-	req.Header.Set(HeaderSignature, Sign(testSecret, ts, body))
+	req.Header.Set(HeaderSignature, Sign(secret, ts, body))
 	return req
 }
 
@@ -111,7 +121,7 @@ func TestHandler_ParticipantJoined(t *testing.T) {
 	}
 
 	// Verify meeting was created in store
-	meeting, err := s.GetMeeting(ctx, "6735648745")
+	meeting, err := s.GetMeeting(ctx, testAccount, "6735648745")
 	if err != nil {
 		t.Fatalf("get meeting: %v", err)
 	}
@@ -123,7 +133,7 @@ func TestHandler_ParticipantJoined(t *testing.T) {
 	}
 
 	// Verify participant was added
-	participants, err := s.GetActiveParticipants(ctx, "6735648745")
+	participants, err := s.GetActiveParticipants(ctx, testAccount, "6735648745")
 	if err != nil {
 		t.Fatalf("get participants: %v", err)
 	}
@@ -186,7 +196,7 @@ func TestHandler_MeetingStarted(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	meeting, err := s.GetMeeting(ctx, "6704648745")
+	meeting, err := s.GetMeeting(ctx, "uUpLO0YDAhWZvYIu_JxPpg", "6704648745")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -201,9 +211,9 @@ func TestHandler_MeetingEnded(t *testing.T) {
 
 	// First create the meeting
 	if err := s.UpsertMeeting(ctx, &store.ActiveMeeting{
-		MeetingID: "6703648745",
-		TenantID:  "T1",
-		Topic:     "Test Meeting",
+		MeetingID:     "6703648745",
+		ZoomAccountID: testAccount,
+		Topic:         "Test Meeting",
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -218,7 +228,7 @@ func TestHandler_MeetingEnded(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rr.Code)
 	}
 
-	meeting, err := s.GetMeeting(ctx, "6703648745")
+	meeting, err := s.GetMeeting(ctx, testAccount, "6703648745")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -301,7 +311,7 @@ func TestHandler_RejectsUnsignedEvent(t *testing.T) {
 	if dispatched {
 		t.Error("unsigned event must not be dispatched")
 	}
-	meeting, err := s.GetMeeting(context.Background(), "6735648745")
+	meeting, err := s.GetMeeting(context.Background(), testAccount, "6735648745")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -358,5 +368,146 @@ func TestHandler_RejectsOversizedBody(t *testing.T) {
 
 	if rr.Code != http.StatusRequestEntityTooLarge {
 		t.Fatalf("expected 413, got %d", rr.Code)
+	}
+}
+
+// setAccountSecret gives a Zoom account its own webhook secret.
+func setAccountSecret(t *testing.T, s *sqlite.SQLiteStore, accountID, secret string) {
+	t.Helper()
+	if err := s.UpsertZoomAccount(context.Background(), &store.ZoomAccount{AccountID: accountID, WebhookSecret: secret}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHandler_PerAccountSecret(t *testing.T) {
+	s, handler := setupHandlerTest(t)
+	setAccountSecret(t, s, testAccount, "account-secret")
+	var dispatched int
+	handler.dispatch = func(string, string, WebhookPayload) { dispatched++ }
+	body := loadPayload(t, "participant_joined.json")
+
+	// Signed with the account's own secret: accepted.
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, signedRequestWith(t, "account-secret", body))
+	if rr.Code != http.StatusOK || dispatched != 1 {
+		t.Fatalf("account secret: code %d, dispatched %d", rr.Code, dispatched)
+	}
+
+	// Signed with the global fallback: rejected, because the account has its
+	// own secret. Otherwise whoever holds the global (another Zoom app's)
+	// secret could forge this account's events.
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, signedRequestWith(t, testSecret, body))
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("fallback secret for account with own secret: expected 401, got %d", rr.Code)
+	}
+	if dispatched != 1 {
+		t.Error("rejected event must not be dispatched")
+	}
+}
+
+func TestHandler_FallbackSecretForAccountWithoutOwnSecret(t *testing.T) {
+	s, handler := setupHandlerTest(t)
+	// A different account has its own secret; testAccount does not.
+	setAccountSecret(t, s, "OTHER-ACCOUNT", "other-secret")
+	body := loadPayload(t, "participant_joined.json")
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, signedRequestWith(t, testSecret, body))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("fallback secret: expected 200, got %d", rr.Code)
+	}
+
+	// Another account's secret cannot sign for testAccount.
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, signedRequestWith(t, "other-secret", body))
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("other account's secret: expected 401, got %d", rr.Code)
+	}
+}
+
+// CRC requests carry no account ID: any configured secret may sign one, and
+// the response must be computed with the secret that verified it.
+func TestHandler_CRCWithPerAccountSecret(t *testing.T) {
+	s, handler := setupHandlerTest(t)
+	setAccountSecret(t, s, "OTHER-ACCOUNT", "other-secret")
+	body := loadPayload(t, "endpoint_url_validation.json")
+
+	for _, secret := range []string{testSecret, "other-secret"} {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, signedRequestWith(t, secret, body))
+		if rr.Code != http.StatusOK {
+			t.Fatalf("CRC signed with %q: expected 200, got %d", secret, rr.Code)
+		}
+		var resp CRCResponse
+		if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+			t.Fatal(err)
+		}
+		var payload WebhookPayload
+		if err := json.Unmarshal(body, &payload); err != nil {
+			t.Fatal(err)
+		}
+		want, err := ValidateCRC(payload, secret)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.EncryptedToken != want.EncryptedToken {
+			t.Errorf("CRC signed with %q answered with a different secret", secret)
+		}
+	}
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, signedRequestWith(t, "unknown-secret", body))
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("CRC with unknown secret: expected 401, got %d", rr.Code)
+	}
+}
+
+// One Zoom account feeding two tenants: state is recorded once, and both
+// tenants are notified.
+func TestHandler_SharedAccountFansOut(t *testing.T) {
+	s, handler := setupHandlerTest(t)
+	ctx := context.Background()
+	if err := s.CreateTenant(ctx, &store.Tenant{ID: "T2", APIKey: "key-2", ZoomAccountID: testAccount}); err != nil {
+		t.Fatal(err)
+	}
+
+	var mu sync.Mutex
+	var dispatched []string
+	handler.dispatch = func(tenantID string, event string, _ WebhookPayload) {
+		mu.Lock()
+		dispatched = append(dispatched, tenantID)
+		mu.Unlock()
+	}
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, signedRequest(t, loadPayload(t, "participant_joined.json")))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", rr.Code)
+	}
+
+	mu.Lock()
+	sort.Strings(dispatched)
+	got := strings.Join(dispatched, ",")
+	mu.Unlock()
+	if got != "T1,T2" {
+		t.Errorf("expected dispatch to T1 and T2, got %s", got)
+	}
+
+	participants, err := s.GetActiveParticipants(ctx, testAccount, "6735648745")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(participants) != 1 {
+		t.Errorf("expected one participant row for the shared account, got %d", len(participants))
+	}
+	for _, tenant := range []string{"T1", "T2"} {
+		meetings, err := s.ListActiveMeetings(ctx, tenant)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(meetings) != 1 {
+			t.Errorf("%s: expected the shared meeting, got %d", tenant, len(meetings))
+		}
 	}
 }

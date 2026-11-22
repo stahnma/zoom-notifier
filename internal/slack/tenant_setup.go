@@ -1,14 +1,19 @@
 package slack
 
 import (
+	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/zoom-notifier/internal/store"
 )
 
-// TenantSetupHandler serves a web form for configuring per-tenant Zoom credentials.
+// TenantSetupHandler serves a web form for linking a tenant to its Zoom account
+// and setting that account's API credentials (self-service; see
+// store.SelfServiceZoomAccount for the rules).
 type TenantSetupHandler struct {
 	store store.Store
 	tmpl  *template.Template
@@ -65,13 +70,47 @@ func (h *TenantSetupHandler) findTenantByAPIKey(r *http.Request, apiKey string) 
 }
 
 type tenantSetupData struct {
-	TeamName         string
-	ZoomAccountID    string
-	ZoomClientID     string
-	ZoomClientSecret string
-	APIKey           string
-	Success          string
-	Error            string
+	TeamName        string
+	ZoomAccountID   string
+	ZoomClientID    string
+	HasClientSecret bool // the secret itself is never rendered
+	Managed         bool // account is operator-managed; form is read-only
+	APIKey          string
+	Success         string
+	Error           string
+}
+
+// loadAccount fills the Zoom account fields of data for accountID.
+func (h *TenantSetupHandler) loadAccount(r *http.Request, tenant *store.Tenant, accountID string, data *tenantSetupData) error {
+	if accountID == "" {
+		return nil
+	}
+	account, err := h.store.GetZoomAccount(r.Context(), accountID)
+	if err != nil {
+		return fmt.Errorf("get zoom account: %w", err)
+	}
+	if account != nil {
+		data.ZoomClientID = account.ClientID
+		data.HasClientSecret = account.ClientSecret != ""
+		data.Managed = account.WebhookSecret != ""
+	}
+	linked, err := h.store.GetTenantByZoomAccount(r.Context(), accountID)
+	if err != nil {
+		return fmt.Errorf("list tenants for zoom account: %w", err)
+	}
+	for _, t := range linked {
+		if t.ID != tenant.ID {
+			data.Managed = true
+		}
+	}
+	return nil
+}
+
+func (h *TenantSetupHandler) render(w http.ResponseWriter, data tenantSetupData) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	if err := h.tmpl.Execute(w, data); err != nil {
+		log.WithError(err).Error("failed to render tenant setup template")
+	}
 }
 
 func (h *TenantSetupHandler) handleGet(w http.ResponseWriter, r *http.Request, tenant *store.Tenant, apiKey string) {
@@ -80,18 +119,11 @@ func (h *TenantSetupHandler) handleGet(w http.ResponseWriter, r *http.Request, t
 		ZoomAccountID: tenant.ZoomAccountID,
 		APIKey:        apiKey,
 	}
-
-	// Pre-fill Zoom credentials if they exist
-	creds, err := h.store.GetZoomCredentials(r.Context(), tenant.ID)
-	if err == nil && creds != nil {
-		data.ZoomClientID = creds.ClientID
-		data.ZoomClientSecret = creds.ClientSecret
+	if err := h.loadAccount(r, tenant, tenant.ZoomAccountID, &data); err != nil {
+		log.WithError(err).WithField("tenant_id", tenant.ID).Error("failed to load zoom account for setup page")
+		data.Error = "Failed to load Zoom settings."
 	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.tmpl.Execute(w, data); err != nil {
-		log.WithError(err).Error("failed to render tenant setup template")
-	}
+	h.render(w, data)
 }
 
 func (h *TenantSetupHandler) handlePost(w http.ResponseWriter, r *http.Request, tenant *store.Tenant, apiKey string) {
@@ -100,66 +132,48 @@ func (h *TenantSetupHandler) handlePost(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
-	accountID := r.FormValue("zoom_account_id")
-	clientID := r.FormValue("zoom_client_id")
+	accountID := strings.TrimSpace(r.FormValue("zoom_account_id"))
+	clientID := strings.TrimSpace(r.FormValue("zoom_client_id"))
 	clientSecret := r.FormValue("zoom_client_secret")
 
 	data := tenantSetupData{
-		TeamName:         tenant.TeamName,
-		ZoomAccountID:    accountID,
-		ZoomClientID:     clientID,
-		ZoomClientSecret: clientSecret,
-		APIKey:           apiKey,
+		TeamName:      tenant.TeamName,
+		ZoomAccountID: accountID,
+		ZoomClientID:  clientID,
+		APIKey:        apiKey,
 	}
 
 	if accountID == "" {
 		log.WithField("tenant_id", tenant.ID).Warn("tenant setup validation failed: missing Zoom Account ID")
 		data.Error = "Zoom Account ID is required."
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := h.tmpl.Execute(w, data); err != nil {
-			log.WithError(err).Error("failed to render tenant setup template")
-		}
+		h.render(w, data)
 		return
 	}
 
-	// Update tenant's ZoomAccountID
-	tenant.ZoomAccountID = accountID
-	if err := h.store.UpdateTenant(r.Context(), tenant); err != nil {
-		log.WithError(err).Error("failed to update tenant zoom account ID")
-		data.Error = "Failed to save Zoom Account ID."
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := h.tmpl.Execute(w, data); err != nil {
-			log.WithError(err).Error("failed to render tenant setup template")
+	err := store.SelfServiceZoomAccount(r.Context(), h.store, tenant, accountID, clientID, clientSecret)
+	if errors.Is(err, store.ErrZoomAccountManaged) {
+		log.WithFields(log.Fields{"tenant_id": tenant.ID, "account_id": accountID}).Warn("tenant setup refused: zoom account is operator-managed")
+		// Show the tenant's actual (unchanged) account, not the one it tried.
+		data = tenantSetupData{TeamName: tenant.TeamName, ZoomAccountID: tenant.ZoomAccountID, APIKey: apiKey}
+		if loadErr := h.loadAccount(r, tenant, tenant.ZoomAccountID, &data); loadErr != nil {
+			log.WithError(loadErr).WithField("tenant_id", tenant.ID).Warn("failed to reload zoom account for setup page")
 		}
+		data.Error = fmt.Sprintf("Zoom account %s is managed by the operator (shared with other workspaces or has its own webhook secret). Ask the operator to link this workspace to it.", accountID)
+		h.render(w, data)
 		return
 	}
-
-	// Upsert Zoom credentials if both client ID and secret are provided
-	if clientID != "" && clientSecret != "" {
-		creds := &store.ZoomCredentials{
-			TenantID:     tenant.ID,
-			AccountID:    accountID,
-			ClientID:     clientID,
-			ClientSecret: clientSecret,
-		}
-		if err := h.store.UpsertZoomCredentials(r.Context(), creds); err != nil {
-			log.WithError(err).Error("failed to upsert zoom credentials")
-			data.Error = "Saved Account ID but failed to save API credentials."
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			if err := h.tmpl.Execute(w, data); err != nil {
-				log.WithError(err).Error("failed to render tenant setup template")
-			}
-			return
-		}
+	if loadErr := h.loadAccount(r, tenant, accountID, &data); loadErr != nil {
+		log.WithError(loadErr).WithField("tenant_id", tenant.ID).Warn("failed to reload zoom account for setup page")
 	}
-
-	data.Success = "Zoom credentials saved successfully."
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.tmpl.Execute(w, data); err != nil {
-		log.WithError(err).Error("failed to render tenant setup template")
+	switch {
+	case err != nil:
+		log.WithError(err).WithField("tenant_id", tenant.ID).Error("failed to save tenant zoom settings")
+		data.Error = "Failed to save Zoom settings."
+	default:
+		log.WithField("tenant_id", tenant.ID).Info("tenant Zoom credentials updated via setup page")
+		data.Success = "Zoom settings saved successfully."
 	}
-
-	log.WithField("team_id", tenant.ID).Info("tenant Zoom credentials updated via setup page")
+	h.render(w, data)
 }
 
 const tenantSetupTemplate = `<!DOCTYPE html>
@@ -193,6 +207,13 @@ const tenantSetupTemplate = `<!DOCTYPE html>
 {{end}}
 {{if .Error}}<div class="error">{{.Error}}</div>{{end}}
 
+{{if .Managed}}
+<div class="error">This Zoom account is managed by the operator (it is shared with other workspaces or has its own webhook secret). Ask the operator to change its settings.</div>
+<form>
+  <label>Zoom Account ID</label>
+  <input type="text" value="{{.ZoomAccountID}}" disabled>
+</form>
+{{else}}
 <form method="POST" action="/tenant/setup?key={{.APIKey}}">
   <label for="zoom_account_id">Zoom Account ID</label>
   <input type="text" id="zoom_account_id" name="zoom_account_id" value="{{.ZoomAccountID}}" required>
@@ -203,11 +224,12 @@ const tenantSetupTemplate = `<!DOCTYPE html>
   <p class="help">Optional. The Client ID from your Zoom Server-to-Server OAuth app. Required to fetch meeting join links.</p>
 
   <label for="zoom_client_secret">Zoom Client Secret</label>
-  <input type="password" id="zoom_client_secret" name="zoom_client_secret" value="{{.ZoomClientSecret}}">
-  <p class="help">Optional. The Client Secret from your Zoom Server-to-Server OAuth app. Required to fetch meeting join links.</p>
+  <input type="password" id="zoom_client_secret" name="zoom_client_secret" value="" placeholder="{{if .HasClientSecret}}(unchanged){{end}}" autocomplete="off">
+  <p class="help">Optional. The Client Secret from your Zoom Server-to-Server OAuth app. Required to fetch meeting join links.{{if .HasClientSecret}} Leave blank to keep the current secret.{{end}}</p>
 
   <button type="submit">Save</button>
 </form>
+{{end}}
 
 <p style="margin-top:1.5rem;font-size:0.85rem;color:#999;">Do not share this page URL — it contains your API key.</p>
 </body>
