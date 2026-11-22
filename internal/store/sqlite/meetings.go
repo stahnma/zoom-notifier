@@ -12,14 +12,14 @@ import (
 
 func (s *SQLiteStore) UpsertMeeting(ctx context.Context, m *store.ActiveMeeting) error {
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO active_meetings (meeting_id, tenant_id, topic, host_id, start_time, join_url)
+		`INSERT INTO active_meetings (zoom_account_id, meeting_id, topic, host_id, start_time, join_url)
 		 VALUES (?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(meeting_id) DO UPDATE SET
+		 ON CONFLICT(zoom_account_id, meeting_id) DO UPDATE SET
 		   topic = excluded.topic,
 		   host_id = excluded.host_id,
 		   start_time = excluded.start_time,
 		   join_url = excluded.join_url`,
-		m.MeetingID, m.TenantID, m.Topic, m.HostID, m.StartTime, m.JoinURL,
+		m.ZoomAccountID, m.MeetingID, m.Topic, m.HostID, m.StartTime, m.JoinURL,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert meeting: %w", err)
@@ -27,13 +27,13 @@ func (s *SQLiteStore) UpsertMeeting(ctx context.Context, m *store.ActiveMeeting)
 	return nil
 }
 
-func (s *SQLiteStore) GetMeeting(ctx context.Context, meetingID string) (*store.ActiveMeeting, error) {
+func (s *SQLiteStore) GetMeeting(ctx context.Context, zoomAccountID string, meetingID string) (*store.ActiveMeeting, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT meeting_id, tenant_id, topic, host_id, start_time, join_url
-		 FROM active_meetings WHERE meeting_id = ?`, meetingID,
+		`SELECT zoom_account_id, meeting_id, topic, host_id, start_time, join_url
+		 FROM active_meetings WHERE zoom_account_id = ? AND meeting_id = ?`, zoomAccountID, meetingID,
 	)
 	m := &store.ActiveMeeting{}
-	err := row.Scan(&m.MeetingID, &m.TenantID, &m.Topic, &m.HostID, &m.StartTime, &m.JoinURL)
+	err := row.Scan(&m.ZoomAccountID, &m.MeetingID, &m.Topic, &m.HostID, &m.StartTime, &m.JoinURL)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -45,8 +45,11 @@ func (s *SQLiteStore) GetMeeting(ctx context.Context, meetingID string) (*store.
 
 func (s *SQLiteStore) ListActiveMeetings(ctx context.Context, tenantID string) ([]*store.ActiveMeeting, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT meeting_id, tenant_id, topic, host_id, start_time, join_url
-		 FROM active_meetings WHERE tenant_id = ?`, tenantID,
+		`SELECT m.zoom_account_id, m.meeting_id, m.topic, m.host_id, m.start_time, m.join_url
+		 FROM active_meetings m
+		 JOIN tenants t ON t.zoom_account_id = m.zoom_account_id
+		 WHERE t.id = ?
+		 ORDER BY m.start_time, m.meeting_id`, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list active meetings: %w", err)
@@ -56,7 +59,7 @@ func (s *SQLiteStore) ListActiveMeetings(ctx context.Context, tenantID string) (
 	var meetings []*store.ActiveMeeting
 	for rows.Next() {
 		m := &store.ActiveMeeting{}
-		if err := rows.Scan(&m.MeetingID, &m.TenantID, &m.Topic, &m.HostID, &m.StartTime, &m.JoinURL); err != nil {
+		if err := rows.Scan(&m.ZoomAccountID, &m.MeetingID, &m.Topic, &m.HostID, &m.StartTime, &m.JoinURL); err != nil {
 			return nil, fmt.Errorf("scan meeting: %w", err)
 		}
 		meetings = append(meetings, m)
@@ -64,8 +67,10 @@ func (s *SQLiteStore) ListActiveMeetings(ctx context.Context, tenantID string) (
 	return meetings, rows.Err()
 }
 
-func (s *SQLiteStore) DeleteMeeting(ctx context.Context, meetingID string) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM active_meetings WHERE meeting_id = ?`, meetingID)
+// DeleteMeeting removes the meeting; its participants are removed by cascade.
+func (s *SQLiteStore) DeleteMeeting(ctx context.Context, zoomAccountID string, meetingID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM active_meetings WHERE zoom_account_id = ? AND meeting_id = ?`, zoomAccountID, meetingID)
 	if err != nil {
 		return fmt.Errorf("delete meeting: %w", err)
 	}
@@ -74,9 +79,9 @@ func (s *SQLiteStore) DeleteMeeting(ctx context.Context, meetingID string) error
 
 func (s *SQLiteStore) AddParticipant(ctx context.Context, p *store.Participant) error {
 	result, err := s.db.ExecContext(ctx,
-		`INSERT INTO participants (meeting_id, user_name, email, join_time)
-		 VALUES (?, ?, ?, ?)`,
-		p.MeetingID, p.UserName, p.Email, p.JoinTime,
+		`INSERT INTO participants (zoom_account_id, meeting_id, user_name, email, join_time)
+		 VALUES (?, ?, ?, ?, ?)`,
+		p.ZoomAccountID, p.MeetingID, p.UserName, p.Email, p.JoinTime,
 	)
 	if err != nil {
 		return fmt.Errorf("add participant: %w", err)
@@ -89,11 +94,11 @@ func (s *SQLiteStore) AddParticipant(ctx context.Context, p *store.Participant) 
 	return nil
 }
 
-func (s *SQLiteStore) SetParticipantLeft(ctx context.Context, meetingID string, userName string, leaveTime *time.Time) error {
+func (s *SQLiteStore) SetParticipantLeft(ctx context.Context, zoomAccountID string, meetingID string, userName string, leaveTime *time.Time) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE participants SET leave_time = ?
-		 WHERE meeting_id = ? AND user_name = ? AND leave_time IS NULL`,
-		leaveTime, meetingID, userName,
+		 WHERE zoom_account_id = ? AND meeting_id = ? AND user_name = ? AND leave_time IS NULL`,
+		leaveTime, zoomAccountID, meetingID, userName,
 	)
 	if err != nil {
 		return fmt.Errorf("set participant left: %w", err)
@@ -101,21 +106,13 @@ func (s *SQLiteStore) SetParticipantLeft(ctx context.Context, meetingID string, 
 	return nil
 }
 
-func (s *SQLiteStore) GetActiveParticipants(ctx context.Context, meetingID string) ([]*store.Participant, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, meeting_id, user_name, email, join_time, leave_time
-		 FROM participants
-		 WHERE meeting_id = ? AND leave_time IS NULL`, meetingID,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("get active participants: %w", err)
-	}
-	defer closeRows(rows)
+const participantColumns = `id, zoom_account_id, meeting_id, user_name, email, join_time, leave_time`
 
+func scanParticipants(rows *sql.Rows) ([]*store.Participant, error) {
 	var participants []*store.Participant
 	for rows.Next() {
 		p := &store.Participant{}
-		if err := rows.Scan(&p.ID, &p.MeetingID, &p.UserName, &p.Email, &p.JoinTime, &p.LeaveTime); err != nil {
+		if err := rows.Scan(&p.ID, &p.ZoomAccountID, &p.MeetingID, &p.UserName, &p.Email, &p.JoinTime, &p.LeaveTime); err != nil {
 			return nil, fmt.Errorf("scan participant: %w", err)
 		}
 		participants = append(participants, p)
@@ -123,20 +120,36 @@ func (s *SQLiteStore) GetActiveParticipants(ctx context.Context, meetingID strin
 	return participants, rows.Err()
 }
 
-func (s *SQLiteStore) GetActiveParticipantsByMeetings(ctx context.Context, meetingIDs []string) (map[string][]*store.Participant, error) {
+func (s *SQLiteStore) GetActiveParticipants(ctx context.Context, zoomAccountID string, meetingID string) ([]*store.Participant, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+participantColumns+`
+		 FROM participants
+		 WHERE zoom_account_id = ? AND meeting_id = ? AND leave_time IS NULL
+		 ORDER BY id`, zoomAccountID, meetingID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get active participants: %w", err)
+	}
+	defer closeRows(rows)
+	return scanParticipants(rows)
+}
+
+func (s *SQLiteStore) GetActiveParticipantsByMeetings(ctx context.Context, zoomAccountID string, meetingIDs []string) (map[string][]*store.Participant, error) {
 	if len(meetingIDs) == 0 {
 		return nil, nil
 	}
 	placeholders := make([]string, len(meetingIDs))
-	args := make([]interface{}, len(meetingIDs))
+	args := make([]interface{}, 0, len(meetingIDs)+1)
+	args = append(args, zoomAccountID)
 	for i, id := range meetingIDs {
 		placeholders[i] = "?"
-		args[i] = id
+		args = append(args, id)
 	}
 	query := fmt.Sprintf(
-		`SELECT id, meeting_id, user_name, email, join_time, leave_time
+		`SELECT `+participantColumns+`
 		 FROM participants
-		 WHERE meeting_id IN (%s) AND leave_time IS NULL`,
+		 WHERE zoom_account_id = ? AND meeting_id IN (%s) AND leave_time IS NULL
+		 ORDER BY id`,
 		strings.Join(placeholders, ","),
 	)
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -145,19 +158,20 @@ func (s *SQLiteStore) GetActiveParticipantsByMeetings(ctx context.Context, meeti
 	}
 	defer closeRows(rows)
 
+	participants, err := scanParticipants(rows)
+	if err != nil {
+		return nil, err
+	}
 	result := make(map[string][]*store.Participant)
-	for rows.Next() {
-		p := &store.Participant{}
-		if err := rows.Scan(&p.ID, &p.MeetingID, &p.UserName, &p.Email, &p.JoinTime, &p.LeaveTime); err != nil {
-			return nil, fmt.Errorf("scan participant: %w", err)
-		}
+	for _, p := range participants {
 		result[p.MeetingID] = append(result[p.MeetingID], p)
 	}
-	return result, rows.Err()
+	return result, nil
 }
 
-func (s *SQLiteStore) DeleteParticipantsForMeeting(ctx context.Context, meetingID string) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM participants WHERE meeting_id = ?`, meetingID)
+func (s *SQLiteStore) DeleteParticipantsForMeeting(ctx context.Context, zoomAccountID string, meetingID string) error {
+	_, err := s.db.ExecContext(ctx,
+		`DELETE FROM participants WHERE zoom_account_id = ? AND meeting_id = ?`, zoomAccountID, meetingID)
 	if err != nil {
 		return fmt.Errorf("delete participants: %w", err)
 	}

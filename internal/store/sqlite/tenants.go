@@ -17,6 +17,11 @@ func (s *SQLiteStore) CreateTenant(ctx context.Context, t *store.Tenant) error {
 	if err != nil {
 		return fmt.Errorf("encrypt api key: %w", err)
 	}
+	// Linked Zoom accounts always have a row, so account-keyed meeting state
+	// (which references zoom_accounts) can be recorded for them.
+	if err := s.EnsureZoomAccount(ctx, t.ZoomAccountID); err != nil {
+		return err
+	}
 	_, err = s.db.ExecContext(ctx,
 		`INSERT INTO tenants (id, team_name, bot_token, api_key, zoom_account_id, default_msg_suffix, default_include_link)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -66,7 +71,7 @@ func (s *SQLiteStore) decryptTenant(t *store.Tenant) error {
 func (s *SQLiteStore) GetTenantByZoomAccount(ctx context.Context, zoomAccountID string) ([]*store.Tenant, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, team_name, bot_token, api_key, installed_at, zoom_account_id, default_msg_suffix, default_include_link
-		 FROM tenants WHERE zoom_account_id = ?`, zoomAccountID,
+		 FROM tenants WHERE zoom_account_id = ? ORDER BY id`, zoomAccountID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("get tenants by zoom account: %w", err)
@@ -115,6 +120,9 @@ func (s *SQLiteStore) UpdateTenant(ctx context.Context, t *store.Tenant) error {
 	botToken, err := s.cipher.SealPtr(t.BotToken)
 	if err != nil {
 		return fmt.Errorf("encrypt bot token: %w", err)
+	}
+	if err := s.EnsureZoomAccount(ctx, t.ZoomAccountID); err != nil {
+		return err
 	}
 	_, err = s.db.ExecContext(ctx,
 		`UPDATE tenants SET team_name = ?, bot_token = ?, zoom_account_id = ?, default_msg_suffix = ?, default_include_link = ? WHERE id = ?`,

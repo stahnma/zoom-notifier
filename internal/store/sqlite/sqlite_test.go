@@ -33,7 +33,7 @@ func TestRunMigrations(t *testing.T) {
 
 	// Verify tables exist by querying them
 	tables := []string{"tenants", "tenant_admins", "subscriptions", "meeting_filters",
-		"active_meetings", "participants", "irc_configs", "zoom_credentials"}
+		"active_meetings", "participants", "irc_configs", "zoom_accounts"}
 	for _, table := range tables {
 		_, err := s.db.Exec("SELECT 1 FROM " + table + " LIMIT 1")
 		if err != nil {

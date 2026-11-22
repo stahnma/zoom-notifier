@@ -57,8 +57,11 @@ type ActiveMeeting struct {
 	JoinUrl   *string    `json:"join_url,omitempty"`
 	MeetingId string     `json:"meeting_id"`
 	StartTime *time.Time `json:"start_time,omitempty"`
-	TenantId  string     `json:"tenant_id"`
-	Topic     *string    `json:"topic,omitempty"`
+
+	// TenantId The requesting tenant. Meetings belong to the Zoom account and are shared by every tenant linked to it.
+	TenantId      string  `json:"tenant_id"`
+	Topic         *string `json:"topic,omitempty"`
+	ZoomAccountId string  `json:"zoom_account_id"`
 }
 
 // AddAdminRequest defines model for AddAdminRequest.
@@ -195,6 +198,11 @@ type TenantDefaultsRequest struct {
 	DefaultMsgSuffix   *string `json:"default_msg_suffix,omitempty"`
 }
 
+// TenantZoomAccountRequest defines model for TenantZoomAccountRequest.
+type TenantZoomAccountRequest struct {
+	ZoomAccountId string `json:"zoom_account_id"`
+}
+
 // UpdateFilterRequest defines model for UpdateFilterRequest.
 type UpdateFilterRequest struct {
 	IncludeLink *bool   `json:"include_link,omitempty"`
@@ -208,12 +216,41 @@ type UpdateSubscriptionRequest struct {
 	Target  *string `json:"target,omitempty"`
 }
 
+// ZoomAccount defines model for ZoomAccount.
+type ZoomAccount struct {
+	AccountId       string     `json:"account_id"`
+	ClientId        *string    `json:"client_id,omitempty"`
+	CreatedAt       *time.Time `json:"created_at,omitempty"`
+	HasClientSecret bool       `json:"has_client_secret"`
+
+	// HasWebhookSecret False means webhooks are verified with the global zoom.webhook_secret.
+	HasWebhookSecret bool `json:"has_webhook_secret"`
+
+	// TenantIds Tenants linked to this account.
+	TenantIds []string `json:"tenant_ids"`
+}
+
+// ZoomAccountRequest defines model for ZoomAccountRequest.
+type ZoomAccountRequest struct {
+	// ClientId Server-to-Server OAuth client ID (for meeting join links).
+	ClientId *string `json:"client_id,omitempty"`
+
+	// ClientSecret Server-to-Server OAuth client secret.
+	ClientSecret *string `json:"client_secret,omitempty"`
+
+	// WebhookSecret Secret Token of the Zoom app that sends this account's webhooks.
+	WebhookSecret *string `json:"webhook_secret,omitempty"`
+}
+
 // ZoomCredentialsRequest defines model for ZoomCredentialsRequest.
 type ZoomCredentialsRequest struct {
 	AccountId    string `json:"account_id"`
 	ClientId     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 }
+
+// AccountId defines model for AccountId.
+type AccountId = string
 
 // FilterId defines model for FilterId.
 type FilterId = int64
@@ -229,6 +266,9 @@ type TenantId = string
 
 // UserId defines model for UserId.
 type UserId = string
+
+// Conflict defines model for Conflict.
+type Conflict = ErrorResponse
 
 // NotFound defines model for NotFound.
 type NotFound = ErrorResponse
@@ -265,6 +305,12 @@ type UpdateSubscriptionJSONRequestBody = UpdateSubscriptionRequest
 
 // PutZoomCredentialsJSONRequestBody defines body for PutZoomCredentials for application/json ContentType.
 type PutZoomCredentialsJSONRequestBody = ZoomCredentialsRequest
+
+// LinkTenantZoomAccountJSONRequestBody defines body for LinkTenantZoomAccount for application/json ContentType.
+type LinkTenantZoomAccountJSONRequestBody = TenantZoomAccountRequest
+
+// PutZoomAccountJSONRequestBody defines body for PutZoomAccount for application/json ContentType.
+type PutZoomAccountJSONRequestBody = ZoomAccountRequest
 
 // PostWebhookZoomJSONRequestBody defines body for PostWebhookZoom for application/json ContentType.
 type PostWebhookZoomJSONRequestBody = PostWebhookZoomJSONBody
@@ -334,9 +380,24 @@ type ServerInterface interface {
 	// UpdateSubscription Update a subscription
 	// (PATCH /api/v1/tenants/{tenantId}/subscriptions/{subscriptionId})
 	UpdateSubscription(w http.ResponseWriter, r *http.Request, tenantId TenantId, subscriptionId SubscriptionId)
-	// PutZoomCredentials Set Zoom API credentials for a tenant
+	// PutZoomCredentials Link the tenant to its Zoom account and set the account's API credentials
 	// (PUT /api/v1/tenants/{tenantId}/zoom)
 	PutZoomCredentials(w http.ResponseWriter, r *http.Request, tenantId TenantId)
+	// LinkTenantZoomAccount Link a tenant to a Zoom account (admin)
+	// (PUT /api/v1/tenants/{tenantId}/zoom-account)
+	LinkTenantZoomAccount(w http.ResponseWriter, r *http.Request, tenantId TenantId)
+	// ListZoomAccounts List Zoom accounts (admin)
+	// (GET /api/v1/zoom-accounts)
+	ListZoomAccounts(w http.ResponseWriter, r *http.Request)
+	// DeleteZoomAccount Delete a Zoom account (admin)
+	// (DELETE /api/v1/zoom-accounts/{accountId})
+	DeleteZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId)
+	// GetZoomAccount Get a Zoom account (admin)
+	// (GET /api/v1/zoom-accounts/{accountId})
+	GetZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId)
+	// PutZoomAccount Create or update a Zoom account (admin)
+	// (PUT /api/v1/zoom-accounts/{accountId})
+	PutZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId)
 	// GetHealthz Health check
 	// (GET /healthz)
 	GetHealthz(w http.ResponseWriter, r *http.Request)
@@ -475,9 +536,39 @@ func (_ Unimplemented) UpdateSubscription(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// PutZoomCredentials Set Zoom API credentials for a tenant
+// PutZoomCredentials Link the tenant to its Zoom account and set the account's API credentials
 // (PUT /api/v1/tenants/{tenantId}/zoom)
 func (_ Unimplemented) PutZoomCredentials(w http.ResponseWriter, r *http.Request, tenantId TenantId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// LinkTenantZoomAccount Link a tenant to a Zoom account (admin)
+// (PUT /api/v1/tenants/{tenantId}/zoom-account)
+func (_ Unimplemented) LinkTenantZoomAccount(w http.ResponseWriter, r *http.Request, tenantId TenantId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListZoomAccounts List Zoom accounts (admin)
+// (GET /api/v1/zoom-accounts)
+func (_ Unimplemented) ListZoomAccounts(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteZoomAccount Delete a Zoom account (admin)
+// (DELETE /api/v1/zoom-accounts/{accountId})
+func (_ Unimplemented) DeleteZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetZoomAccount Get a Zoom account (admin)
+// (GET /api/v1/zoom-accounts/{accountId})
+func (_ Unimplemented) GetZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutZoomAccount Create or update a Zoom account (admin)
+// (PUT /api/v1/zoom-accounts/{accountId})
+func (_ Unimplemented) PutZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1104,6 +1195,124 @@ func (siw *ServerInterfaceWrapper) PutZoomCredentials(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// LinkTenantZoomAccount operation middleware
+func (siw *ServerInterfaceWrapper) LinkTenantZoomAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenantId" -------------
+	var tenantId TenantId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenantId", chi.URLParam(r, "tenantId"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenantId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.LinkTenantZoomAccount(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListZoomAccounts operation middleware
+func (siw *ServerInterfaceWrapper) ListZoomAccounts(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListZoomAccounts(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteZoomAccount operation middleware
+func (siw *ServerInterfaceWrapper) DeleteZoomAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteZoomAccount(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetZoomAccount operation middleware
+func (siw *ServerInterfaceWrapper) GetZoomAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetZoomAccount(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutZoomAccount operation middleware
+func (siw *ServerInterfaceWrapper) PutZoomAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountId" -------------
+	var accountId AccountId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountId", chi.URLParam(r, "accountId"), &accountId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutZoomAccount(w, r, accountId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealthz operation middleware
 func (siw *ServerInterfaceWrapper) GetHealthz(w http.ResponseWriter, r *http.Request) {
 
@@ -1317,9 +1526,26 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Put(options.BaseURL+"/api/v1/tenants/{tenantId}/zoom", wrapper.PutZoomCredentials)
 	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/tenants/{tenantId}/zoom-account", wrapper.LinkTenantZoomAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/zoom-accounts", wrapper.ListZoomAccounts)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/zoom-accounts/{accountId}", wrapper.DeleteZoomAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/zoom-accounts/{accountId}", wrapper.GetZoomAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/zoom-accounts/{accountId}", wrapper.PutZoomAccount)
+	})
 
 	return r
 }
+
+type ConflictJSONResponse ErrorResponse
 
 type NotFoundJSONResponse ErrorResponse
 
@@ -2220,6 +2446,251 @@ func (response PutZoomCredentials401JSONResponse) VisitPutZoomCredentialsRespons
 	return err
 }
 
+type PutZoomCredentials409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutZoomCredentials409JSONResponse) VisitPutZoomCredentialsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkTenantZoomAccountRequestObject struct {
+	TenantId TenantId `json:"tenantId"`
+	Body     *LinkTenantZoomAccountJSONRequestBody
+}
+
+type LinkTenantZoomAccountResponseObject interface {
+	VisitLinkTenantZoomAccountResponse(w http.ResponseWriter) error
+}
+
+type LinkTenantZoomAccount200JSONResponse Tenant
+
+func (response LinkTenantZoomAccount200JSONResponse) VisitLinkTenantZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkTenantZoomAccount401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response LinkTenantZoomAccount401JSONResponse) VisitLinkTenantZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type LinkTenantZoomAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response LinkTenantZoomAccount404JSONResponse) VisitLinkTenantZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListZoomAccountsRequestObject struct {
+}
+
+type ListZoomAccountsResponseObject interface {
+	VisitListZoomAccountsResponse(w http.ResponseWriter) error
+}
+
+type ListZoomAccounts200JSONResponse []ZoomAccount
+
+func (response ListZoomAccounts200JSONResponse) VisitListZoomAccountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListZoomAccounts401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response ListZoomAccounts401JSONResponse) VisitListZoomAccountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteZoomAccountRequestObject struct {
+	AccountId AccountId `json:"accountId"`
+}
+
+type DeleteZoomAccountResponseObject interface {
+	VisitDeleteZoomAccountResponse(w http.ResponseWriter) error
+}
+
+type DeleteZoomAccount204Response struct {
+}
+
+func (response DeleteZoomAccount204Response) VisitDeleteZoomAccountResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteZoomAccount401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response DeleteZoomAccount401JSONResponse) VisitDeleteZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteZoomAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteZoomAccount404JSONResponse) VisitDeleteZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteZoomAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DeleteZoomAccount409JSONResponse) VisitDeleteZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetZoomAccountRequestObject struct {
+	AccountId AccountId `json:"accountId"`
+}
+
+type GetZoomAccountResponseObject interface {
+	VisitGetZoomAccountResponse(w http.ResponseWriter) error
+}
+
+type GetZoomAccount200JSONResponse ZoomAccount
+
+func (response GetZoomAccount200JSONResponse) VisitGetZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetZoomAccount401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response GetZoomAccount401JSONResponse) VisitGetZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetZoomAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetZoomAccount404JSONResponse) VisitGetZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutZoomAccountRequestObject struct {
+	AccountId AccountId `json:"accountId"`
+	Body      *PutZoomAccountJSONRequestBody
+}
+
+type PutZoomAccountResponseObject interface {
+	VisitPutZoomAccountResponse(w http.ResponseWriter) error
+}
+
+type PutZoomAccount200JSONResponse ZoomAccount
+
+func (response PutZoomAccount200JSONResponse) VisitPutZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutZoomAccount401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response PutZoomAccount401JSONResponse) VisitPutZoomAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetHealthzRequestObject struct {
 }
 
@@ -2330,9 +2801,24 @@ type StrictServerInterface interface {
 	// UpdateSubscription Update a subscription
 	// (PATCH /api/v1/tenants/{tenantId}/subscriptions/{subscriptionId})
 	UpdateSubscription(ctx context.Context, request UpdateSubscriptionRequestObject) (UpdateSubscriptionResponseObject, error)
-	// PutZoomCredentials Set Zoom API credentials for a tenant
+	// PutZoomCredentials Link the tenant to its Zoom account and set the account's API credentials
 	// (PUT /api/v1/tenants/{tenantId}/zoom)
 	PutZoomCredentials(ctx context.Context, request PutZoomCredentialsRequestObject) (PutZoomCredentialsResponseObject, error)
+	// LinkTenantZoomAccount Link a tenant to a Zoom account (admin)
+	// (PUT /api/v1/tenants/{tenantId}/zoom-account)
+	LinkTenantZoomAccount(ctx context.Context, request LinkTenantZoomAccountRequestObject) (LinkTenantZoomAccountResponseObject, error)
+	// ListZoomAccounts List Zoom accounts (admin)
+	// (GET /api/v1/zoom-accounts)
+	ListZoomAccounts(ctx context.Context, request ListZoomAccountsRequestObject) (ListZoomAccountsResponseObject, error)
+	// DeleteZoomAccount Delete a Zoom account (admin)
+	// (DELETE /api/v1/zoom-accounts/{accountId})
+	DeleteZoomAccount(ctx context.Context, request DeleteZoomAccountRequestObject) (DeleteZoomAccountResponseObject, error)
+	// GetZoomAccount Get a Zoom account (admin)
+	// (GET /api/v1/zoom-accounts/{accountId})
+	GetZoomAccount(ctx context.Context, request GetZoomAccountRequestObject) (GetZoomAccountResponseObject, error)
+	// PutZoomAccount Create or update a Zoom account (admin)
+	// (PUT /api/v1/zoom-accounts/{accountId})
+	PutZoomAccount(ctx context.Context, request PutZoomAccountRequestObject) (PutZoomAccountResponseObject, error)
 	// GetHealthz Health check
 	// (GET /healthz)
 	GetHealthz(ctx context.Context, request GetHealthzRequestObject) (GetHealthzResponseObject, error)
@@ -3010,6 +3496,148 @@ func (sh *strictHandler) PutZoomCredentials(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PutZoomCredentialsResponseObject); ok {
 		if err := validResponse.VisitPutZoomCredentialsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// LinkTenantZoomAccount operation middleware
+func (sh *strictHandler) LinkTenantZoomAccount(w http.ResponseWriter, r *http.Request, tenantId TenantId) {
+	var request LinkTenantZoomAccountRequestObject
+
+	request.TenantId = tenantId
+
+	var body LinkTenantZoomAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.LinkTenantZoomAccount(ctx, request.(LinkTenantZoomAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "LinkTenantZoomAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(LinkTenantZoomAccountResponseObject); ok {
+		if err := validResponse.VisitLinkTenantZoomAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListZoomAccounts operation middleware
+func (sh *strictHandler) ListZoomAccounts(w http.ResponseWriter, r *http.Request) {
+	var request ListZoomAccountsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListZoomAccounts(ctx, request.(ListZoomAccountsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListZoomAccounts")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListZoomAccountsResponseObject); ok {
+		if err := validResponse.VisitListZoomAccountsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteZoomAccount operation middleware
+func (sh *strictHandler) DeleteZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	var request DeleteZoomAccountRequestObject
+
+	request.AccountId = accountId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteZoomAccount(ctx, request.(DeleteZoomAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteZoomAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteZoomAccountResponseObject); ok {
+		if err := validResponse.VisitDeleteZoomAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetZoomAccount operation middleware
+func (sh *strictHandler) GetZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	var request GetZoomAccountRequestObject
+
+	request.AccountId = accountId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetZoomAccount(ctx, request.(GetZoomAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetZoomAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetZoomAccountResponseObject); ok {
+		if err := validResponse.VisitGetZoomAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutZoomAccount operation middleware
+func (sh *strictHandler) PutZoomAccount(w http.ResponseWriter, r *http.Request, accountId AccountId) {
+	var request PutZoomAccountRequestObject
+
+	request.AccountId = accountId
+
+	var body PutZoomAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutZoomAccount(ctx, request.(PutZoomAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutZoomAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutZoomAccountResponseObject); ok {
+		if err := validResponse.VisitPutZoomAccountResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

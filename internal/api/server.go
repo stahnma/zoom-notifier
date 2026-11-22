@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -430,14 +431,23 @@ func (s *Server) ListMeetings(ctx context.Context, request ListMeetingsRequestOb
 	}
 	result := make(ListMeetings200JSONResponse, 0, len(meetings))
 	for _, m := range meetings {
-		result = append(result, toAPIMeeting(m))
+		result = append(result, toAPIMeeting(m, request.TenantId))
 	}
 	return result, nil
 }
 
 func (s *Server) ListParticipants(ctx context.Context, request ListParticipantsRequestObject) (ListParticipantsResponseObject, error) {
 	log.WithField("meeting_id", request.MeetingId).Debug("listing participants")
-	meeting, err := s.store.GetMeeting(ctx, request.MeetingId)
+	tenant, err := s.store.GetTenant(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
+	}
+	// Scope the lookup to the tenant's own Zoom account so one tenant cannot
+	// read participants of another account's meetings by guessing an ID.
+	if tenant == nil || tenant.ZoomAccountID == "" {
+		return ListParticipants404JSONResponse{NotFoundJSONResponse{Error: "meeting not found"}}, nil
+	}
+	meeting, err := s.store.GetMeeting(ctx, tenant.ZoomAccountID, request.MeetingId)
 	if err != nil {
 		return nil, err
 	}
@@ -445,7 +455,7 @@ func (s *Server) ListParticipants(ctx context.Context, request ListParticipantsR
 		return ListParticipants404JSONResponse{NotFoundJSONResponse{Error: "meeting not found"}}, nil
 	}
 
-	participants, err := s.store.GetActiveParticipants(ctx, request.MeetingId)
+	participants, err := s.store.GetActiveParticipants(ctx, tenant.ZoomAccountID, request.MeetingId)
 	if err != nil {
 		return nil, err
 	}
@@ -469,20 +479,138 @@ func (s *Server) RotateAPIKey(ctx context.Context, request RotateAPIKeyRequestOb
 	return RotateAPIKey200JSONResponse{ApiKey: newKey}, nil
 }
 
-// --- Zoom Credentials ---
+// --- Zoom Accounts ---
 
+// PutZoomCredentials is the tenant self-service path; see
+// store.SelfServiceZoomAccount for when it is refused.
 func (s *Server) PutZoomCredentials(ctx context.Context, request PutZoomCredentialsRequestObject) (PutZoomCredentialsResponseObject, error) {
 	log.WithField("tenant_id", request.TenantId).Info("updating zoom credentials via API")
-	z := &store.ZoomCredentials{
-		TenantID:     request.TenantId,
-		ClientID:     request.Body.ClientId,
-		ClientSecret: request.Body.ClientSecret,
-		AccountID:    request.Body.AccountId,
+	tenant, err := s.store.GetTenant(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
 	}
-	if err := s.store.UpsertZoomCredentials(ctx, z); err != nil {
+	if tenant == nil {
+		// The TenantKey check already requires the tenant to exist.
+		return nil, fmt.Errorf("tenant %s not found", request.TenantId)
+	}
+	err = store.SelfServiceZoomAccount(ctx, s.store, tenant,
+		request.Body.AccountId, request.Body.ClientId, request.Body.ClientSecret)
+	if errors.Is(err, store.ErrZoomAccountManaged) {
+		return PutZoomCredentials409JSONResponse{ConflictJSONResponse{
+			Error: "zoom account is managed by the operator (shared with other tenants or has its own webhook secret)",
+		}}, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 	return PutZoomCredentials200Response{}, nil
+}
+
+func (s *Server) LinkTenantZoomAccount(ctx context.Context, request LinkTenantZoomAccountRequestObject) (LinkTenantZoomAccountResponseObject, error) {
+	tenant, err := s.store.GetTenant(ctx, request.TenantId)
+	if err != nil {
+		return nil, err
+	}
+	if tenant == nil {
+		return LinkTenantZoomAccount404JSONResponse{NotFoundJSONResponse{Error: "tenant not found"}}, nil
+	}
+	tenant.ZoomAccountID = request.Body.ZoomAccountId
+	if err := s.store.UpdateTenant(ctx, tenant); err != nil {
+		return nil, err
+	}
+	log.WithFields(log.Fields{"tenant_id": tenant.ID, "account_id": tenant.ZoomAccountID}).Info("linked tenant to zoom account via admin API")
+	return LinkTenantZoomAccount200JSONResponse(toAPITenant(tenant)), nil
+}
+
+func (s *Server) ListZoomAccounts(ctx context.Context, _ ListZoomAccountsRequestObject) (ListZoomAccountsResponseObject, error) {
+	accounts, err := s.store.ListZoomAccounts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	result := make(ListZoomAccounts200JSONResponse, 0, len(accounts))
+	for _, a := range accounts {
+		za, err := s.toAPIZoomAccount(ctx, a)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, za)
+	}
+	return result, nil
+}
+
+func (s *Server) GetZoomAccount(ctx context.Context, request GetZoomAccountRequestObject) (GetZoomAccountResponseObject, error) {
+	account, err := s.store.GetZoomAccount(ctx, request.AccountId)
+	if err != nil {
+		return nil, err
+	}
+	if account == nil {
+		return GetZoomAccount404JSONResponse{NotFoundJSONResponse{Error: "zoom account not found"}}, nil
+	}
+	za, err := s.toAPIZoomAccount(ctx, account)
+	if err != nil {
+		return nil, err
+	}
+	return GetZoomAccount200JSONResponse(za), nil
+}
+
+func (s *Server) PutZoomAccount(ctx context.Context, request PutZoomAccountRequestObject) (PutZoomAccountResponseObject, error) {
+	account, err := s.store.GetZoomAccount(ctx, request.AccountId)
+	if err != nil {
+		return nil, err
+	}
+	if account == nil {
+		account = &store.ZoomAccount{AccountID: request.AccountId}
+	}
+	if request.Body.WebhookSecret != nil {
+		account.WebhookSecret = *request.Body.WebhookSecret
+	}
+	if request.Body.ClientId != nil {
+		account.ClientID = *request.Body.ClientId
+	}
+	if request.Body.ClientSecret != nil {
+		account.ClientSecret = *request.Body.ClientSecret
+	}
+	if err := s.store.UpsertZoomAccount(ctx, account); err != nil {
+		return nil, err
+	}
+	log.WithField("account_id", account.AccountID).Info("zoom account saved via admin API")
+
+	saved, err := s.store.GetZoomAccount(ctx, account.AccountID)
+	if err != nil {
+		return nil, err
+	}
+	if saved == nil {
+		return nil, fmt.Errorf("zoom account %s missing after save", account.AccountID)
+	}
+	za, err := s.toAPIZoomAccount(ctx, saved)
+	if err != nil {
+		return nil, err
+	}
+	return PutZoomAccount200JSONResponse(za), nil
+}
+
+func (s *Server) DeleteZoomAccount(ctx context.Context, request DeleteZoomAccountRequestObject) (DeleteZoomAccountResponseObject, error) {
+	account, err := s.store.GetZoomAccount(ctx, request.AccountId)
+	if err != nil {
+		return nil, err
+	}
+	if account == nil {
+		return DeleteZoomAccount404JSONResponse{NotFoundJSONResponse{Error: "zoom account not found"}}, nil
+	}
+	linked, err := s.store.GetTenantByZoomAccount(ctx, request.AccountId)
+	if err != nil {
+		return nil, err
+	}
+	if len(linked) > 0 {
+		return DeleteZoomAccount409JSONResponse{ConflictJSONResponse{
+			Error: fmt.Sprintf("zoom account is linked to %d tenant(s); unlink them first", len(linked)),
+		}}, nil
+	}
+	if err := s.store.DeleteZoomAccount(ctx, request.AccountId); err != nil {
+		return nil, err
+	}
+	log.WithField("account_id", request.AccountId).Info("zoom account deleted via admin API")
+	return DeleteZoomAccount204Response{}, nil
 }
 
 // --- Zoom Webhook ---
@@ -538,11 +666,12 @@ func toAPIFilter(f *store.MeetingFilter) MeetingFilter {
 	}
 }
 
-func toAPIMeeting(m *store.ActiveMeeting) ActiveMeeting {
+func toAPIMeeting(m *store.ActiveMeeting, tenantID string) ActiveMeeting {
 	am := ActiveMeeting{
-		MeetingId: m.MeetingID,
-		TenantId:  m.TenantID,
-		StartTime: &m.StartTime,
+		MeetingId:     m.MeetingID,
+		TenantId:      tenantID,
+		ZoomAccountId: m.ZoomAccountID,
+		StartTime:     &m.StartTime,
 	}
 	if m.Topic != "" {
 		am.Topic = &m.Topic
@@ -554,6 +683,30 @@ func toAPIMeeting(m *store.ActiveMeeting) ActiveMeeting {
 		am.JoinUrl = &m.JoinURL
 	}
 	return am
+}
+
+// toAPIZoomAccount converts an account for API output. Secrets are reported
+// only as present/absent.
+func (s *Server) toAPIZoomAccount(ctx context.Context, a *store.ZoomAccount) (ZoomAccount, error) {
+	linked, err := s.store.GetTenantByZoomAccount(ctx, a.AccountID)
+	if err != nil {
+		return ZoomAccount{}, err
+	}
+	tenantIDs := make([]string, 0, len(linked))
+	for _, t := range linked {
+		tenantIDs = append(tenantIDs, t.ID)
+	}
+	za := ZoomAccount{
+		AccountId:        a.AccountID,
+		HasWebhookSecret: a.WebhookSecret != "",
+		HasClientSecret:  a.ClientSecret != "",
+		TenantIds:        tenantIDs,
+		CreatedAt:        &a.CreatedAt,
+	}
+	if a.ClientID != "" {
+		za.ClientId = &a.ClientID
+	}
+	return za, nil
 }
 
 func toAPIParticipant(p *store.Participant) Participant {

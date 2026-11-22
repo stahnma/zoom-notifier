@@ -393,27 +393,23 @@ func TestGetMeetingLink_NoCredentials(t *testing.T) {
 	s, _, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	// Create a tenant with no zoom credentials stored
-	if err := s.CreateTenant(ctx, &store.Tenant{
-		ID:     "T-NOCREDS",
-		APIKey: "key-nocreds",
-	}); err != nil {
-		t.Fatal(err)
+	// Account exists (linked by T1) but has no API credentials.
+	if a, err := s.GetZoomAccount(ctx, "zoom-1"); err != nil || a == nil {
+		t.Fatalf("expected zoom-1 account row: %+v, %v", a, err)
 	}
-
-	link := dispatcher.getMeetingLink(ctx, "T-NOCREDS", "m-999")
-	if link != "" {
+	if link := dispatcher.getMeetingLink(ctx, "zoom-1", "m-999"); link != "" {
 		t.Errorf("expected empty string when no zoom credentials, got '%s'", link)
 	}
 }
 
-func TestGetMeetingLink_NonexistentTenant(t *testing.T) {
+func TestGetMeetingLink_UnknownOrEmptyAccount(t *testing.T) {
 	_, _, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
 
-	link := dispatcher.getMeetingLink(ctx, "T-DOESNOTEXIST", "m-999")
-	if link != "" {
-		t.Errorf("expected empty string for nonexistent tenant, got '%s'", link)
+	for _, acct := range []string{"", "ACCT-DOESNOTEXIST"} {
+		if link := dispatcher.getMeetingLink(ctx, acct, "m-999"); link != "" {
+			t.Errorf("account %q: expected empty string, got '%s'", acct, link)
+		}
 	}
 }
 
@@ -466,39 +462,42 @@ func (fz *fakeZoom) grants() []string {
 	return append([]string(nil), fz.tokenGrants...)
 }
 
+func useFakeZoom(t *testing.T, d *Dispatcher) *fakeZoom {
+	t.Helper()
+	fz, srv := newFakeZoom(t)
+	d.zoomOAuthURL = srv.URL
+	d.zoomAPIURL = srv.URL
+	return fz
+}
+
+func setAPICreds(t *testing.T, s *sqlite.SQLiteStore, accountID, clientID string) {
+	t.Helper()
+	if err := s.UpsertZoomAccount(context.Background(), &store.ZoomAccount{
+		AccountID: accountID, ClientID: clientID, ClientSecret: "secret-" + clientID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestGetMeetingLink_RebuildsClientWhenCredentialsChange(t *testing.T) {
 	s, _, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
-	fz, srv := newFakeZoom(t)
-	dispatcher.zoomOAuthURL = srv.URL
-	dispatcher.zoomAPIURL = srv.URL
+	fz := useFakeZoom(t, dispatcher)
 
-	if err := s.CreateTenant(ctx, &store.Tenant{ID: "T-ROT", APIKey: "key-rot"}); err != nil {
-		t.Fatal(err)
-	}
-	setCreds := func(clientID string) {
-		t.Helper()
-		if err := s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
-			TenantID: "T-ROT", ClientID: clientID, ClientSecret: "secret-" + clientID, AccountID: "acct",
-		}); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	setCreds("old")
-	if got := dispatcher.getMeetingLink(ctx, "T-ROT", "m1"); got != "https://zoom.example/j/old" {
+	setAPICreds(t, s, "zoom-1", "old")
+	if got := dispatcher.getMeetingLink(ctx, "zoom-1", "m1"); got != "https://zoom.example/j/old" {
 		t.Fatalf("first link = %q", got)
 	}
 	// Unchanged credentials reuse the cached client and its token.
-	if got := dispatcher.getMeetingLink(ctx, "T-ROT", "m1"); got != "https://zoom.example/j/old" {
+	if got := dispatcher.getMeetingLink(ctx, "zoom-1", "m1"); got != "https://zoom.example/j/old" {
 		t.Fatalf("second link = %q", got)
 	}
 	if g := fz.grants(); len(g) != 1 {
 		t.Fatalf("expected 1 token request with unchanged creds, got %v", g)
 	}
 
-	setCreds("new")
-	if got := dispatcher.getMeetingLink(ctx, "T-ROT", "m1"); got != "https://zoom.example/j/new" {
+	setAPICreds(t, s, "zoom-1", "new")
+	if got := dispatcher.getMeetingLink(ctx, "zoom-1", "m1"); got != "https://zoom.example/j/new" {
 		t.Fatalf("link after rotation = %q, want one fetched with new credentials", got)
 	}
 	if g := fz.grants(); len(g) != 2 || g[1] != "new" {
@@ -509,32 +508,69 @@ func TestGetMeetingLink_RebuildsClientWhenCredentialsChange(t *testing.T) {
 func TestGetMeetingLink_ForgetsClientWhenCredentialsRemoved(t *testing.T) {
 	s, _, _, dispatcher := setupDispatcherTest(t)
 	ctx := context.Background()
-	_, srv := newFakeZoom(t)
-	dispatcher.zoomOAuthURL = srv.URL
-	dispatcher.zoomAPIURL = srv.URL
+	useFakeZoom(t, dispatcher)
 
-	if err := s.CreateTenant(ctx, &store.Tenant{ID: "T-DEL", APIKey: "key-del"}); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
-		TenantID: "T-DEL", ClientID: "c", ClientSecret: "s", AccountID: "acct",
-	}); err != nil {
-		t.Fatal(err)
-	}
-	if got := dispatcher.getMeetingLink(ctx, "T-DEL", "m1"); got == "" {
+	setAPICreds(t, s, "zoom-1", "c")
+	if got := dispatcher.getMeetingLink(ctx, "zoom-1", "m1"); got == "" {
 		t.Fatal("expected a link while credentials exist")
 	}
 
-	if err := s.DeleteTenant(ctx, "T-DEL"); err != nil { // cascades to zoom_credentials
+	if err := s.UpsertZoomAccount(ctx, &store.ZoomAccount{AccountID: "zoom-1"}); err != nil { // clear credentials
 		t.Fatal(err)
 	}
-	if got := dispatcher.getMeetingLink(ctx, "T-DEL", "m1"); got != "" {
-		t.Fatalf("expected no link after tenant deletion, got %q", got)
+	if got := dispatcher.getMeetingLink(ctx, "zoom-1", "m1"); got != "" {
+		t.Fatalf("expected no link after credentials were removed, got %q", got)
 	}
 	dispatcher.mu.Lock()
-	_, cached := dispatcher.zoomClients["T-DEL"]
+	_, cached := dispatcher.zoomClients["zoom-1"]
 	dispatcher.mu.Unlock()
 	if cached {
 		t.Error("expected cached client to be dropped after credentials were removed")
+	}
+}
+
+// Tenants sharing a Zoom account share one API client (and OAuth token).
+func TestDispatch_SharedAccountSharesZoomClient(t *testing.T) {
+	s, slackSender, _, dispatcher := setupDispatcherTest(t)
+	ctx := context.Background()
+	fz := useFakeZoom(t, dispatcher)
+	setAPICreds(t, s, "zoom-1", "shared")
+
+	botToken := "xoxb-t2"
+	if err := s.CreateTenant(ctx, &store.Tenant{
+		ID: "T2", APIKey: "key-2", BotToken: &botToken, ZoomAccountID: "zoom-1",
+		DefaultMsgSuffix: "the meeting.", DefaultIncludeLink: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	t1, err := s.GetTenant(ctx, "T1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpdateTenantDefaults(ctx, t1.ID, t1.DefaultMsgSuffix, true); err != nil {
+		t.Fatal(err)
+	}
+	for _, tenant := range []string{"T1", "T2"} {
+		if err := s.CreateSubscription(ctx, &store.Subscription{TenantID: tenant, Type: store.SubscriptionTypeSlack, Target: "C-" + tenant, Enabled: true}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	payload := makeJoinPayload("Alice", "Standup", "m-1")
+	dispatcher.Dispatch(ctx, "T1", payload)
+	dispatcher.Dispatch(ctx, "T2", payload)
+
+	slackSender.mu.Lock()
+	defer slackSender.mu.Unlock()
+	if len(slackSender.calls) != 2 {
+		t.Fatalf("expected 2 slack sends, got %d", len(slackSender.calls))
+	}
+	for _, c := range slackSender.calls {
+		if !strings.Contains(c.msg, "https://zoom.example/j/shared") {
+			t.Errorf("expected join link in %q", c.msg)
+		}
+	}
+	if g := fz.grants(); len(g) != 1 {
+		t.Errorf("expected one OAuth token for the shared account, got %v", g)
 	}
 }

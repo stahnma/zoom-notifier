@@ -481,7 +481,16 @@ paths:
       - $ref: "#/components/parameters/TenantId"
     put:
       operationId: putZoomCredentials
-      summary: Set Zoom API credentials for a tenant
+      summary: Link the tenant to its Zoom account and set the account's API credentials
+      description: |
+        Self-service for a tenant that is the sole user of its Zoom account:
+        links the tenant to `account_id` and stores the account's
+        Server-to-Server OAuth credentials (used to fetch meeting join links).
+
+        Refused with 409 when the account is operator-managed — linked to any
+        other tenant, or configured with a per-account webhook secret. Shared
+        accounts are managed with the admin `/api/v1/zoom-accounts` endpoints
+        and `PUT /api/v1/tenants/{tenantId}/zoom-account`.
       tags: [zoom]
       security:
         - TenantKey: []
@@ -496,6 +505,124 @@ paths:
           description: Zoom credentials saved
         "401":
           $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /api/v1/tenants/{tenantId}/zoom-account:
+    parameters:
+      - $ref: "#/components/parameters/TenantId"
+    put:
+      operationId: linkTenantZoomAccount
+      summary: Link a tenant to a Zoom account (admin)
+      description: |
+        Links the tenant to a Zoom account, creating an empty account record
+        if none exists. Several tenants may link to one account; they share its
+        meeting state and each receive its notifications. An empty
+        `zoom_account_id` unlinks the tenant.
+      tags: [zoom]
+      security:
+        - AdminKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantZoomAccountRequest"
+      responses:
+        "200":
+          description: Tenant linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tenant"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/zoom-accounts:
+    get:
+      operationId: listZoomAccounts
+      summary: List Zoom accounts (admin)
+      tags: [zoom]
+      security:
+        - AdminKey: []
+      responses:
+        "200":
+          description: Zoom accounts (secrets are never returned)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ZoomAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/zoom-accounts/{accountId}:
+    parameters:
+      - $ref: "#/components/parameters/AccountId"
+    get:
+      operationId: getZoomAccount
+      summary: Get a Zoom account (admin)
+      tags: [zoom]
+      security:
+        - AdminKey: []
+      responses:
+        "200":
+          description: Zoom account (secrets are never returned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZoomAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    put:
+      operationId: putZoomAccount
+      summary: Create or update a Zoom account (admin)
+      description: |
+        Creates the account or updates the fields present in the body; omitted
+        fields keep their current values, and an empty string clears a field.
+
+        `webhook_secret` is the Secret Token of the Zoom app that sends this
+        account's webhooks. Events for the account are verified against it
+        only; without one, the global `zoom.webhook_secret` is used.
+      tags: [zoom]
+      security:
+        - AdminKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZoomAccountRequest"
+      responses:
+        "200":
+          description: Zoom account saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ZoomAccount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    delete:
+      operationId: deleteZoomAccount
+      summary: Delete a Zoom account (admin)
+      description: Refused with 409 while any tenant is linked to the account. Deleting removes the account's meeting state.
+      tags: [zoom]
+      security:
+        - AdminKey: []
+      responses:
+        "204":
+          description: Zoom account deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
 
 components:
   securitySchemes:
@@ -541,6 +668,12 @@ components:
       required: true
       schema:
         type: string
+    AccountId:
+      name: accountId
+      in: path
+      required: true
+      schema:
+        type: string
 
   responses:
     Unauthorized:
@@ -551,6 +684,12 @@ components:
             $ref: "#/components/schemas/ErrorResponse"
     NotFound:
       description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: Request conflicts with current state
       content:
         application/json:
           schema:
@@ -720,11 +859,14 @@ components:
 
     ActiveMeeting:
       type: object
-      required: [meeting_id, tenant_id]
+      required: [meeting_id, tenant_id, zoom_account_id]
       properties:
         meeting_id:
           type: string
         tenant_id:
+          type: string
+          description: The requesting tenant. Meetings belong to the Zoom account and are shared by every tenant linked to it.
+        zoom_account_id:
           type: string
         topic:
           type: string
@@ -827,3 +969,46 @@ components:
           type: string
         account_id:
           type: string
+          minLength: 1
+
+    TenantZoomAccountRequest:
+      type: object
+      required: [zoom_account_id]
+      properties:
+        zoom_account_id:
+          type: string
+
+    ZoomAccountRequest:
+      type: object
+      properties:
+        webhook_secret:
+          type: string
+          description: Secret Token of the Zoom app that sends this account's webhooks.
+        client_id:
+          type: string
+          description: Server-to-Server OAuth client ID (for meeting join links).
+        client_secret:
+          type: string
+          description: Server-to-Server OAuth client secret.
+
+    ZoomAccount:
+      type: object
+      required: [account_id, has_webhook_secret, has_client_secret, tenant_ids]
+      properties:
+        account_id:
+          type: string
+        has_webhook_secret:
+          type: boolean
+          description: False means webhooks are verified with the global zoom.webhook_secret.
+        client_id:
+          type: string
+        has_client_secret:
+          type: boolean
+        tenant_ids:
+          type: array
+          items:
+            type: string
+          description: Tenants linked to this account.
+        created_at:
+          type: string
+          format: date-time
