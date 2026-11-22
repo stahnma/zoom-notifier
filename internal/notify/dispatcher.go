@@ -26,16 +26,29 @@ type Dispatcher struct {
 	slack SlackSender
 	irc   IRCSender
 
+	// Zoom base URLs; overridable in tests.
+	zoomOAuthURL string
+	zoomAPIURL   string
+
 	mu          sync.Mutex
-	zoomClients map[string]*zoom.APIClient // cached per tenant ID
+	zoomClients map[string]cachedZoomClient // keyed by tenant ID
+}
+
+// cachedZoomClient pairs a Zoom API client with the credentials it was built
+// from, so a credential change in the store is detected and the client rebuilt.
+type cachedZoomClient struct {
+	creds  store.ZoomCredentials
+	client *zoom.APIClient
 }
 
 func NewDispatcher(s store.Store, slack SlackSender, irc IRCSender) *Dispatcher {
 	return &Dispatcher{
-		store:       s,
-		slack:       slack,
-		irc:         irc,
-		zoomClients: make(map[string]*zoom.APIClient),
+		store:        s,
+		slack:        slack,
+		irc:          irc,
+		zoomOAuthURL: "https://zoom.us",
+		zoomAPIURL:   "https://api.zoom.us",
+		zoomClients:  make(map[string]cachedZoomClient),
 	}
 }
 
@@ -168,27 +181,41 @@ func (d *Dispatcher) Dispatch(ctx context.Context, tenantID string, payload zoom
 	}
 }
 
-// getOrCreateZoomClient returns a cached Zoom API client for the tenant, or creates one.
+// getOrCreateZoomClient returns the cached Zoom API client for the tenant,
+// rebuilding it when creds differ from those the cached client was built with.
+// Reusing a client across calls keeps its OAuth token cached; rebuilding on
+// change ensures rotated or corrected credentials take effect without a restart.
 func (d *Dispatcher) getOrCreateZoomClient(tenantID string, creds *store.ZoomCredentials) *zoom.APIClient {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if client, ok := d.zoomClients[tenantID]; ok {
-		return client
+	if cached, ok := d.zoomClients[tenantID]; ok && cached.creds == *creds {
+		return cached.client
 	}
 
-	client := zoom.NewAPIClient("https://zoom.us", "https://api.zoom.us", creds.ClientID, creds.ClientSecret, creds.AccountID)
-	d.zoomClients[tenantID] = client
+	client := zoom.NewAPIClient(d.zoomOAuthURL, d.zoomAPIURL, creds.ClientID, creds.ClientSecret, creds.AccountID)
+	d.zoomClients[tenantID] = cachedZoomClient{creds: *creds, client: client}
 	return client
+}
+
+// forgetZoomClient removes the cached Zoom API client for the tenant, if any.
+func (d *Dispatcher) forgetZoomClient(tenantID string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	delete(d.zoomClients, tenantID)
 }
 
 // getMeetingLink fetches the join URL for a meeting using the tenant's Zoom API credentials.
 func (d *Dispatcher) getMeetingLink(ctx context.Context, tenantID string, meetingID string) string {
 	creds, err := d.store.GetZoomCredentials(ctx, tenantID)
-	if err != nil || creds == nil {
-		log.WithFields(log.Fields{
-			"tenant_id": tenantID,
-		}).Debug("no zoom API credentials configured, skipping meeting link")
+	if err != nil {
+		log.WithError(err).WithField("tenant_id", tenantID).Warn("failed to load zoom API credentials, skipping meeting link")
+		return ""
+	}
+	if creds == nil {
+		// Credentials removed (or tenant deleted): drop any cached client.
+		d.forgetZoomClient(tenantID)
+		log.WithField("tenant_id", tenantID).Debug("no zoom API credentials configured, skipping meeting link")
 		return ""
 	}
 

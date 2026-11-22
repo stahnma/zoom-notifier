@@ -2,6 +2,10 @@ package notify
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 
@@ -410,5 +414,127 @@ func TestGetMeetingLink_NonexistentTenant(t *testing.T) {
 	link := dispatcher.getMeetingLink(ctx, "T-DOESNOTEXIST", "m-999")
 	if link != "" {
 		t.Errorf("expected empty string for nonexistent tenant, got '%s'", link)
+	}
+}
+
+// fakeZoom is a minimal Zoom OAuth + meetings API that records which client ID
+// each token was issued to and returns a join URL naming that client.
+type fakeZoom struct {
+	mu          sync.Mutex
+	tokenGrants []string // client IDs, in order of token requests
+}
+
+func newFakeZoom(t *testing.T) (*fakeZoom, *httptest.Server) {
+	t.Helper()
+	fz := &fakeZoom{}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/oauth/token", func(w http.ResponseWriter, r *http.Request) {
+		clientID, _, ok := r.BasicAuth()
+		if !ok {
+			http.Error(w, "no basic auth", http.StatusUnauthorized)
+			return
+		}
+		fz.mu.Lock()
+		fz.tokenGrants = append(fz.tokenGrants, clientID)
+		fz.mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "token-" + clientID,
+			"token_type":   "bearer",
+			"expires_in":   3600,
+		}); err != nil {
+			t.Errorf("encode token response: %v", err)
+		}
+	})
+	mux.HandleFunc("/v2/meetings/", func(w http.ResponseWriter, r *http.Request) {
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer token-")
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]string{
+			"join_url": "https://zoom.example/j/" + token,
+		}); err != nil {
+			t.Errorf("encode meeting response: %v", err)
+		}
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return fz, srv
+}
+
+func (fz *fakeZoom) grants() []string {
+	fz.mu.Lock()
+	defer fz.mu.Unlock()
+	return append([]string(nil), fz.tokenGrants...)
+}
+
+func TestGetMeetingLink_RebuildsClientWhenCredentialsChange(t *testing.T) {
+	s, _, _, dispatcher := setupDispatcherTest(t)
+	ctx := context.Background()
+	fz, srv := newFakeZoom(t)
+	dispatcher.zoomOAuthURL = srv.URL
+	dispatcher.zoomAPIURL = srv.URL
+
+	if err := s.CreateTenant(ctx, &store.Tenant{ID: "T-ROT", APIKey: "key-rot"}); err != nil {
+		t.Fatal(err)
+	}
+	setCreds := func(clientID string) {
+		t.Helper()
+		if err := s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
+			TenantID: "T-ROT", ClientID: clientID, ClientSecret: "secret-" + clientID, AccountID: "acct",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	setCreds("old")
+	if got := dispatcher.getMeetingLink(ctx, "T-ROT", "m1"); got != "https://zoom.example/j/old" {
+		t.Fatalf("first link = %q", got)
+	}
+	// Unchanged credentials reuse the cached client and its token.
+	if got := dispatcher.getMeetingLink(ctx, "T-ROT", "m1"); got != "https://zoom.example/j/old" {
+		t.Fatalf("second link = %q", got)
+	}
+	if g := fz.grants(); len(g) != 1 {
+		t.Fatalf("expected 1 token request with unchanged creds, got %v", g)
+	}
+
+	setCreds("new")
+	if got := dispatcher.getMeetingLink(ctx, "T-ROT", "m1"); got != "https://zoom.example/j/new" {
+		t.Fatalf("link after rotation = %q, want one fetched with new credentials", got)
+	}
+	if g := fz.grants(); len(g) != 2 || g[1] != "new" {
+		t.Fatalf("expected a token request with the new client ID, got %v", g)
+	}
+}
+
+func TestGetMeetingLink_ForgetsClientWhenCredentialsRemoved(t *testing.T) {
+	s, _, _, dispatcher := setupDispatcherTest(t)
+	ctx := context.Background()
+	_, srv := newFakeZoom(t)
+	dispatcher.zoomOAuthURL = srv.URL
+	dispatcher.zoomAPIURL = srv.URL
+
+	if err := s.CreateTenant(ctx, &store.Tenant{ID: "T-DEL", APIKey: "key-del"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.UpsertZoomCredentials(ctx, &store.ZoomCredentials{
+		TenantID: "T-DEL", ClientID: "c", ClientSecret: "s", AccountID: "acct",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := dispatcher.getMeetingLink(ctx, "T-DEL", "m1"); got == "" {
+		t.Fatal("expected a link while credentials exist")
+	}
+
+	if err := s.DeleteTenant(ctx, "T-DEL"); err != nil { // cascades to zoom_credentials
+		t.Fatal(err)
+	}
+	if got := dispatcher.getMeetingLink(ctx, "T-DEL", "m1"); got != "" {
+		t.Fatalf("expected no link after tenant deletion, got %q", got)
+	}
+	dispatcher.mu.Lock()
+	_, cached := dispatcher.zoomClients["T-DEL"]
+	dispatcher.mu.Unlock()
+	if cached {
+		t.Error("expected cached client to be dropped after credentials were removed")
 	}
 }
