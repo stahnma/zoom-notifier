@@ -37,6 +37,12 @@ var (
 		Help:      "Zoom webhooks with no matching tenant.",
 	})
 
+	WebhooksRejected = promauto.NewCounter(prometheus.CounterOpts{
+		Namespace: namespace,
+		Name:      "zoom_webhooks_rejected_total",
+		Help:      "Zoom webhooks rejected for a missing, stale, or invalid signature.",
+	})
+
 	// Notification metrics
 
 	NotificationsSent = promauto.NewCounterVec(prometheus.CounterOpts{

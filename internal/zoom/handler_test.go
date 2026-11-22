@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stahnma/zoom-notifier/internal/store"
 	"github.com/stahnma/zoom-notifier/internal/store/sqlite"
@@ -39,8 +43,21 @@ func setupHandlerTest(t *testing.T) (*sqlite.SQLiteStore, *Handler) {
 		t.Fatal(err)
 	}
 
-	handler := NewHandler(s, "test-secret", nil)
+	handler := NewHandler(s, testSecret, nil)
 	return s, handler
+}
+
+const testSecret = "test-secret"
+
+// signedRequest builds a webhook request signed the way Zoom signs it.
+func signedRequest(t *testing.T, body []byte) *http.Request {
+	t.Helper()
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(HeaderTimestamp, ts)
+	req.Header.Set(HeaderSignature, Sign(testSecret, ts, body))
+	return req
 }
 
 func loadPayload(t *testing.T, filename string) []byte {
@@ -56,7 +73,7 @@ func TestHandler_CRCValidation(t *testing.T) {
 	_, handler := setupHandlerTest(t)
 
 	body := loadPayload(t, "endpoint_url_validation.json")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req := signedRequest(t, body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
@@ -83,7 +100,7 @@ func TestHandler_ParticipantJoined(t *testing.T) {
 	ctx := context.Background()
 
 	body := loadPayload(t, "participant_joined.json")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req := signedRequest(t, body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
@@ -124,13 +141,13 @@ func TestHandler_ParticipantLeft(t *testing.T) {
 
 	// First, simulate a join
 	joinBody := loadPayload(t, "participant_joined.json")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(joinBody))
+	req := signedRequest(t, joinBody)
 	req.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
 	// Now simulate leave
 	leaveBody := loadPayload(t, "participant_left.json")
-	req = httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(leaveBody))
+	req = signedRequest(t, leaveBody)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -160,7 +177,7 @@ func TestHandler_MeetingStarted(t *testing.T) {
 	}
 
 	body := loadPayload(t, "meeting_started.json")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req := signedRequest(t, body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -192,7 +209,7 @@ func TestHandler_MeetingEnded(t *testing.T) {
 	}
 
 	body := loadPayload(t, "meeting_ended.json")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req := signedRequest(t, body)
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -214,7 +231,7 @@ func TestHandler_UnknownEvent(t *testing.T) {
 	_, handler := setupHandlerTest(t)
 
 	payload := `{"event":"meeting.sharing_started","payload":{"account_id":"uUpLA0YDRhWZvYIu_JxPpg","object":{"id":"123"}},"event_ts":123}`
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewBufferString(payload))
+	req := signedRequest(t, []byte(payload))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
@@ -229,7 +246,7 @@ func TestHandler_UnknownAccountID(t *testing.T) {
 	_, handler := setupHandlerTest(t)
 
 	payload := `{"event":"meeting.participant_joined","payload":{"account_id":"UNKNOWN_ACCOUNT","object":{"id":"123","participant":{"user_name":"Test"}}},"event_ts":123}`
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewBufferString(payload))
+	req := signedRequest(t, []byte(payload))
 	req.Header.Set("Content-Type", "application/json")
 	rr := httptest.NewRecorder()
 
@@ -253,7 +270,7 @@ func TestHandler_DispatcherCalled(t *testing.T) {
 	}
 
 	body := loadPayload(t, "participant_joined.json")
-	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req := signedRequest(t, body)
 	req.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(httptest.NewRecorder(), req)
 
@@ -264,5 +281,82 @@ func TestHandler_DispatcherCalled(t *testing.T) {
 	}
 	if dispatched[0] != "T1:meeting.participant_joined" {
 		t.Errorf("unexpected dispatch: %s", dispatched[0])
+	}
+}
+
+func TestHandler_RejectsUnsignedEvent(t *testing.T) {
+	s, handler := setupHandlerTest(t)
+	dispatched := false
+	handler.dispatch = func(string, string, WebhookPayload) { dispatched = true }
+
+	body := loadPayload(t, "participant_joined.json")
+	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	if dispatched {
+		t.Error("unsigned event must not be dispatched")
+	}
+	meeting, err := s.GetMeeting(context.Background(), "6735648745")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if meeting != nil {
+		t.Error("unsigned event must not modify the store")
+	}
+}
+
+func TestHandler_RejectsTamperedBody(t *testing.T) {
+	_, handler := setupHandlerTest(t)
+	dispatched := false
+	handler.dispatch = func(string, string, WebhookPayload) { dispatched = true }
+
+	req := signedRequest(t, loadPayload(t, "participant_joined.json"))
+	// Swap in a different body after signing.
+	req.Body = io.NopCloser(bytes.NewReader(loadPayload(t, "participant_left.json")))
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	if dispatched {
+		t.Error("tampered event must not be dispatched")
+	}
+}
+
+// An unsigned CRC request must not be answered: the CRC response is
+// HMAC(secret, plainToken), so answering it lets an attacker obtain a valid
+// x-zm-signature for any body by sending plainToken "v0:{ts}:{body}".
+func TestHandler_RejectsUnsignedCRC(t *testing.T) {
+	_, handler := setupHandlerTest(t)
+
+	body := loadPayload(t, "endpoint_url_validation.json")
+	req := httptest.NewRequest(http.MethodPost, "/webhook/zoom", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", rr.Code)
+	}
+	if strings.Contains(rr.Body.String(), "encryptedToken") {
+		t.Error("unsigned CRC must not return an encryptedToken")
+	}
+}
+
+func TestHandler_RejectsOversizedBody(t *testing.T) {
+	_, handler := setupHandlerTest(t)
+
+	req := signedRequest(t, bytes.Repeat([]byte("a"), MaxWebhookBodyBytes+1))
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d", rr.Code)
 	}
 }

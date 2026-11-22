@@ -2,13 +2,18 @@ package setup
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
 
 func TestSetupHandlerWelcome(t *testing.T) {
@@ -176,11 +181,7 @@ func TestWebhookZoomCRC_WithSecret(t *testing.T) {
 	srv := httptest.NewServer(h.Router())
 	defer srv.Close()
 
-	resp, err := http.Post(
-		srv.URL+"/webhook/zoom",
-		"application/json",
-		strings.NewReader(`{"event":"endpoint.url_validation","payload":{"plainToken":"abc123"}}`),
-	)
+	resp, err := postSignedWebhook(t, srv.URL, "my-test-secret", `{"event":"endpoint.url_validation","payload":{"plainToken":"abc123"}}`)
 	if err != nil {
 		t.Fatalf("POST /webhook/zoom failed: %v", err)
 	}
@@ -212,11 +213,7 @@ func TestWebhookZoomCRC_NonCRCEvent(t *testing.T) {
 	srv := httptest.NewServer(h.Router())
 	defer srv.Close()
 
-	resp, err := http.Post(
-		srv.URL+"/webhook/zoom",
-		"application/json",
-		strings.NewReader(`{"event":"meeting.started","payload":{"account_id":"abc"}}`),
-	)
+	resp, err := postSignedWebhook(t, srv.URL, "my-test-secret", `{"event":"meeting.started","payload":{"account_id":"abc"}}`)
 	if err != nil {
 		t.Fatalf("POST /webhook/zoom failed: %v", err)
 	}
@@ -350,5 +347,44 @@ func TestSetupFullFlow(t *testing.T) {
 		if !strings.Contains(content, want) {
 			t.Errorf("config missing %s value %q", desc, want)
 		}
+	}
+}
+
+// postSignedWebhook POSTs body to the setup webhook endpoint with Zoom signature headers.
+func postSignedWebhook(t *testing.T, baseURL, secret, body string) (*http.Response, error) {
+	t.Helper()
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	req, err := http.NewRequest(http.MethodPost, baseURL+"/webhook/zoom", strings.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set(zoom.HeaderTimestamp, ts)
+	req.Header.Set(zoom.HeaderSignature, zoom.Sign(secret, ts, []byte(body)))
+	return http.DefaultClient.Do(req)
+}
+
+func TestWebhookZoomCRC_RejectsUnsigned(t *testing.T) {
+	h := NewHandler(filepath.Join(t.TempDir(), "config.toml"))
+	h.data.ZoomSecret = "my-test-secret"
+	srv := httptest.NewServer(h.Router())
+	defer srv.Close()
+
+	resp, err := http.Post(
+		srv.URL+"/webhook/zoom",
+		"application/json",
+		strings.NewReader(`{"event":"endpoint.url_validation","payload":{"plainToken":"abc123"}}`),
+	)
+	if err != nil {
+		t.Fatalf("POST /webhook/zoom failed: %v", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Log("close:", err)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401 for unsigned CRC, got %d", resp.StatusCode)
 	}
 }

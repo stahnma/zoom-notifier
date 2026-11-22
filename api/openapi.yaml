@@ -28,6 +28,12 @@ paths:
     post:
       operationId: postWebhookZoom
       summary: Receive Zoom webhook events
+      description: |
+        Every request, including endpoint.url_validation, must carry valid
+        x-zm-request-timestamp and x-zm-signature headers
+        (v0=HMAC-SHA256(webhook_secret, "v0:{timestamp}:{raw body}")) with a
+        timestamp within 5 minutes of server time. Unsigned or invalid
+        requests are rejected with 401.
       tags: [zoom]
       requestBody:
         required: true
@@ -38,6 +44,8 @@ paths:
       responses:
         "200":
           description: Webhook processed
+        "401":
+          description: Missing, stale, or invalid Zoom signature
 
   /api/v1/tenants:
     get:

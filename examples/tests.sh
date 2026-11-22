@@ -1,12 +1,27 @@
 #!/bin/bash
 # Smoke tests for zoom-notifier v2
 # Requires: server running on localhost:8888
-# Usage: ADMIN_KEY=devkey ./tests.sh
+# Usage: ADMIN_KEY=devkey ZOOM_SECRET=<zoom.webhook_secret> ./tests.sh
 
 BASE_URL="${BASE_URL:-http://localhost:8888}"
 ADMIN_KEY="${ADMIN_KEY:-devkey}"
+ZOOM_SECRET="${ZOOM_SECRET:?set ZOOM_SECRET to the server zoom.webhook_secret}"
 
 set -e
+
+# post_zoom_webhook FILE — POST a webhook payload signed like Zoom does
+# (x-zm-signature = v0=HMAC-SHA256(secret, "v0:{ts}:{body}")).
+post_zoom_webhook() {
+  local body ts sig
+  body=$(cat "$1")
+  ts=$(date +%s)
+  sig="v0=$(printf 'v0:%s:%s' "$ts" "$body" | openssl dgst -sha256 -hmac "$ZOOM_SECRET" -r | cut -d' ' -f1)"
+  curl -s -X POST "$BASE_URL/webhook/zoom" \
+    -H "Content-Type: application/json" \
+    -H "x-zm-request-timestamp: $ts" \
+    -H "x-zm-signature: $sig" \
+    --data-binary "$body"
+}
 
 echo "=== Health Check ==="
 curl -s "$BASE_URL/healthz" | python3 -m json.tool
@@ -52,15 +67,11 @@ curl -s -X PUT "$BASE_URL/api/v1/tenants/T-EXAMPLE/irc" \
 echo
 
 echo "=== Zoom Webhook: Participant Joined ==="
-curl -s -X POST "$BASE_URL/webhook/zoom" \
-  -H "Content-Type: application/json" \
-  -d @./zoom/participant_joined.json
+post_zoom_webhook ./zoom/participant_joined.json
 echo
 
 echo "=== Zoom Webhook: Participant Left ==="
-curl -s -X POST "$BASE_URL/webhook/zoom" \
-  -H "Content-Type: application/json" \
-  -d @./zoom/participant_left.json
+post_zoom_webhook ./zoom/participant_left.json
 echo
 
 echo

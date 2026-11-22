@@ -2257,6 +2257,14 @@ func (response PostWebhookZoom200Response) VisitPostWebhookZoomResponse(w http.R
 	return nil
 }
 
+type PostWebhookZoom401Response struct {
+}
+
+func (response PostWebhookZoom401Response) VisitPostWebhookZoomResponse(w http.ResponseWriter) error {
+	w.WriteHeader(401)
+	return nil
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListTenants List all tenants

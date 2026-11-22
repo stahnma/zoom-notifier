@@ -15,6 +15,7 @@ func TestMetricsRegistered(t *testing.T) {
 		HTTPRequestDuration,
 		WebhooksReceived,
 		WebhooksNoTenant,
+		WebhooksRejected,
 		NotificationsSent,
 		ZoomAPIRequests,
 		ZoomTokenRefreshes,

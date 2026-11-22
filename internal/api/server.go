@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -11,31 +10,26 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stahnma/zoom-notifier/internal/setup"
 	"github.com/stahnma/zoom-notifier/internal/store"
-	"github.com/stahnma/zoom-notifier/internal/zoom"
 )
 
 // Server implements the generated StrictServerInterface.
 type Server struct {
-	store         store.Store
-	version       string
-	commit        string
-	buildDate     string
-	startTime     time.Time
-	zoomHandler   *zoom.Handler
-	webhookSecret string
+	store     store.Store
+	version   string
+	commit    string
+	buildDate string
+	startTime time.Time
 }
 
 var _ StrictServerInterface = (*Server)(nil)
 
-func NewServer(s store.Store, version, commit, buildDate string, zoomHandler *zoom.Handler, webhookSecret string) *Server {
+func NewServer(s store.Store, version, commit, buildDate string) *Server {
 	return &Server{
-		store:         s,
-		version:       version,
-		commit:        commit,
-		buildDate:     buildDate,
-		startTime:     time.Now(),
-		zoomHandler:   zoomHandler,
-		webhookSecret: webhookSecret,
+		store:     s,
+		version:   version,
+		commit:    commit,
+		buildDate: buildDate,
+		startTime: time.Now(),
 	}
 }
 
@@ -493,46 +487,13 @@ func (s *Server) PutZoomCredentials(ctx context.Context, request PutZoomCredenti
 
 // --- Zoom Webhook ---
 
-// webhookCRCResponse returns CRC validation JSON for Zoom endpoint verification.
-type webhookCRCResponse struct {
-	body zoom.CRCResponse
-}
-
-func (r webhookCRCResponse) VisitPostWebhookZoomResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	return json.NewEncoder(w).Encode(r.body)
-}
-
-func (s *Server) PostWebhookZoom(ctx context.Context, request PostWebhookZoomRequestObject) (PostWebhookZoomResponseObject, error) {
-	log.Debug("received zoom webhook via API endpoint")
-	if request.Body == nil {
-		return PostWebhookZoom200Response{}, nil
-	}
-
-	// Re-encode map body to JSON, then decode into typed payload
-	data, err := json.Marshal(request.Body)
-	if err != nil {
-		return PostWebhookZoom200Response{}, nil
-	}
-	var payload zoom.WebhookPayload
-	if err := json.Unmarshal(data, &payload); err != nil {
-		return PostWebhookZoom200Response{}, nil
-	}
-
-	// Handle CRC validation
-	if payload.Event == zoom.EventURLValidation {
-		resp, err := zoom.ValidateCRC(payload, s.webhookSecret)
-		if err != nil {
-			return PostWebhookZoom200Response{}, nil
-		}
-		return webhookCRCResponse{body: *resp}, nil
-	}
-
-	// Process the webhook event
-	if s.zoomHandler != nil {
-		s.zoomHandler.ProcessWebhook(ctx, payload)
-	}
+// PostWebhookZoom exists only to satisfy the generated interface. The live
+// /webhook/zoom route is registered directly on the top-level router to
+// zoom.Handler, which verifies x-zm-signature against the raw body. The strict
+// handler only sees a re-encoded body, so signatures cannot be checked here;
+// it therefore never processes events.
+func (s *Server) PostWebhookZoom(_ context.Context, _ PostWebhookZoomRequestObject) (PostWebhookZoomResponseObject, error) {
+	log.Warn("zoom webhook reached strict API handler; ignoring (signature cannot be verified)")
 	return PostWebhookZoom200Response{}, nil
 }
 
